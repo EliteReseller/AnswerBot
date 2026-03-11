@@ -1039,6 +1039,67 @@ JSON ONLY.`;
 // ═══════════════════════════════════════════════════
 // GEMINI CALL
 // ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════
+// JSON REPAIR HELPERS
+// ═══════════════════════════════════════════════════
+function repairJSON(str) {
+  let s = str.trim();
+  // Strip markdown fences
+  s = s.replace(/```json|```/g, '').trim();
+  // If it doesn't start with { something is very wrong
+  if (!s.startsWith('{')) {
+    const start = s.indexOf('{');
+    if (start === -1) throw new Error('no JSON object found');
+    s = s.slice(start);
+  }
+  // Count open/close braces and close any that are missing
+  let open = 0;
+  for (const ch of s) {
+    if (ch === '{') open++;
+    else if (ch === '}') open--;
+  }
+  // Close any unclosed strings first (truncated mid-value)
+  // Find last complete key-value — strip trailing partial value
+  if (open > 0) {
+    // Remove trailing incomplete token (partial string, number, etc.)
+    s = s.replace(/,\s*"[^"]*$/, '');   // trailing incomplete key
+    s = s.replace(/:\s*"[^"]*$/, '');   // trailing incomplete value
+    s = s.replace(/,\s*$/, '');          // trailing comma
+    s += '}'.repeat(open);
+  }
+  return s;
+}
+
+function extractFieldsFallback(raw) {
+  // Pull individual fields out with regex even from broken JSON
+  const get = (key) => {
+    const m = raw.match(new RegExp('"' + key + '"\\s*:\\s*"([^"]*)"'));
+    return m ? m[1] : null;
+  };
+  const getNum = (key) => {
+    const m = raw.match(new RegExp('"' + key + '"\\s*:\\s*(\\d+)'));
+    return m ? parseInt(m[1]) : null;
+  };
+  const status = get('status') || (raw.includes('"ok"') ? 'ok' : 'reposition');
+  const answer = get('answer');
+  const count  = getNum('options_count');
+  if (!status) return null;
+  log('JSON repaired via fallback extraction', 'warn');
+  return {
+    status,
+    answer:           answer || null,
+    options_count:    count  || 0,
+    answer_text:      get('answer_text')      || '',
+    question_summary: get('question_summary') || '',
+    confidence:       get('confidence')       || 'medium',
+    options_visible:  ['A','B','C','D','E'],
+    reason:           get('reason')           || '',
+    agree:            raw.includes('"agree": true') || raw.includes('"agree":true'),
+    final_answer:     get('final_answer')     || answer,
+    your_answer:      get('your_answer')      || answer,
+  };
+}
+
 async function geminiAnalyse(base64, prompt) {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -1050,7 +1111,7 @@ async function geminiAnalyse(base64, prompt) {
           { text: prompt },
           { inline_data: { mime_type: 'image/jpeg', data: base64 } }
         ]}],
-        generationConfig: { temperature: 0.05, maxOutputTokens: 300 }
+        generationConfig: { temperature: 0.05, maxOutputTokens: 1024 }
       })
     }
   );
@@ -1059,7 +1120,18 @@ async function geminiAnalyse(base64, prompt) {
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
   const clean = raw.replace(/```json|```/g,'').trim();
   try { return JSON.parse(clean); }
-  catch(e) { throw new Error('JSON parse fail: ' + clean.slice(0,100)); }
+  catch(e) {
+    // Try to auto-repair truncated JSON by closing it
+    try {
+      const repaired = repairJSON(clean);
+      return JSON.parse(repaired);
+    } catch(e2) {
+      // Last resort: extract key fields with regex
+      const fallback = extractFieldsFallback(clean);
+      if (fallback) return fallback;
+      throw new Error('JSON parse fail: ' + clean.slice(0, 120));
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════
