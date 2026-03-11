@@ -390,21 +390,79 @@ input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px #e8ff4720; }
       <button class="btn btn-accent" onclick="saveKey()">SAVE</button>
     </div>
     <div style="font-size:8px;color:var(--muted);margin-top:6px">
-      Free key → <b style="color:var(--blue)">aistudio.google.com</b> · Works for Kahoot, Quizlet, exam papers, pub quiz slides, anything
+      Get a free key at <b style="color:var(--blue)">aistudio.google.com</b> · Using <b style="color:var(--accent)">gemini-2.5-flash</b> (best free model · full vision support)
     </div>
   </div>
 
-  <!-- CAMERA -->
-  <div class="cam-wrap">
+  <!-- CAMERA PERMISSION CARD -->
+  <div class="card" id="camPermCard">
+    <div class="card-title">Camera Setup</div>
+
+    <!-- HTTPS warning - shown if not secure -->
+    <div id="httpsWarn" style="display:none;background:#1a0808;border:1px solid #ff335540;border-radius:6px;padding:10px;margin-bottom:10px">
+      <div style="font-size:10px;color:#ff3355;font-weight:700;letter-spacing:1px;margin-bottom:6px">⚠ CAMERA NEEDS HTTPS</div>
+      <div style="font-size:9px;color:#c05050;line-height:1.7">
+        Chrome blocks camera on plain files. To fix:<br>
+        <b style="color:#ff8888">Option 1 (easiest):</b> Open this page via a local server.<br>
+        Install the free app <b style="color:#4db8ff">«Servers for Android»</b> from Play Store, point it at this file, visit <b style="color:#e8ff47">http://localhost:8080</b><br><br>
+        <b style="color:#ff8888">Option 2:</b> Host on <b style="color:#4db8ff">GitHub Pages</b> (free HTTPS instantly).<br><br>
+        <b style="color:#ff8888">Option 3:</b> Use the <b style="color:#39ff85">📁 Upload Photo</b> button below — take a photo in your camera app first, then upload it here.
+      </div>
+    </div>
+
+    <!-- Permission states -->
+    <div id="permUnknown">
+      <div style="font-size:9px;color:var(--muted);margin-bottom:10px;line-height:1.7">
+        Tap below to request camera access. When Chrome asks — tap <b style="color:var(--accent)">Allow</b>.
+      </div>
+      <button class="btn btn-accent btn-wide" style="margin-bottom:8px" onclick="requestCameraPermission()">
+        📷  ENABLE CAMERA
+      </button>
+    </div>
+
+    <div id="permGranted" style="display:none">
+      <div style="font-size:9px;color:var(--green);margin-bottom:8px;letter-spacing:1px">✓ Camera permission granted</div>
+      <button class="btn btn-blue btn-wide" onclick="startCamera()">▶  START LIVE CAMERA</button>
+    </div>
+
+    <div id="permDenied" style="display:none;background:#1a0808;border:1px solid #ff335540;border-radius:6px;padding:10px">
+      <div style="font-size:10px;color:#ff3355;font-weight:700;margin-bottom:6px">Camera blocked</div>
+      <div style="font-size:9px;color:#c05050;line-height:1.7">
+        To unblock: tap the <b style="color:#fff">🔒 padlock / ⓘ icon</b> in Chrome's address bar → Site settings → Camera → Allow.<br>
+        Then refresh this page.
+      </div>
+      <button class="btn btn-accent" style="margin-top:8px;width:100%" onclick="requestCameraPermission()">Try Again</button>
+    </div>
+
+    <!-- Always visible: upload fallback -->
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+      <div style="font-size:8px;color:var(--muted);margin-bottom:7px;letter-spacing:1px">OR — UPLOAD A PHOTO INSTEAD (works without HTTPS)</div>
+      <label style="display:block">
+        <input type="file" id="photoUpload" accept="image/*" capture="environment" onchange="handlePhotoUpload(event)" style="display:none">
+        <div class="btn btn-green" style="width:100%;text-align:center;padding:11px;font-family:'Bebas Neue';font-size:16px;letter-spacing:3px;cursor:pointer;border-radius:6px">
+          📁  TAKE / UPLOAD PHOTO
+        </div>
+      </label>
+      <div style="font-size:8px;color:var(--dim);margin-top:5px">On mobile this opens your camera directly. Tap photo → it scans automatically.</div>
+    </div>
+  </div>
+
+  <!-- CAMERA LIVE VIEW (hidden until active) -->
+  <div class="cam-wrap" id="camWrap" style="display:none">
     <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
     <div class="guide"><div class="c3"></div><div class="c4"></div></div>
     <div class="scanline" id="scanline"></div>
-    <div class="cam-badge" id="camBadge">NO CAMERA</div>
+    <div class="cam-badge" id="camBadge">STARTING…</div>
+    <!-- tap the video itself to scan -->
+    <div onclick="triggerScan()" style="position:absolute;inset:0;cursor:pointer;display:flex;align-items:flex-end;justify-content:center;padding-bottom:40px">
+      <div style="background:#000a;border:1px solid var(--accent);border-radius:20px;padding:6px 18px;font-size:9px;color:var(--accent);letter-spacing:2px">TAP TO SCAN</div>
+    </div>
   </div>
+  <!-- hidden canvas for upload -->
+  <canvas id="canvas" style="display:none"></canvas>
 
   <div class="ctrl-row">
-    <button class="btn btn-blue" onclick="startCamera()">▶ CAMERA</button>
     <button class="btn btn-accent btn-wide" id="scanBtn" onclick="triggerScan()">◉  SCAN</button>
     <button class="btn btn-red" onclick="toggleLock()">⬛ LOCK</button>
   </div>
@@ -599,6 +657,7 @@ let maxRetries  = 3;
 let retryCount  = 0;
 let scanning    = false;
 let btDev       = null;
+let uploadedImageB64 = null;
 
 const ANSWERS   = ['A','B','C','D','E'];
 const LED_IDS   = { A:'la', B:'lb', C:'lc', D:'ld', E:'le' };
@@ -619,6 +678,7 @@ window.addEventListener('load', () => {
     navigator.mediaSession.setActionHandler('previoustrack', triggerScan);
   }
   wakeLock();
+  checkCameraSupport();
   log('AnswerBot Pro ready. Works with any multiple choice format.', 'info');
   log('Validation: 6-point check + dual AI pass before showing answer.', 'info');
 });
@@ -639,22 +699,128 @@ function saveKey() {
 }
 
 // ═══════════════════════════════════════════════════
-// CAMERA
+// CAMERA PERMISSION + SETUP
 // ═══════════════════════════════════════════════════
+async function checkCameraSupport() {
+  // Show HTTPS warning if not secure and not localhost
+  const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:';
+  if (!isSecure) {
+    document.getElementById('httpsWarn').style.display = 'block';
+    log('Not on HTTPS — camera may be blocked. Use the upload button instead.', 'warn');
+  }
+
+  // Check if permissions API available
+  if (navigator.permissions) {
+    try {
+      const perm = await navigator.permissions.query({ name: 'camera' });
+      handlePermState(perm.state);
+      perm.onchange = () => handlePermState(perm.state);
+      return;
+    } catch(e) {}
+  }
+  // Fallback: just show the request button
+  handlePermState('prompt');
+}
+
+function handlePermState(state) {
+  document.getElementById('permUnknown').style.display = state === 'prompt'  ? 'block' : 'none';
+  document.getElementById('permGranted').style.display = state === 'granted' ? 'block' : 'none';
+  document.getElementById('permDenied').style.display  = state === 'denied'  ? 'block' : 'none';
+  if (state === 'granted') {
+    log('Camera permission already granted — tap Start Live Camera', 'ok');
+  } else if (state === 'denied') {
+    log('Camera permission denied. Use upload button or fix in Chrome settings.', 'err');
+  }
+}
+
+async function requestCameraPermission() {
+  log('Requesting camera permission…', 'info');
+  try {
+    // Actually requesting getUserMedia triggers the browser permission dialog
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' }
+    });
+    // Permission granted — keep the stream and start camera
+    handlePermState('granted');
+    log('Camera permission granted ✓', 'ok');
+    activateStream(stream);
+  } catch(e) {
+    if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+      handlePermState('denied');
+      log('Camera denied: ' + e.message, 'err');
+    } else if (e.name === 'NotFoundError') {
+      log('No camera found on this device', 'err');
+    } else if (e.name === 'NotReadableError') {
+      log('Camera in use by another app — close other apps and try again', 'warn');
+    } else {
+      log('Camera error: ' + e.name + ' — ' + e.message, 'err');
+      // Show HTTPS hint
+      document.getElementById('httpsWarn').style.display = 'block';
+    }
+  }
+}
+
 async function startCamera() {
+  log('Starting live camera…', 'info');
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'environment', width:{ideal:1920}, height:{ideal:1080} }
     });
-    document.getElementById('video').srcObject = stream;
+    activateStream(stream);
+  } catch(e) {
+    log('Could not start camera: ' + e.message, 'err');
+    if (e.name === 'NotAllowedError') handlePermState('denied');
+  }
+}
+
+function activateStream(stream) {
+  const video = document.getElementById('video');
+  video.srcObject = stream;
+  video.onloadedmetadata = () => {
+    video.play();
     camActive = true;
+    document.getElementById('camPermCard').style.display = 'none';
+    document.getElementById('camWrap').style.display = 'block';
     setBadge('LIVE', 'live');
     setPill('CAM LIVE', true);
-    log('Rear camera started (high-res)', 'ok');
-  } catch(e) {
-    setBadge('ERROR', 'error');
-    log('Camera failed: ' + e.message, 'err');
+    log('Live camera active — tap viewfinder or press SCAN', 'ok');
+  };
+}
+
+// ═══════════════════════════════════════════════════
+// PHOTO UPLOAD FALLBACK
+// ═══════════════════════════════════════════════════
+function handlePhotoUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  log('Photo loaded: ' + file.name, 'info');
+
+  if (!apiKey) {
+    log('⚠ No API key set — please save your Gemini key first', 'err');
+    return;
   }
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    // Draw onto canvas so captureFrame() still works
+    const img = new Image();
+    img.onload = async () => {
+      const canvas = document.getElementById('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      uploadedImageB64 = canvas.toDataURL('image/jpeg', 0.90).split(',')[1];
+      log('Image ready (' + img.width + 'x' + img.height + ') — scanning…', 'ok');
+      // Show a preview in the cam area briefly
+      document.getElementById('camWrap').style.display = 'block';
+      document.getElementById('video').style.display = 'none';
+      // Run scan with uploaded image
+      retryCount = 0;
+      await runScanCycleWithImage(uploadedImageB64);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 // ═══════════════════════════════════════════════════
@@ -662,10 +828,45 @@ async function startCamera() {
 // ═══════════════════════════════════════════════════
 async function triggerScan() {
   if (scanning) return;
-  if (!camActive) { log('Start camera first', 'warn'); return; }
-  if (!apiKey)    { log('No API key set', 'err'); return; }
+  if (!apiKey) { log('No API key set — save your Gemini key first', 'err'); return; }
+  if (!camActive && !uploadedImageB64) {
+    log('No camera active and no photo uploaded yet', 'warn');
+    return;
+  }
   retryCount = 0;
   await runScanCycle();
+}
+
+async function runScanCycleWithImage(imgB64) {
+  // Scan using a pre-loaded uploaded image (no live camera needed)
+  scanning = true;
+  clearValidation();
+  clearLEDs();
+  showOverlay(true, 'ANALYSING PHOTO');
+  try {
+    const pass1 = await geminiAnalyse(imgB64, buildPass1Prompt());
+    log('Pass 1 → status:' + pass1.status + ' count:' + pass1.options_count, 'dim');
+    updateValidation(pass1);
+    if (pass1.status !== 'ok' || pass1.options_count !== 5) {
+      setAnswerWarn(pass1.options_count || 0);
+      fireWarnLED(); lightPhysLED('WARN'); setConfBar(10);
+      log('⚠ Could not find 5 options in photo. Try a clearer photo.', 'warn');
+      showOverlay(false); scanning = false; return;
+    }
+    showOverlay(true, 'PASS 2 · VERIFYING');
+    const pass2 = await geminiAnalyse(imgB64, buildPass2Prompt(pass1));
+    updateVCheck('vc-agree', pass2.agree === true, pass2.agree ? 'YES' : 'NO');
+    const conf = scoreConfidence(pass1, pass2);
+    const finalAnswer = pass2.final_answer || pass1.answer;
+    showAnswer(finalAnswer, pass1, conf);
+    lightPhysLED(finalAnswer);
+    log('✓ ANSWER = ' + finalAnswer + ' | conf=' + conf + '%', 'ok');
+    uploadedImageB64 = null; // clear after use
+  } catch(e) {
+    log('Error: ' + e.message, 'err');
+  }
+  showOverlay(false);
+  scanning = false;
 }
 
 async function runScanCycle() {
@@ -840,7 +1041,7 @@ JSON ONLY.`;
 // ═══════════════════════════════════════════════════
 async function geminiAnalyse(base64, prompt) {
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
