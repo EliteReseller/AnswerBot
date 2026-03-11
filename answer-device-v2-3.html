@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AnswerBot Pro</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=Bebas+Neue&display=swap');
+
+:root {
+  --bg:       #07080a;
+  --surface:  #0e1117;
+  --border:   #1e2530;
+  --accent:   #e8ff47;
+  --accent2:  #ff6b35;
+  --blue:     #4db8ff;
+  --red:      #ff3355;
+  --green:    #39ff85;
+  --dim:      #3a4455;
+  --text:     #c8d8e8;
+  --muted:    #506070;
+  --a: #ff4466; --b: #4488ff; --c: #ffcc00; --d: #44dd88; --e: #cc55ff;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── LOCK SCREEN ──────────────────────────────── */
+#lockScreen {
+  position: fixed; inset: 0; background: #000;
+  z-index: 9999; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 0;
+  transition: opacity 0.4s;
+}
+#lockScreen.hidden { opacity:0; pointer-events:none; }
+#lockAnswerDisplay {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 180px;
+  line-height: 1;
+  opacity: 0;
+  transition: all 0.3s;
+  text-shadow: none;
+}
+#lockAnswerDisplay.show-A { opacity:1; color: var(--a); text-shadow: 0 0 60px var(--a); }
+#lockAnswerDisplay.show-B { opacity:1; color: var(--b); text-shadow: 0 0 60px var(--b); }
+#lockAnswerDisplay.show-C { opacity:1; color: var(--c); text-shadow: 0 0 60px var(--c); }
+#lockAnswerDisplay.show-D { opacity:1; color: var(--d); text-shadow: 0 0 60px var(--d); }
+#lockAnswerDisplay.show-E { opacity:1; color: var(--e); text-shadow: 0 0 60px var(--e); }
+#lockAnswerDisplay.show-WARN { opacity:1; color: var(--red); font-size: 60px; text-shadow: 0 0 30px var(--red); animation: warnpulse 0.5s ease-in-out infinite; }
+@keyframes warnpulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+#lockHint { color: #111; font-size: 10px; letter-spacing: 4px; margin-top: 20px; transition: color 0.3s; }
+#lockHint.visible { color: #222; }
+#lockRetryMsg { color: var(--red); font-size: 11px; letter-spacing: 2px; margin-top: 8px; opacity: 0; transition: opacity 0.3s; }
+#lockRetryMsg.show { opacity: 1; }
+
+/* ── PROCESSING ───────────────────────────────── */
+#overlay {
+  position: fixed; inset: 0; background: #000c;
+  z-index: 500; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+#overlay.on { opacity:1; pointer-events:all; }
+.scan-ring {
+  width: 70px; height: 70px; position: relative;
+}
+.scan-ring::before, .scan-ring::after {
+  content:''; position:absolute; inset:0; border-radius:50%;
+  border: 2px solid transparent;
+}
+.scan-ring::before { border-top-color: var(--accent); animation: spin 0.8s linear infinite; }
+.scan-ring::after  { border-bottom-color: var(--accent2); animation: spin 1.2s linear infinite reverse; inset: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.scan-step {
+  font-size: 10px; letter-spacing: 3px; color: var(--accent);
+  font-family: 'Bebas Neue'; font-size: 14px;
+}
+
+/* ── LAYOUT ───────────────────────────────────── */
+.wrap { max-width: 430px; margin: 0 auto; padding: 12px; }
+
+.topbar {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 12px; border-bottom: 1px solid var(--border);
+  margin-bottom: 14px;
+}
+.topbar-title {
+  font-family: 'Bebas Neue'; font-size: 22px;
+  letter-spacing: 6px; color: var(--accent);
+  text-shadow: 0 0 20px #e8ff4755;
+}
+.topbar-sub { font-size: 8px; color: var(--muted); letter-spacing: 2px; margin-top: 2px; }
+.pill {
+  margin-left: auto; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 20px;
+  padding: 4px 10px; font-size: 8px; letter-spacing: 2px; color: var(--muted);
+  display: flex; align-items: center; gap: 5px;
+}
+.pill-dot { width:6px; height:6px; border-radius:50%; background: var(--dim); }
+.pill-dot.on { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ── CARD ─────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.card-title {
+  font-size: 8px; letter-spacing: 3px; color: var(--muted);
+  text-transform: uppercase; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.card-title::before {
+  content:''; width:3px; height:12px; background: var(--accent);
+  border-radius: 2px; display: block; opacity: 0.7;
+}
+
+/* ── API INPUT ────────────────────────────────── */
+.input-row { display: flex; gap: 6px; }
+input {
+  flex:1; background: #060810; border: 1px solid var(--border);
+  color: var(--text); font-family: 'JetBrains Mono'; font-size: 11px;
+  padding: 8px 10px; border-radius: 5px; outline: none;
+}
+input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px #e8ff4720; }
+.btn {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--muted); font-family: 'JetBrains Mono'; font-size: 9px;
+  letter-spacing: 1px; padding: 8px 12px; border-radius: 5px;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.btn:active { transform: scale(0.95); }
+.btn-accent { border-color: var(--accent); color: var(--accent); }
+.btn-accent:hover { background: #e8ff4715; box-shadow: 0 0 10px #e8ff4730; }
+.btn-blue  { border-color: var(--blue); color: var(--blue); }
+.btn-blue:hover  { background: #4db8ff15; }
+.btn-red   { border-color: var(--red); color: var(--red); }
+.btn-red:hover   { background: #ff335515; }
+.btn-green { border-color: var(--green); color: var(--green); }
+.btn-green:hover { background: #39ff8515; }
+.btn-wide  { width:100%; padding:13px; font-size:12px; letter-spacing:4px; border-radius:7px; font-family:'Bebas Neue'; font-size:18px; }
+
+/* ── CAMERA ───────────────────────────────────── */
+.cam-wrap {
+  position: relative; width: 100%; aspect-ratio: 16/10;
+  background: #000; border-radius: 6px; overflow: hidden;
+  border: 1px solid var(--border); margin-bottom: 10px;
+}
+#video { width:100%; height:100%; object-fit:cover; display:block; }
+#canvas { display:none; }
+
+/* Corner guides */
+.guide { position:absolute; inset:0; pointer-events:none; }
+.guide::before,.guide::after,
+.guide .c3,.guide .c4 {
+  content:''; position:absolute;
+  width:18px; height:18px; border-style: solid;
+  border-color: var(--accent); opacity: 0.6;
+}
+.guide::before { top:8px;left:8px; border-width:2px 0 0 2px; }
+.guide::after  { top:8px;right:8px; border-width:2px 2px 0 0; }
+.guide .c3     { bottom:8px;left:8px; border-width:0 0 2px 2px; }
+.guide .c4     { bottom:8px;right:8px; border-width:0 2px 2px 0; }
+
+/* Scan line animation */
+.scanline {
+  position:absolute; left:0; right:0; height:2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0; top: 0;
+}
+.scanline.active { opacity:0.7; animation: scanmove 1.5s ease-in-out infinite; }
+@keyframes scanmove { 0%{top:0%} 100%{top:100%} }
+
+.cam-badge {
+  position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+  background:#000a; border:1px solid var(--dim); border-radius:3px;
+  font-size:8px; letter-spacing:2px; padding:3px 8px; color:var(--dim);
+  white-space:nowrap;
+}
+.cam-badge.live  { color:var(--green); border-color:var(--green); }
+.cam-badge.error { color:var(--red); border-color:var(--red); }
+
+/* ── VALIDATION PANEL ─────────────────────────── */
+.validation-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px; margin-bottom: 6px;
+}
+.vcheck {
+  display: flex; align-items: center; gap: 6px;
+  background: #060810; border: 1px solid var(--border);
+  border-radius: 5px; padding: 6px 8px;
+  font-size: 8px; letter-spacing: 1px;
+  transition: all 0.2s;
+}
+.vcheck.pass { border-color: #39ff8540; background: #39ff8508; color: var(--green); }
+.vcheck.fail { border-color: #ff335540; background: #ff335508; color: var(--red); }
+.vcheck.warn { border-color: #ffcc0040; background: #ffcc0008; color: var(--yellow, #ffcc00); }
+.vcheck-icon { font-size: 10px; flex-shrink:0; }
+.vcheck-text { flex:1; }
+.vcheck-val  { font-size: 9px; font-weight: 800; margin-left: auto; }
+
+/* ── CONFIDENCE BAR ───────────────────────────── */
+.conf-bar-wrap {
+  background: #060810; border:1px solid var(--border);
+  border-radius:5px; padding: 7px 10px; margin-bottom:6px;
+}
+.conf-label { font-size:8px; color:var(--muted); letter-spacing:2px; margin-bottom:5px; }
+.conf-bar { height:4px; background:#0e1117; border-radius:2px; overflow:hidden; }
+.conf-fill { height:100%; border-radius:2px; width:0%; transition: width 0.5s, background 0.3s; }
+
+/* ── ANSWER DISPLAY ───────────────────────────── */
+.answer-card {
+  background: var(--surface); border:1px solid var(--border);
+  border-radius:8px; padding:14px; margin-bottom:10px;
+  text-align:center; position:relative; overflow:hidden;
+}
+.answer-card::after {
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(ellipse at 50% 100%, #e8ff4708, transparent 70%);
+  pointer-events:none;
+}
+.answer-pre { font-size:8px; letter-spacing:3px; color:var(--muted); margin-bottom:4px; }
+.answer-big {
+  font-family:'Bebas Neue'; font-size:88px; line-height:1;
+  color: var(--accent); text-shadow: 0 0 30px #e8ff4755;
+  transition: all 0.25s; min-height:90px;
+  display:flex; align-items:center; justify-content:center;
+}
+.answer-big.ans-A { color:var(--a); text-shadow:0 0 30px var(--a); }
+.answer-big.ans-B { color:var(--b); text-shadow:0 0 30px var(--b); }
+.answer-big.ans-C { color:var(--c); text-shadow:0 0 30px var(--c); }
+.answer-big.ans-D { color:var(--d); text-shadow:0 0 30px var(--d); }
+.answer-big.ans-E { color:var(--e); text-shadow:0 0 30px var(--e); }
+.answer-big.ans-WARN { color:var(--red); font-size:22px; letter-spacing:1px; font-family:'JetBrains Mono'; text-shadow:0 0 15px var(--red); }
+.answer-sub { font-size:9px; color:var(--muted); letter-spacing:1px; margin-top:4px; min-height:14px; }
+
+/* option chips */
+.opt-chips { display:flex; gap:5px; justify-content:center; flex-wrap:wrap; margin-bottom:6px; }
+.chip {
+  width:32px; height:32px; border-radius:5px;
+  border: 1px solid var(--dim); color:var(--dim);
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Bebas Neue'; font-size:16px; transition: all 0.2s;
+}
+.chip.active-A { background:#ff446622; border-color:var(--a); color:var(--a); box-shadow:0 0 8px var(--a); }
+.chip.active-B { background:#4488ff22; border-color:var(--b); color:var(--b); box-shadow:0 0 8px var(--b); }
+.chip.active-C { background:#ffcc0022; border-color:var(--c); color:var(--c); box-shadow:0 0 8px var(--c); }
+.chip.active-D { background:#44dd8822; border-color:var(--d); color:var(--d); box-shadow:0 0 8px var(--d); }
+.chip.active-E { background:#cc55ff22; border-color:var(--e); color:var(--e); box-shadow:0 0 8px var(--e); }
+
+/* ── LED DOTS ─────────────────────────────────── */
+.leds-row { display:flex; gap:8px; justify-content:center; margin-bottom:10px; }
+.led-unit { text-align:center; }
+.led {
+  width:22px; height:22px; border-radius:50%;
+  background:#060810; border:1px solid var(--border);
+  margin:0 auto 3px; transition: all 0.2s;
+}
+.led.A { background:var(--a); border-color:var(--a); box-shadow:0 0 12px var(--a),0 0 24px #ff446644; }
+.led.B { background:var(--b); border-color:var(--b); box-shadow:0 0 12px var(--b),0 0 24px #4488ff44; }
+.led.C { background:var(--c); border-color:var(--c); box-shadow:0 0 12px var(--c),0 0 24px #ffcc0044; }
+.led.D { background:var(--d); border-color:var(--d); box-shadow:0 0 12px var(--d),0 0 24px #44dd8844; }
+.led.E { background:var(--e); border-color:var(--e); box-shadow:0 0 12px var(--e),0 0 24px #cc55ff44; }
+.led.WARN { background:var(--red); border-color:var(--red); box-shadow:0 0 12px var(--red); animation:wblink 0.35s ease-in-out infinite; }
+@keyframes wblink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+.led-lbl { font-size:8px; color:var(--dim); letter-spacing:1px; }
+.led-lbl.active { color: var(--text); }
+
+/* ── RETRY CONFIG ─────────────────────────────── */
+.retry-row {
+  display:flex; gap:6px; align-items:center;
+  background:#060810; border:1px solid var(--border);
+  border-radius:5px; padding:7px 10px; margin-bottom:6px;
+  font-size:9px; color:var(--muted);
+}
+.retry-row label { margin-right:auto; }
+.retry-counter {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:4px; padding:3px 8px; color:var(--accent); font-size:10px;
+  min-width: 28px; text-align:center;
+}
+
+/* ── CONTROLS ─────────────────────────────────── */
+.ctrl-row { display:flex; gap:8px; margin-bottom:10px; }
+.ctrl-row .btn { flex:1; }
+
+/* ── LOG ──────────────────────────────────────── */
+.log {
+  background:#000; border:1px solid var(--border); border-radius:5px;
+  height:72px; overflow-y:auto; padding:6px 8px;
+  font-size:9px; line-height:1.7; margin-bottom:10px;
+}
+.log .ok   { color:var(--green); }
+.log .err  { color:var(--red); }
+.log .warn { color:#ffcc00; }
+.log .info { color:var(--blue); }
+.log .dim  { color:var(--dim); }
+
+/* ── BT ───────────────────────────────────────── */
+.bt-row { display:flex; gap:8px; align-items:center; }
+.bt-label { flex:1; font-size:9px; color:var(--muted); }
+.bt-label.on { color:var(--green); }
+
+::-webkit-scrollbar { width:3px; }
+::-webkit-scrollbar-thumb { background:var(--dim); border-radius:2px; }
+
+/* ── PHYSICAL LED SIMULATOR ───────────────────── */
+.phys-led-unit { text-align:center; }
+.phys-led {
+  width:32px; height:32px; border-radius:50%;
+  background: radial-gradient(circle at 38% 35%, #2a2a2a, #0a0a0a);
+  border: 2px solid #222;
+  margin: 0 auto 5px;
+  transition: all 0.25s;
+  box-shadow: 0 3px 8px #000, inset 0 1px 0 #333;
+  position: relative;
+}
+.phys-led::after {
+  content:''; position:absolute;
+  top:5px; left:7px; width:10px; height:6px;
+  background: radial-gradient(ellipse, rgba(255,255,255,0.12), transparent);
+  border-radius:50%;
+}
+/* OFF state - dim coloured tint so user can see which is which */
+.phys-led.led-A { background: radial-gradient(circle at 38% 35%, #3a0a14, #180008); border-color:#3a1020; }
+.phys-led.led-B { background: radial-gradient(circle at 38% 35%, #0a1a3a, #000818); border-color:#101830; }
+.phys-led.led-C { background: radial-gradient(circle at 38% 35%, #3a2e00, #181200); border-color:#302400; }
+.phys-led.led-D { background: radial-gradient(circle at 38% 35%, #0a3020, #001808); border-color:#102820; }
+.phys-led.led-E { background: radial-gradient(circle at 38% 35%, #2a0a3a, #100018); border-color:#201030; }
+.phys-led.led-W { background: radial-gradient(circle at 38% 35%, #3a0a14, #180008); border-color:#3a1020; }
+
+/* LIT states - full brightness with glow */
+.phys-led.led-A.lit { background: radial-gradient(circle at 38% 35%, #ff99aa, #ff4466); border-color:#ff4466; box-shadow: 0 0 16px #ff4466, 0 0 32px #ff446688, 0 0 48px #ff446633, inset 0 1px 0 rgba(255,255,255,0.4); }
+.phys-led.led-B.lit { background: radial-gradient(circle at 38% 35%, #99bbff, #4488ff); border-color:#4488ff; box-shadow: 0 0 16px #4488ff, 0 0 32px #4488ff88, 0 0 48px #4488ff33, inset 0 1px 0 rgba(255,255,255,0.4); }
+.phys-led.led-C.lit { background: radial-gradient(circle at 38% 35%, #ffee88, #ffcc00); border-color:#ffcc00; box-shadow: 0 0 16px #ffcc00, 0 0 32px #ffcc0088, 0 0 48px #ffcc0033, inset 0 1px 0 rgba(255,255,255,0.4); }
+.phys-led.led-D.lit { background: radial-gradient(circle at 38% 35%, #88ffbb, #44dd88); border-color:#44dd88; box-shadow: 0 0 16px #44dd88, 0 0 32px #44dd8888, 0 0 48px #44dd8833, inset 0 1px 0 rgba(255,255,255,0.4); }
+.phys-led.led-E.lit { background: radial-gradient(circle at 38% 35%, #dd99ff, #cc55ff); border-color:#cc55ff; box-shadow: 0 0 16px #cc55ff, 0 0 32px #cc55ff88, 0 0 48px #cc55ff33, inset 0 1px 0 rgba(255,255,255,0.4); }
+.phys-led.led-W.lit { background: radial-gradient(circle at 38% 35%, #ff8899, #ff3355); border-color:#ff3355; box-shadow: 0 0 16px #ff3355, 0 0 32px #ff335588; }
+.phys-led.led-W.blink { animation: physblink-w 0.35s ease-in-out infinite; }
+@keyframes physblink-w {
+  0%,100% { background: radial-gradient(circle at 38% 35%, #ff8899, #ff3355); border-color:#ff3355; box-shadow: 0 0 16px #ff3355, 0 0 32px #ff335588; }
+  50%      { background: radial-gradient(circle at 38% 35%, #3a0a14, #180008); border-color:#3a1020; box-shadow: 0 3px 8px #000; }
+}
+.phys-lbl { font-size:9px; color:#506070; letter-spacing:1px; font-weight:700; }
+</style>
+</head>
+<body>
+
+<!-- LOCK SCREEN - starts hidden -->
+<div id="lockScreen" class="hidden">
+  <div id="lockAnswerDisplay">—</div>
+  <div id="lockHint">TAP TO SCAN</div>
+  <div id="lockRetryMsg">REPOSITION CAMERA</div>
+</div>
+
+<!-- PROCESSING OVERLAY -->
+<div id="overlay">
+  <div class="scan-ring"></div>
+  <div class="scan-step" id="scanStep">CAPTURING</div>
+</div>
+
+<div class="wrap">
+
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">ANSWERBOT PRO</div>
+      <div class="topbar-sub">ANY MULTIPLE CHOICE · 5-OPTION VERIFIED</div>
+    </div>
+    <div class="pill">
+      <div class="pill-dot" id="statusDot"></div>
+      <span id="statusPill">IDLE</span>
+    </div>
+  </div>
+
+  <!-- API KEY -->
+  <div class="card">
+    <div class="card-title">Gemini API Key</div>
+    <div class="input-row">
+      <input type="password" id="apiKey" placeholder="AIza… paste your key" />
+      <button class="btn btn-accent" onclick="saveKey()">SAVE</button>
+    </div>
+    <div style="font-size:8px;color:var(--muted);margin-top:6px">
+      Free key → <b style="color:var(--blue)">aistudio.google.com</b> · Works for Kahoot, Quizlet, exam papers, pub quiz slides, anything
+    </div>
+  </div>
+
+  <!-- CAMERA -->
+  <div class="cam-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
+    <div class="guide"><div class="c3"></div><div class="c4"></div></div>
+    <div class="scanline" id="scanline"></div>
+    <div class="cam-badge" id="camBadge">NO CAMERA</div>
+  </div>
+
+  <div class="ctrl-row">
+    <button class="btn btn-blue" onclick="startCamera()">▶ CAMERA</button>
+    <button class="btn btn-accent btn-wide" id="scanBtn" onclick="triggerScan()">◉  SCAN</button>
+    <button class="btn btn-red" onclick="toggleLock()">⬛ LOCK</button>
+  </div>
+
+  <!-- VALIDATION PANEL -->
+  <div class="card">
+    <div class="card-title">5-Option Validation Checks</div>
+    <div class="validation-grid">
+      <div class="vcheck" id="vc-count">
+        <span class="vcheck-icon">🔢</span>
+        <span class="vcheck-text">Option count</span>
+        <span class="vcheck-val" id="vc-count-val">—</span>
+      </div>
+      <div class="vcheck" id="vc-labels">
+        <span class="vcheck-icon">🔤</span>
+        <span class="vcheck-text">Labels visible</span>
+        <span class="vcheck-val" id="vc-labels-val">—</span>
+      </div>
+      <div class="vcheck" id="vc-text">
+        <span class="vcheck-icon">📝</span>
+        <span class="vcheck-text">Text readable</span>
+        <span class="vcheck-val" id="vc-text-val">—</span>
+      </div>
+      <div class="vcheck" id="vc-question">
+        <span class="vcheck-icon">❓</span>
+        <span class="vcheck-text">Question found</span>
+        <span class="vcheck-val" id="vc-question-val">—</span>
+      </div>
+      <div class="vcheck" id="vc-conf">
+        <span class="vcheck-icon">🎯</span>
+        <span class="vcheck-text">Confidence</span>
+        <span class="vcheck-val" id="vc-conf-val">—</span>
+      </div>
+      <div class="vcheck" id="vc-agree">
+        <span class="vcheck-icon">🔁</span>
+        <span class="vcheck-text">Dual-check agree</span>
+        <span class="vcheck-val" id="vc-agree-val">—</span>
+      </div>
+    </div>
+    <div class="conf-bar-wrap">
+      <div class="conf-label">OVERALL CONFIDENCE</div>
+      <div class="conf-bar"><div class="conf-fill" id="confFill"></div></div>
+    </div>
+    <!-- Retry settings -->
+    <div class="retry-row">
+      <label>Auto-retry if &lt;5 options (max)</label>
+      <button class="btn" style="padding:2px 7px;font-size:9px" onclick="changeRetry(-1)">−</button>
+      <div class="retry-counter" id="retryMax">3</div>
+      <button class="btn" style="padding:2px 7px;font-size:9px" onclick="changeRetry(1)">+</button>
+    </div>
+  </div>
+
+  <!-- ANSWER -->
+  <div class="answer-card">
+    <div class="answer-pre">◈ CORRECT ANSWER</div>
+    <div class="opt-chips" id="optChips"></div>
+    <div class="answer-big" id="answerBig">—</div>
+    <div class="answer-sub" id="answerSub"></div>
+  </div>
+
+  <!-- LED indicators -->
+  <div class="leds-row">
+    <div class="led-unit"><div class="led" id="la"></div><div class="led-lbl" id="lla">A</div></div>
+    <div class="led-unit"><div class="led" id="lb"></div><div class="led-lbl" id="llb">B</div></div>
+    <div class="led-unit"><div class="led" id="lc"></div><div class="led-lbl" id="llc">C</div></div>
+    <div class="led-unit"><div class="led" id="ld"></div><div class="led-lbl" id="lld">D</div></div>
+    <div class="led-unit"><div class="led" id="le"></div><div class="led-lbl" id="lle">E</div></div>
+    <div class="led-unit"><div class="led" id="lwarn"></div><div class="led-lbl" id="llwarn" style="color:var(--red)">⚠</div></div>
+  </div>
+
+  <!-- ── DEMO / TEST PANEL ── -->
+  <div class="card" style="border-color:#e8ff4740; background: #0d1208;">
+    <div class="card-title" style="color:var(--accent)">🧪 Test Mode — No Camera Needed</div>
+    <div style="font-size:9px;color:var(--muted);margin-bottom:10px;line-height:1.6">
+      Simulate a scan result instantly. Tap any answer to see exactly how the device responds — LEDs, lock screen, confidence, everything.
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px">
+      <button class="btn demo-ans" style="border-color:var(--a);color:var(--a);padding:14px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('A')">A</button>
+      <button class="btn demo-ans" style="border-color:var(--b);color:var(--b);padding:14px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('B')">B</button>
+      <button class="btn demo-ans" style="border-color:var(--c);color:var(--c);padding:14px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('C')">C</button>
+      <button class="btn demo-ans" style="border-color:var(--d);color:var(--d);padding:14px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('D')">D</button>
+      <button class="btn demo-ans" style="border-color:var(--e);color:var(--e);padding:14px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('E')">E</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <button class="btn btn-red" style="padding:10px;font-size:9px;letter-spacing:1px" onclick="demoWarn()">⚠ DEMO REPOSITION</button>
+      <button class="btn" style="border-color:var(--muted);padding:10px;font-size:9px;letter-spacing:1px" onclick="demoFullScan()">🎲 RANDOM ANSWER</button>
+    </div>
+  </div>
+
+  <!-- ── PHYSICAL LED SIMULATOR ── -->
+  <div class="card">
+    <div class="card-title">Physical LED Simulator</div>
+    <div style="font-size:8px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+      This is what your real ESP32 LEDs will do. Each circle = one physical LED wired to your device.
+    </div>
+    <!-- LED housing mockup -->
+    <div id="ledHousing" style="background:#050708;border:2px solid #1a2030;border-radius:14px;padding:20px 16px 16px;margin-bottom:10px;position:relative;">
+      <div style="position:absolute;top:7px;left:50%;transform:translateX(-50%);font-size:7px;letter-spacing:3px;color:#1a2030;white-space:nowrap">ANSWERBOT DEVICE</div>
+      <!-- Main 5 LEDs - bigger, clearly spaced -->
+      <div style="display:flex;justify-content:space-around;align-items:flex-end;margin-top:8px;margin-bottom:16px">
+        <div class="phys-led-unit">
+          <div class="phys-led led-A" id="pled-a"></div>
+          <div class="phys-lbl" style="color:#ff4466">A</div>
+        </div>
+        <div class="phys-led-unit">
+          <div class="phys-led led-B" id="pled-b"></div>
+          <div class="phys-lbl" style="color:#4488ff">B</div>
+        </div>
+        <div class="phys-led-unit">
+          <div class="phys-led led-C" id="pled-c"></div>
+          <div class="phys-lbl" style="color:#ffcc00">C</div>
+        </div>
+        <div class="phys-led-unit">
+          <div class="phys-led led-D" id="pled-d"></div>
+          <div class="phys-lbl" style="color:#44dd88">D</div>
+        </div>
+        <div class="phys-led-unit">
+          <div class="phys-led led-E" id="pled-e"></div>
+          <div class="phys-lbl" style="color:#cc55ff">E</div>
+        </div>
+      </div>
+      <!-- Divider -->
+      <div style="height:1px;background:#111;margin:0 8px 16px"></div>
+      <!-- Warning + BT button -->
+      <div style="display:flex;justify-content:space-around;align-items:center">
+        <div class="phys-led-unit">
+          <div class="phys-led led-W" id="pled-warn" style="width:22px;height:22px"></div>
+          <div class="phys-lbl" style="color:#ff3355">WARN</div>
+        </div>
+        <div style="text-align:center">
+          <div id="btSimBtn" onclick="triggerScan()" style="
+            width:52px;height:52px;border-radius:50%;
+            background:linear-gradient(145deg,#0f1a0f,#060e06);
+            border:3px solid #1a2a1a;
+            display:flex;align-items:center;justify-content:center;
+            cursor:pointer;margin:0 auto 5px;
+            box-shadow: 0 5px 15px #000, 0 0 0 1px #0a140a, inset 0 1px 0 #2a3a2a;
+            transition:all 0.1s; font-size:20px; color:#39ff85;
+            text-shadow: 0 0 8px #39ff85;
+          " onmousedown="this.style.boxShadow='0 2px 8px #000, inset 0 2px 4px #000';this.style.transform='scale(0.94)'"
+             onmouseup="this.style.boxShadow='0 5px 15px #000, inset 0 1px 0 #2a3a2a';this.style.transform=''"
+             ontouchstart="this.style.boxShadow='0 2px 8px #000, inset 0 2px 4px #000';this.style.transform='scale(0.94)'"
+             ontouchend="this.style.boxShadow='0 5px 15px #000, inset 0 1px 0 #2a3a2a';this.style.transform=''">
+            ◉
+          </div>
+          <div class="phys-lbl" style="color:#39ff85">SCAN</div>
+        </div>
+        <div class="phys-led-unit">
+          <div style="
+            width:32px;height:32px;border-radius:5px;
+            background:#060810;border:1px solid #1a2530;
+            display:flex;align-items:center;justify-content:center;
+            font-size:9px;font-weight:800;color:#506070;margin:0 auto 5px;
+            transition:all 0.2s;
+          " id="confDot">—</div>
+          <div class="phys-lbl">CONF</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:8px;color:var(--dim);line-height:1.7">
+      <b style="color:var(--muted)">Wiring guide:</b> A=pin13 B=pin12 C=pin14 D=pin27 E=pin26 WARN=pin25 · 220Ω resistors to GND · Button=pin4→GND
+    </div>
+  </div>
+
+  <!-- BT -->
+  <div class="card">
+    <div class="card-title">Wireless Trigger</div>
+    <div class="bt-row">
+      <div class="bt-label" id="btLbl">BT button not paired · Space/Enter also triggers</div>
+      <button class="btn btn-blue" onclick="pairBT()">PAIR BT</button>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="card-title" style="margin-bottom:4px">System Log</div>
+  <div class="log" id="logBox"></div>
+
+  <button class="btn btn-red btn-wide" onclick="toggleLock()" style="margin-bottom:24px">
+    ⬛ LOCK SCREEN (device keeps running)
+  </button>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+let apiKey      = localStorage.getItem('ab_key') || '';
+let camActive   = false;
+let isLocked    = false;
+let maxRetries  = 3;
+let retryCount  = 0;
+let scanning    = false;
+let btDev       = null;
+
+const ANSWERS   = ['A','B','C','D','E'];
+const LED_IDS   = { A:'la', B:'lb', C:'lc', D:'ld', E:'le' };
+
+// ═══════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  if (apiKey) {
+    document.getElementById('apiKey').value = apiKey;
+    log('API key loaded from storage', 'ok');
+  }
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); triggerScan(); }
+  });
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('nexttrack', triggerScan);
+    navigator.mediaSession.setActionHandler('previoustrack', triggerScan);
+  }
+  wakeLock();
+  log('AnswerBot Pro ready. Works with any multiple choice format.', 'info');
+  log('Validation: 6-point check + dual AI pass before showing answer.', 'info');
+});
+
+async function wakeLock() {
+  try { if ('wakeLock' in navigator) { await navigator.wakeLock.request('screen'); log('Wake lock active', 'dim'); } }
+  catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════
+// API KEY
+// ═══════════════════════════════════════════════════
+function saveKey() {
+  apiKey = document.getElementById('apiKey').value.trim();
+  localStorage.setItem('ab_key', apiKey);
+  log(apiKey ? 'API key saved ✓' : 'API key cleared', apiKey ? 'ok' : 'warn');
+  setPill(apiKey ? 'KEY OK' : 'NO KEY', apiKey);
+}
+
+// ═══════════════════════════════════════════════════
+// CAMERA
+// ═══════════════════════════════════════════════════
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width:{ideal:1920}, height:{ideal:1080} }
+    });
+    document.getElementById('video').srcObject = stream;
+    camActive = true;
+    setBadge('LIVE', 'live');
+    setPill('CAM LIVE', true);
+    log('Rear camera started (high-res)', 'ok');
+  } catch(e) {
+    setBadge('ERROR', 'error');
+    log('Camera failed: ' + e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// SCAN TRIGGER
+// ═══════════════════════════════════════════════════
+async function triggerScan() {
+  if (scanning) return;
+  if (!camActive) { log('Start camera first', 'warn'); return; }
+  if (!apiKey)    { log('No API key set', 'err'); return; }
+  retryCount = 0;
+  await runScanCycle();
+}
+
+async function runScanCycle() {
+  scanning = true;
+  clearValidation();
+  clearLEDs();
+  showOverlay(true, 'CAPTURING');
+
+  // Capture image
+  const imgB64 = captureFrame();
+  if (!imgB64) { scanning=false; showOverlay(false); return; }
+
+  try {
+    showOverlay(true, 'PASS 1 · COUNTING OPTIONS');
+    log(`Scan attempt ${retryCount+1}/${maxRetries+1}...`, 'info');
+
+    // ── PASS 1: Structured analysis ──────────────────
+    const pass1 = await geminiAnalyse(imgB64, buildPass1Prompt());
+    log(`Pass 1 → status:${pass1.status} count:${pass1.options_count} conf:${pass1.confidence}`, 'dim');
+
+    updateValidation(pass1);
+
+    if (pass1.status !== 'ok' || pass1.options_count !== 5) {
+      await handleReposition(pass1, imgB64);
+      return;
+    }
+
+    // ── PASS 2: Independent answer verification ───────
+    showOverlay(true, 'PASS 2 · VERIFYING ANSWER');
+    const pass2 = await geminiAnalyse(imgB64, buildPass2Prompt(pass1));
+    log(`Pass 2 → agree:${pass2.agree} final:${pass2.final_answer}`, 'dim');
+
+    updateVCheck('vc-agree', pass2.agree === true, pass2.agree ? 'YES' : 'NO');
+
+    if (!pass2.agree || !pass2.final_answer) {
+      // Disagreement — low confidence, retry once more silently
+      if (pass2.alternative && pass2.alternative !== pass1.answer && retryCount < maxRetries) {
+        log(`Passes disagree (${pass1.answer} vs ${pass2.alternative}). Retrying for tiebreak...`, 'warn');
+        retryCount++;
+        scanning = false;
+        showOverlay(false);
+        await delay(400);
+        await runScanCycle();
+        return;
+      }
+    }
+
+    // ── PASS 3: Confidence gate ───────────────────────
+    const confScore = scoreConfidence(pass1, pass2);
+    setConfBar(confScore);
+
+    if (confScore < 40) {
+      log(`Confidence too low (${confScore}%). Retrying...`, 'warn');
+      if (retryCount < maxRetries) {
+        retryCount++;
+        scanning = false;
+        showOverlay(false);
+        await delay(500);
+        await runScanCycle();
+        return;
+      }
+    }
+
+    // ── SUCCESS ───────────────────────────────────────
+    const finalAnswer = pass2.final_answer || pass1.answer;
+    showAnswer(finalAnswer, pass1, confScore);
+    log(`✓ ANSWER = ${finalAnswer} | conf=${confScore}% | "${pass1.question_summary}"`, 'ok');
+
+  } catch(e) {
+    log('Error: ' + e.message, 'err');
+    showOverlay(false);
+  }
+  scanning = false;
+}
+
+// ═══════════════════════════════════════════════════
+// REPOSITION LOGIC
+// ═══════════════════════════════════════════════════
+async function handleReposition(result, imgB64) {
+  const visible = result.options_count || 0;
+  log(`Only ${visible}/5 options visible. Reason: ${result.reason}`, 'warn');
+
+  if (retryCount < maxRetries) {
+    retryCount++;
+    log(`Auto-retry ${retryCount}/${maxRetries} in 1s...`, 'warn');
+    showOverlay(false);
+    flashWarn();
+    await delay(1000);
+    scanning = false;
+    await runScanCycle();
+    return;
+  }
+
+  // All retries exhausted — show reposition
+  showOverlay(false);
+  scanning = false;
+  setAnswerWarn(visible);
+  fireWarnLED();
+  log(`⚠ REPOSITION NEEDED · ${visible}/5 options in frame`, 'err');
+}
+
+// ═══════════════════════════════════════════════════
+// GEMINI PROMPTS
+// ═══════════════════════════════════════════════════
+function buildPass1Prompt() {
+  return `You are analysing a photo of a multiple choice question.
+This could be from ANY format: Kahoot, Quizlet Live, Mentimeter, Google Forms, exam papers, 
+pub quiz slides, textbooks, PowerPoint presentations, whiteboards, printed sheets, etc.
+
+STEP 1 — Count options:
+Count EVERY distinct answer option visible. Options may appear as:
+- Letters: A B C D E  OR  a b c d e
+- Numbers: 1 2 3 4 5
+- Coloured boxes/tiles (Kahoot style: red triangle, blue diamond, yellow circle, green square + a 5th)
+- Bullet points or numbered paragraphs
+- Radio buttons or checkboxes
+
+STEP 2 — Only if EXACTLY 5 options are clearly visible AND readable:
+Determine the correct answer. Use your full knowledge to answer accurately.
+
+RESPOND ONLY WITH THIS JSON (no other text):
+
+If 5 options visible and question readable:
+{
+  "status": "ok",
+  "options_count": 5,
+  "answer": "A",
+  "answer_text": "the actual text of the correct option",
+  "question_summary": "brief question text",
+  "confidence": "high|medium|low",
+  "options_visible": ["A","B","C","D","E"],
+  "format": "kahoot|exam|slides|printed|whiteboard|other"
+}
+
+If fewer than 5 options visible OR question unreadable:
+{
+  "status": "reposition",
+  "options_count": <number 0-4>,
+  "reason": "specific reason e.g. only 3 options in frame / text blurry / glare on screen",
+  "suggestion": "move bottle left / zoom out / reduce glare"
+}
+
+JSON ONLY. No markdown, no explanation.`;
+}
+
+function buildPass2Prompt(pass1) {
+  return `You are independently verifying an answer to a multiple choice question.
+
+A previous analysis said:
+- Question: "${pass1.question_summary}"
+- Proposed answer: "${pass1.answer}" — "${pass1.answer_text}"
+- Options seen: ${JSON.stringify(pass1.options_visible)}
+
+Look at this image again with fresh eyes. 
+1. Do you agree that "${pass1.answer}" is correct?
+2. What would YOUR answer be independently?
+
+RESPOND ONLY WITH THIS JSON:
+{
+  "agree": true or false,
+  "final_answer": "A",
+  "your_answer": "A",
+  "alternative": "B",
+  "reason": "one sentence why"
+}
+
+JSON ONLY.`;
+}
+
+// ═══════════════════════════════════════════════════
+// GEMINI CALL
+// ═══════════════════════════════════════════════════
+async function geminiAnalyse(base64, prompt) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [
+          { text: prompt },
+          { inline_data: { mime_type: 'image/jpeg', data: base64 } }
+        ]}],
+        generationConfig: { temperature: 0.05, maxOutputTokens: 300 }
+      })
+    }
+  );
+  if (!res.ok) { const t = await res.text(); throw new Error(t.slice(0,200)); }
+  const data = await res.json();
+  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  const clean = raw.replace(/```json|```/g,'').trim();
+  try { return JSON.parse(clean); }
+  catch(e) { throw new Error('JSON parse fail: ' + clean.slice(0,100)); }
+}
+
+// ═══════════════════════════════════════════════════
+// CONFIDENCE SCORING
+// ═══════════════════════════════════════════════════
+function scoreConfidence(p1, p2) {
+  let score = 0;
+  if (p1.options_count === 5)    score += 25;
+  if (p1.confidence === 'high')  score += 30;
+  if (p1.confidence === 'medium') score += 15;
+  if (p2.agree === true)         score += 30;
+  if (p2.your_answer === p1.answer) score += 15;
+  return Math.min(score, 100);
+}
+
+// ═══════════════════════════════════════════════════
+// CAPTURE FRAME
+// ═══════════════════════════════════════════════════
+function captureFrame() {
+  const v = document.getElementById('video');
+  const c = document.getElementById('canvas');
+  c.width = v.videoWidth || 1280;
+  c.height = v.videoHeight || 720;
+  c.getContext('2d').drawImage(v, 0, 0);
+  const dataUrl = c.toDataURL('image/jpeg', 0.90);
+  return dataUrl.split(',')[1];
+}
+
+// ═══════════════════════════════════════════════════
+// SHOW ANSWER
+// ═══════════════════════════════════════════════════
+function showAnswer(ans, data, conf) {
+  showOverlay(false);
+  const ab = document.getElementById('answerBig');
+  ab.textContent = ans;
+  ab.className = 'answer-big ans-' + ans;
+  document.getElementById('answerSub').textContent =
+    (data.answer_text || '') + (conf ? `  ·  ${conf}% confidence` : '');
+
+  // Chips
+  const chips = document.getElementById('optChips');
+  chips.innerHTML = ANSWERS.map(l =>
+    `<div class="chip ${l===ans?'active-'+ans:''}">${l}</div>`
+  ).join('');
+
+  // LEDs
+  clearLEDs();
+  const id = LED_IDS[ans];
+  if (id) { document.getElementById(id).className = 'led ' + ans; document.getElementById('l'+id.slice(1)+'b' === id ? 'llb' : 'l' + id.slice(1)).className = 'led-lbl active'; }
+  // simpler:
+  ['a','b','c','d','e'].forEach((x,i) => {
+    document.getElementById('l'+x).className = ANSWERS[i]===ans ? 'led '+ans : 'led';
+    document.getElementById('ll'+x).className = ANSWERS[i]===ans ? 'led-lbl active' : 'led-lbl';
+  });
+
+  // Lock screen
+  const lad = document.getElementById('lockAnswerDisplay');
+  lad.className = 'show-' + ans;
+  lad.textContent = ans;
+  document.getElementById('lockHint').className = 'visible';
+  document.getElementById('lockRetryMsg').className = '';
+
+  // Confidence bar
+  setConfBar(conf);
+  setConfBar(conf);
+  setPill('ANSWER: ' + ans, true);
+  lightPhysLED(ans);
+}
+
+// ═══════════════════════════════════════════════════
+// VALIDATION UI
+// ═══════════════════════════════════════════════════
+function updateValidation(r) {
+  const ok5 = r.options_count === 5;
+  updateVCheck('vc-count',    ok5,                           r.options_count + '/5');
+  updateVCheck('vc-labels',   ok5 && r.options_visible?.length === 5, ok5 ? '✓' : '✗');
+  updateVCheck('vc-text',     r.status === 'ok',             r.status === 'ok' ? '✓' : '✗');
+  updateVCheck('vc-question', !!r.question_summary,          r.question_summary ? '✓' : '?');
+  updateVCheck('vc-conf',     r.confidence === 'high',
+    r.confidence === 'high' ? 'HIGH' : r.confidence === 'medium' ? 'MED' : r.confidence || '?');
+}
+
+function updateVCheck(id, pass, val) {
+  const el = document.getElementById(id);
+  el.className = 'vcheck ' + (pass ? 'pass' : 'fail');
+  el.querySelector('.vcheck-val').textContent = val;
+}
+
+function clearValidation() {
+  ['vc-count','vc-labels','vc-text','vc-question','vc-conf','vc-agree'].forEach(id => {
+    document.getElementById(id).className = 'vcheck';
+    document.getElementById(id).querySelector('.vcheck-val').textContent = '—';
+  });
+}
+
+function setConfBar(pct) {
+  const fill = document.getElementById('confFill');
+  fill.style.width = pct + '%';
+  fill.style.background = pct >= 70 ? 'var(--green)' : pct >= 40 ? '#ffcc00' : 'var(--red)';
+}
+
+// ═══════════════════════════════════════════════════
+// WARN / REPOSITION
+// ═══════════════════════════════════════════════════
+function setAnswerWarn(visible) {
+  const ab = document.getElementById('answerBig');
+  ab.textContent = `REPOSITION\n${visible}/5 VISIBLE`;
+  ab.className = 'answer-big ans-WARN';
+  document.getElementById('answerSub').textContent = 'Adjust angle until all 5 options are in frame';
+  document.getElementById('optChips').innerHTML = '';
+
+  // Lock screen
+  const lad = document.getElementById('lockAnswerDisplay');
+  lad.className = 'show-WARN';
+  lad.textContent = '⚠';
+  document.getElementById('lockRetryMsg').className = 'show';
+  document.getElementById('lockHint').className = 'visible';
+  setPill('REPOSITION', false);
+}
+
+function fireWarnLED() {
+  clearLEDs();
+  document.getElementById('lwarn').className = 'led WARN';
+}
+
+function flashWarn() {
+  const lw = document.getElementById('lwarn');
+  lw.className = 'led WARN';
+  setTimeout(() => { lw.className = 'led'; }, 800);
+}
+
+// ═══════════════════════════════════════════════════
+// LOCK SCREEN
+// ═══════════════════════════════════════════════════
+function toggleLock() {
+  isLocked = !isLocked;
+  const ls = document.getElementById('lockScreen');
+  ls.classList.toggle('hidden', !isLocked);
+  if (isLocked) {
+    ls.onclick = () => triggerScan();
+    log('Screen locked. Tap black screen to scan.', 'warn');
+  } else {
+    ls.onclick = null;
+    log('Screen unlocked.', 'dim');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// BLUETOOTH
+// ═══════════════════════════════════════════════════
+async function pairBT() {
+  try {
+    btDev = await navigator.bluetooth.requestDevice({ acceptAllDevices: true });
+    btDev.addEventListener('gattserverdisconnected', () => {
+      document.getElementById('btLbl').textContent = 'BT disconnected';
+      document.getElementById('btLbl').className = 'bt-label';
+    });
+    document.getElementById('btLbl').textContent = `PAIRED: ${btDev.name || btDev.id.slice(0,10)} · press button to scan`;
+    document.getElementById('btLbl').className = 'bt-label on';
+    log('BT paired: ' + (btDev.name || 'unknown'), 'ok');
+    log('BT shutter buttons send Space/Enter key events automatically', 'dim');
+  } catch(e) {
+    if (e.name !== 'NotFoundError') log('BT error: ' + e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// RETRY CONTROLS
+// ═══════════════════════════════════════════════════
+function changeRetry(delta) {
+  maxRetries = Math.max(0, Math.min(5, maxRetries + delta));
+  document.getElementById('retryMax').textContent = maxRetries;
+}
+
+// ═══════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════
+function showOverlay(on, step) {
+  document.getElementById('overlay').classList.toggle('on', on);
+  if (step) document.getElementById('scanStep').textContent = step;
+  document.getElementById('scanline').className = 'scanline' + (on ? ' active' : '');
+}
+
+function clearLEDs() {
+  ['a','b','c','d','e'].forEach(x => {
+    document.getElementById('l'+x).className = 'led';
+    document.getElementById('ll'+x).className = 'led-lbl';
+  });
+  document.getElementById('lwarn').className = 'led';
+}
+
+function setBadge(txt, cls) {
+  const b = document.getElementById('camBadge');
+  b.textContent = txt; b.className = 'cam-badge ' + (cls||'');
+}
+
+function setPill(txt, on) {
+  document.getElementById('statusPill').textContent = txt;
+  document.getElementById('statusDot').className = 'pill-dot' + (on ? ' on' : '');
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550
+// DEMO / TEST FUNCTIONS
+// u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550u2550
+function demoAnswer(ans) {
+  const fakePass1 = { status: 'ok', options_count: 5, answer: ans, answer_text: 'Demo answer '+ans+' selected', question_summary: '[TEST MODE] Simulated question', confidence: 'high', options_visible: ['A','B','C','D','E'], format: 'demo' };
+  const fakePass2 = { agree: true, final_answer: ans, your_answer: ans };
+  clearValidation();
+  updateValidation(fakePass1);
+  updateVCheck('vc-agree', true, 'YES');
+  showAnswer(ans, fakePass1, 100);
+  lightPhysLED(ans);
+  log('[DEMO] Answer = '+ans+' u00b7 all checks passed u00b7 100% confidence', 'ok');
+}
+function demoWarn() {
+  clearValidation();
+  updateValidation({ status:'reposition', options_count:3, confidence:'low', options_visible:['A','B','C'] });
+  setAnswerWarn(3);
+  fireWarnLED();
+  lightPhysLED('WARN');
+  setConfBar(10);
+  log('[DEMO] Reposition warning u2014 only 3/5 options visible', 'warn');
+}
+function demoFullScan() {
+  var ans = ANSWERS[Math.floor(Math.random()*5)];
+  var conf = 65+Math.floor(Math.random()*35);
+  var fakePass1 = { status:'ok', options_count:5, answer:ans, answer_text:'Randomly selected option '+ans, question_summary:'[TEST] Random demo', confidence: conf>85?'high':'medium', options_visible:['A','B','C','D','E'], format:'demo' };
+  clearValidation();
+  updateValidation(fakePass1);
+  updateVCheck('vc-agree', true, 'YES');
+  showAnswer(ans, fakePass1, conf);
+  lightPhysLED(ans);
+  log('[DEMO] Random answer = '+ans+' u00b7 conf='+conf+'%', 'ok');
+}
+function lightPhysLED(ans) {
+  // Reset all to their base colour class (dim/off state)
+  var baseClasses = { a:'led-A', b:'led-B', c:'led-C', d:'led-D', e:'led-E', warn:'led-W' };
+  Object.keys(baseClasses).forEach(function(x) {
+    var el = document.getElementById('pled-'+x);
+    if (el) el.className = 'phys-led ' + baseClasses[x];
+  });
+  var cd = document.getElementById('confDot');
+  if (ans === 'WARN') {
+    var w = document.getElementById('pled-warn');
+    if (w) w.className = 'phys-led led-W blink';
+    cd.textContent = '!'; cd.style.color = '#ff3355'; cd.style.borderColor = '#ff3355';
+  } else {
+    var key = ans.toLowerCase();
+    var colClass = 'led-' + ans; // e.g. led-A, led-B
+    var el = document.getElementById('pled-' + key);
+    if (el) el.className = 'phys-led ' + colClass + ' lit';
+    cd.textContent = 'OK'; cd.style.color = '#39ff85'; cd.style.borderColor = '#39ff85';
+  }
+}
+
+function log(msg, type='dim') {
+  const b = document.getElementById('logBox');
+  const d = document.createElement('div');
+  d.className = type;
+  d.textContent = `[${new Date().toTimeString().slice(0,8)}] ${msg}`;
+  b.appendChild(d);
+  b.scrollTop = b.scrollHeight;
+  if (b.children.length > 120) b.removeChild(b.firstChild);
+}
+</script>
+</body>
+</html>
