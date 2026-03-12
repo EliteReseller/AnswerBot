@@ -325,15 +325,22 @@ select option{background:#0e1117;}
     </div>
   </div>
 
-  <!-- API KEY -->
+  <!-- API KEYS -->
   <div class="card">
-    <div class="card-title">Gemini API Key</div>
-    <div class="input-row">
-      <input type="password" id="apiKey" placeholder="AIza… paste your free key"/>
-      <button class="btn btn-accent" onclick="saveKey()">SAVE</button>
+    <div class="card-title">Gemini API Keys <span style="color:var(--accent);font-size:9px;margin-left:6px">AUTO-ROTATION</span></div>
+    <div style="font-size:8px;color:var(--muted);margin-bottom:10px;line-height:1.7">
+      Add up to 5 keys from different Google accounts · <b style="color:var(--blue)">aistudio.google.com</b><br>
+      Rate limited? Instantly switches to the next key. <b style="color:var(--accent)">gemini-2.5-flash</b>
     </div>
-    <div style="font-size:8px;color:var(--muted);margin-top:6px">
-      Get free key at <b style="color:var(--blue)">aistudio.google.com</b> · Using <b style="color:var(--accent)">gemini-2.5-flash</b>
+    <div id="keySlots"></div>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button class="btn btn-accent" style="flex:1" onclick="saveKeys()">SAVE ALL KEYS</button>
+      <button class="btn btn-blue" onclick="testAllKeys()" style="font-size:8px;padding:8px 10px">TEST ALL</button>
+    </div>
+    <div style="display:flex;gap:5px;margin-top:10px;align-items:center">
+      <div style="font-size:8px;color:var(--muted);margin-right:4px;white-space:nowrap">KEY STATUS</div>
+      <div id="keyStatusBar" style="display:flex;gap:4px;flex:1;flex-wrap:wrap"></div>
+      <div style="font-size:8px;color:var(--muted);white-space:nowrap">Active: <span id="activeKeyNum" style="color:var(--accent)">—</span></div>
     </div>
   </div>
 
@@ -459,6 +466,36 @@ select option{background:#0e1117;}
     <div class="cam-badge" id="camBadge">STARTING…</div>
     <div onclick="triggerScan()" style="position:absolute;inset:0;cursor:pointer;display:flex;align-items:flex-end;justify-content:center;padding-bottom:40px">
       <div style="background:#000a;border:1px solid var(--accent);border-radius:20px;padding:6px 18px;font-size:9px;color:var(--accent);letter-spacing:2px">TAP TO SCAN</div>
+    </div>
+  </div>
+
+  <!-- CAMERA CONTROLS (shown after camera starts) -->
+  <div id="camControls" style="display:none;margin-bottom:10px">
+    <div class="card" style="padding:10px">
+      <div class="card-title" style="margin-bottom:8px">Camera Controls</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+        <button class="btn btn-blue" onclick="applyFocusFar()" style="font-size:8px;padding:7px">🔭 Focus Far</button>
+        <button class="btn btn-blue" onclick="applyFocusNear()" style="font-size:8px;padding:7px">🔬 Focus Near</button>
+        <button class="btn btn-green" onclick="applyFocusAuto()" style="font-size:8px;padding:7px">🔄 Auto Focus</button>
+        <button class="btn btn-red" onclick="forceTorchOff()" style="font-size:8px;padding:7px">🔦 Force Torch Off</button>
+      </div>
+      <div style="font-size:8px;color:var(--muted);margin-bottom:5px">Exposure Compensation</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:8px;color:var(--dim)">Dark</span>
+        <input type="range" id="expSlider" min="-2" max="2" step="0.5" value="-1"
+          style="flex:1;accent-color:var(--accent)" oninput="applyExposure(this.value)">
+        <span style="font-size:8px;color:var(--dim)">Bright</span>
+        <span style="font-size:9px;color:var(--accent);min-width:24px" id="expVal">-1</span>
+      </div>
+      <div style="font-size:8px;color:var(--muted);margin-bottom:5px">Post-Processing</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:8px;color:var(--dim)">Off</span>
+        <input type="range" id="contrastSlider" min="1" max="2" step="0.05" value="1.25"
+          style="flex:1;accent-color:var(--accent)" oninput="updateContrast(this.value)">
+        <span style="font-size:8px;color:var(--dim)">Max</span>
+        <span style="font-size:9px;color:var(--accent);min-width:32px" id="contrastVal">×1.25</span>
+      </div>
+      <div style="font-size:7px;color:var(--dim);margin-top:6px" id="camCapabilities">Detecting capabilities…</div>
     </div>
   </div>
   <canvas id="canvas" style="display:none"></canvas>
@@ -591,7 +628,10 @@ select option{background:#0e1117;}
 // ═══════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════
-let apiKey        = localStorage.getItem('ab_key') || '';
+// ── Multi-key rotation state ──
+let apiKeys       = [];          // array of {key, fails, limited}
+let activeKeyIdx  = 0;           // which key we're currently using
+let apiKey        = '';          // always mirrors apiKeys[activeKeyIdx].key
 let camActive     = false;
 let isLocked      = false;
 let maxRetries    = 3;
@@ -613,8 +653,8 @@ const tog = id => document.getElementById('tog-'+id)?.checked ?? true;
 // BOOT
 // ═══════════════════════════════════════════════════
 window.addEventListener('load', () => {
-  // Load saved key
-  if (apiKey) { document.getElementById('apiKey').value = apiKey; log('API key loaded', 'ok'); }
+  // Load saved keys
+  loadKeys();
 
   // Load saved toggles
   const saved = JSON.parse(localStorage.getItem('ab_toggles') || '{}');
@@ -668,13 +708,146 @@ async function wakeLock() {
 }
 
 // ═══════════════════════════════════════════════════
-// API KEY
+// MULTI-KEY MANAGEMENT
 // ═══════════════════════════════════════════════════
-function saveKey() {
-  apiKey = document.getElementById('apiKey').value.trim();
-  localStorage.setItem('ab_key', apiKey);
-  log(apiKey ? 'API key saved ✓' : 'API key cleared', apiKey ? 'ok' : 'warn');
-  setPill(apiKey ? 'KEY OK' : 'NO KEY', !!apiKey);
+
+function buildKeySlots() {
+  const container = document.getElementById('keySlots');
+  container.innerHTML = '';
+  for (let i = 0; i < 5; i++) {
+    const saved = apiKeys[i] ? apiKeys[i].key : '';
+    container.innerHTML += `
+      <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+        <div style="font-size:8px;color:var(--muted);width:36px;flex-shrink:0;letter-spacing:1px">KEY ${i+1}</div>
+        <input type="password" id="keyInput${i}" placeholder="AIza…" value="${saved}"
+          style="flex:1;font-size:10px;padding:7px 9px"
+          oninput="onKeyInput(${i})">
+        <div id="keyPill${i}" style="width:8px;height:8px;border-radius:50%;background:var(--dim);flex-shrink:0;transition:all 0.3s"></div>
+      </div>`;
+  }
+}
+
+function onKeyInput(i) {
+  // Clear status dot when user edits
+  document.getElementById('keyPill'+i).style.background = 'var(--dim)';
+}
+
+function saveKeys() {
+  apiKeys = [];
+  for (let i = 0; i < 5; i++) {
+    const val = document.getElementById('keyInput'+i).value.trim();
+    if (val) apiKeys.push({ key: val, fails: 0, limited: false, limitedUntil: 0 });
+  }
+  localStorage.setItem('ab_keys', JSON.stringify(apiKeys.map(k => k.key)));
+  activeKeyIdx = 0;
+  apiKey = apiKeys[0]?.key || '';
+  updateKeyStatusBar();
+  log(apiKeys.length + ' API key(s) saved ✓', 'ok');
+  setPill(apiKeys.length ? 'KEYS OK ×' + apiKeys.length : 'NO KEYS', !!apiKeys.length);
+}
+
+function loadKeys() {
+  // Load from new multi-key storage
+  const saved = JSON.parse(localStorage.getItem('ab_keys') || '[]');
+  // Also migrate old single key if present
+  const oldKey = localStorage.getItem('ab_key');
+  const allKeys = [...new Set([...saved, oldKey ? oldKey : ''].filter(Boolean))];
+  apiKeys = allKeys.map(k => ({ key: k, fails: 0, limited: false, limitedUntil: 0 }));
+  activeKeyIdx = 0;
+  apiKey = apiKeys[0]?.key || '';
+  buildKeySlots();
+  updateKeyStatusBar();
+  if (apiKeys.length) log(apiKeys.length + ' API key(s) loaded', 'ok');
+  setPill(apiKeys.length ? 'KEYS OK ×' + apiKeys.length : 'NO KEYS', !!apiKeys.length);
+}
+
+function getActiveKey() {
+  if (!apiKeys.length) return null;
+  const now = Date.now();
+  // Find first non-rate-limited key starting from activeKeyIdx
+  for (let i = 0; i < apiKeys.length; i++) {
+    const idx = (activeKeyIdx + i) % apiKeys.length;
+    const k = apiKeys[idx];
+    // Clear rate limit if cooldown passed (60s)
+    if (k.limited && now > k.limitedUntil) {
+      k.limited = false;
+      log('Key ' + (idx+1) + ' cooldown expired — back in rotation', 'ok');
+      updateKeyStatusBar();
+    }
+    if (!k.limited) {
+      activeKeyIdx = idx;
+      return k;
+    }
+  }
+  return null; // all keys rate limited
+}
+
+function markKeyFailed(reason) {
+  if (!apiKeys[activeKeyIdx]) return;
+  const k = apiKeys[activeKeyIdx];
+  const isRateLimit = reason.includes('429') || reason.includes('RESOURCE_EXHAUSTED') ||
+                      reason.includes('quota') || reason.includes('rate');
+  if (isRateLimit) {
+    k.limited = true;
+    k.limitedUntil = Date.now() + 60000; // 60s cooldown
+    log('⚠ Key ' + (activeKeyIdx+1) + ' rate limited — switching to next key', 'warn');
+    // Rotate to next key
+    for (let i = 1; i < apiKeys.length; i++) {
+      const next = (activeKeyIdx + i) % apiKeys.length;
+      if (!apiKeys[next].limited) {
+        activeKeyIdx = next;
+        apiKey = apiKeys[next].key;
+        log('Switched to key ' + (next+1), 'ok');
+        break;
+      }
+    }
+  } else {
+    k.fails++;
+  }
+  updateKeyStatusBar();
+}
+
+function updateKeyStatusBar() {
+  const bar = document.getElementById('keyStatusBar');
+  if (!bar) return;
+  bar.innerHTML = '';
+  const now = Date.now();
+  apiKeys.forEach((k, i) => {
+    const isActive = i === activeKeyIdx;
+    const isLimited = k.limited && now < k.limitedUntil;
+    const color = isLimited ? 'var(--red)' : isActive ? 'var(--green)' : 'var(--accent)';
+    const label = isLimited ? '⏳' : isActive ? '●' : '○';
+    bar.innerHTML += `<div title="Key ${i+1}${isLimited?' (rate limited)':isActive?' (active)':' (ready)'}"
+      style="font-size:10px;color:${color};cursor:default;transition:all 0.3s">${label}</div>`;
+    // Also update the input dot
+    const dot = document.getElementById('keyPill'+i);
+    if (dot) dot.style.background = isLimited ? 'var(--red)' : k.key ? 'var(--green)' : 'var(--dim)';
+  });
+  document.getElementById('activeKeyNum').textContent =
+    apiKeys.length ? (activeKeyIdx + 1) + '/' + apiKeys.length : '—';
+}
+
+async function testAllKeys() {
+  if (!apiKeys.length) { log('No keys saved yet', 'err'); return; }
+  log('Testing all ' + apiKeys.length + ' keys…', 'info');
+  const tiny = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='; // 1x1 px
+  for (let i = 0; i < apiKeys.length; i++) {
+    const k = apiKeys[i];
+    try {
+      const res = await fetch(
+        \`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\${k.key}\`,
+        { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ contents:[{parts:[{text:'Reply OK'},{inline_data:{mime_type:'image/png',data:tiny}}]}], generationConfig:{maxOutputTokens:5} }) }
+      );
+      const ok = res.ok || res.status === 200;
+      const dot = document.getElementById('keyPill'+i);
+      if (dot) dot.style.background = ok ? 'var(--green)' : 'var(--red)';
+      log('Key ' + (i+1) + ': ' + (ok ? '✓ VALID' : '✗ INVALID (status '+res.status+')'), ok ? 'ok' : 'err');
+    } catch(e) {
+      log('Key ' + (i+1) + ': ✗ ERROR — ' + e.message, 'err');
+    }
+    await new Promise(r => setTimeout(r, 300)); // small gap between tests
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -704,9 +877,12 @@ function handlePermState(s) {
 
 async function requestCameraPermission() {
   try {
+    // Minimal constraints just to trigger the permission dialog
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     handlePermState('granted');
-    activateStream(stream);
+    // Stop this low-quality stream immediately, startCamera will open properly
+    stream.getTracks().forEach(t => t.stop());
+    await startCamera();
   } catch(e) {
     if (e.name === 'NotAllowedError') handlePermState('denied');
     else {
@@ -717,30 +893,134 @@ async function requestCameraPermission() {
 }
 
 async function startCamera() {
+  log('Starting camera with quality optimisations…', 'info');
+
+  // Best possible constraints for reading text on screens
+  const constraints = {
+    video: {
+      facingMode: { exact: 'environment' },    // force rear camera
+      width:      { ideal: 3840, min: 1280 },  // 4K if available, min 1080p
+      height:     { ideal: 2160, min: 720 },
+      frameRate:  { ideal: 30,   max: 30 },    // cap at 30fps — avoids motion blur
+      focusMode:  'continuous',                 // keep hunting for sharp focus
+      exposureMode: 'continuous',              // auto exposure
+      whiteBalanceMode: 'continuous',          // auto white balance for screen colours
+    }
+  };
+
+  let stream;
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
-    });
-    activateStream(stream);
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    log('High-res camera stream started', 'ok');
   } catch(e) {
-    log('Camera failed: ' + e.message, 'err');
-    if (e.name === 'NotAllowedError') handlePermState('denied');
+    // Fallback — some browsers reject advanced constraints
+    log('Advanced constraints failed, trying fallback: ' + e.message, 'warn');
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+    } catch(e2) {
+      log('Camera failed: ' + e2.message, 'err');
+      if (e2.name === 'NotAllowedError') handlePermState('denied');
+      return;
+    }
   }
+
+  await activateStream(stream);
 }
 
-function activateStream(stream) {
+async function activateStream(stream) {
   const v = document.getElementById('video');
   v.srcObject = stream;
-  v.onloadedmetadata = () => {
-    v.play();
-    camActive = true;
-    document.getElementById('camPermCard').style.display = 'none';
-    document.getElementById('camWrap').style.display = 'block';
-    setBadge('LIVE', 'live');
-    setPill('CAM LIVE', true);
-    log('Live camera active', 'ok');
-    if (tog('autoscan')) startAutoscan();
-  };
+
+  await new Promise(resolve => { v.onloadedmetadata = resolve; });
+  await v.play();
+
+  // ── Apply advanced track constraints after stream starts ──
+  const track = stream.getVideoTracks()[0];
+  if (track) {
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+    const settings = {};
+
+    // Force torch OFF — this is almost certainly your halo culprit
+    if (caps.torch !== undefined) {
+      settings.torch = false;
+      log('Torch forced OFF', 'ok');
+    }
+
+    // Lock exposure compensation slightly negative — stops bright screens blooming
+    if (caps.exposureCompensation) {
+      const min = caps.exposureCompensation.min || -2;
+      settings.exposureCompensation = Math.max(min, -1.0);
+      log('Exposure compensation: -1.0 (stops screen bloom)', 'ok');
+    }
+
+    // Continuous auto-focus — keeps refocusing on the screen
+    if (caps.focusMode && caps.focusMode.includes('continuous')) {
+      settings.focusMode = 'continuous';
+      log('Focus mode: continuous', 'ok');
+    }
+
+    // If manual focus distance is available, hint toward mid-far distance
+    // (avoids locking on bottle glass in front of lens)
+    if (caps.focusDistance && caps.focusMode && caps.focusMode.includes('manual')) {
+      const mid = (caps.focusDistance.min + caps.focusDistance.max) / 2;
+      settings.focusMode = 'manual';
+      settings.focusDistance = mid * 1.4; // bias toward far
+      log('Focus distance biased to far field', 'ok');
+    }
+
+    // Reduce sharpness artificially applied by browser (can cause ringing/halo)
+    if (caps.sharpness) {
+      settings.sharpness = Math.floor(caps.sharpness.min + (caps.sharpness.max - caps.sharpness.min) * 0.3);
+      log('Sharpness reduced (reduces browser ringing artefact)', 'ok');
+    }
+
+    // Turn off any flash/fill light
+    if (caps.fillLightMode) {
+      settings.fillLightMode = 'off';
+      log('Fill light forced OFF', 'ok');
+    }
+
+    if (Object.keys(settings).length > 0) {
+      try {
+        await track.applyConstraints({ advanced: [settings] });
+        log('Advanced camera constraints applied ✓', 'ok');
+      } catch(e) {
+        log('Some constraints not supported on this browser: ' + e.message, 'warn');
+      }
+    }
+
+    // Log what we actually got
+    const applied = track.getSettings ? track.getSettings() : {};
+    log('Camera: ' + (applied.width||'?') + 'x' + (applied.height||'?') +
+        ' torch=' + (applied.torch ?? 'n/a') +
+        ' expComp=' + (applied.exposureCompensation ?? 'n/a'), 'dim');
+  }
+
+  camActive = true;
+  document.getElementById('camPermCard').style.display = 'none';
+  document.getElementById('camWrap').style.display = 'block';
+  document.getElementById('camControls').style.display = 'block';
+  setBadge('LIVE', 'live');
+  setPill('CAM LIVE', true);
+
+  // Show what capabilities this device supports
+  if (track) {
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+    const supported = [];
+    if (caps.torch !== undefined)             supported.push('torch');
+    if (caps.exposureCompensation)            supported.push('exposure');
+    if (caps.focusMode)                       supported.push('focus:' + caps.focusMode.join('/'));
+    if (caps.focusDistance)                   supported.push('focusDist');
+    if (caps.sharpness)                       supported.push('sharpness');
+    if (caps.zoom)                            supported.push('zoom');
+    document.getElementById('camCapabilities').textContent =
+      'Supported: ' + (supported.length ? supported.join(' · ') : 'basic only');
+  }
+
+  log('Camera ready — quality optimised for screen capture', 'ok');
+  if (tog('autoscan')) startAutoscan();
 }
 
 // ═══════════════════════════════════════════════════
@@ -749,7 +1029,7 @@ function activateStream(stream) {
 function handlePhotoUpload(e) {
   const file = e.target.files[0];
   if (!file) return;
-  if (!apiKey) { log('Save API key first', 'err'); return; }
+  if (!apiKeys.length) { log('Save API keys first', 'err'); return; }
   const reader = new FileReader();
   reader.onload = ev => {
     const img = new Image();
@@ -872,9 +1152,53 @@ function updateQualityBar(score) {
 function captureFrame() {
   const v = document.getElementById('video');
   const c = document.getElementById('canvas');
-  c.width = v.videoWidth || 1280;
-  c.height = v.videoHeight || 720;
-  c.getContext('2d').drawImage(v, 0, 0);
+  const w = v.videoWidth  || 1280;
+  const h = v.videoHeight || 720;
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+
+  // Draw raw frame
+  ctx.drawImage(v, 0, 0);
+
+  // ── Post-process to fix browser camera weaknesses ──
+
+  // 1. Contrast + brightness correction
+  // Slightly increase contrast and reduce brightness to counter over-exposure
+  ctx.globalCompositeOperation = 'source-over';
+  // Use CSS filter equivalent via canvas filter (Chrome/Android supports this)
+  try {
+    const offscreen = document.createElement('canvas');
+    offscreen.width = w; offscreen.height = h;
+    const octx = offscreen.getContext('2d');
+
+    // Apply: slight brightness reduction + contrast boost + sharpness
+    octx.filter = 'contrast(' + contrastLevel + ') brightness(0.92) saturate(1.1)';
+    octx.drawImage(c, 0, 0);
+
+    // Unsharp mask — sharpen text edges
+    // Draw original at low opacity on top of itself offset = sharpening effect
+    octx.filter = 'none';
+    octx.globalAlpha = 0.08;
+    octx.globalCompositeOperation = 'difference';
+    // Draw blurred version
+    const blurCanvas = document.createElement('canvas');
+    blurCanvas.width = w; blurCanvas.height = h;
+    const bctx = blurCanvas.getContext('2d');
+    bctx.filter = 'blur(1px)';
+    bctx.drawImage(c, 0, 0);
+    octx.drawImage(blurCanvas, 0, 0);
+
+    // Composite final back onto main canvas
+    ctx.clearRect(0, 0, w, h);
+    ctx.filter = 'none';
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(offscreen, 0, 0);
+  } catch(e) {
+    // Canvas filter not supported — just use raw frame, it's fine
+    log('Canvas enhancement not supported — using raw frame', 'dim');
+  }
+
   return c;
 }
 
@@ -883,7 +1207,7 @@ function captureFrame() {
 // ═══════════════════════════════════════════════════
 async function triggerScan() {
   if (scanning) return;
-  if (!apiKey) { log('No API key set', 'err'); return; }
+  if (!apiKeys.length) { log('No API keys saved. Add at least one key.', 'err'); return; }
   if (!camActive && !uploadedB64) { log('Start camera or upload a photo first', 'warn'); return; }
   retryCount = 0;
 
@@ -1110,8 +1434,22 @@ RESPOND ONLY WITH THIS JSON:
 // GEMINI CALL
 // ═══════════════════════════════════════════════════
 async function geminiAnalyse(base64, prompt) {
+  const keyObj = getActiveKey();
+  if (!keyObj) {
+    const allLimited = apiKeys.every(k => k.limited);
+    if (allLimited) {
+      // Find soonest key to become available
+      const soonest = Math.min(...apiKeys.map(k => k.limitedUntil));
+      const waitSecs = Math.ceil((soonest - Date.now()) / 1000);
+      throw new Error('All ' + apiKeys.length + ' keys are rate limited. Next available in ' + waitSecs + 's.');
+    }
+    throw new Error('No API keys saved. Add keys in the key manager above.');
+  }
+  const currentKey = keyObj.key;
+  log('Using key ' + (activeKeyIdx+1) + '/' + apiKeys.length, 'dim');
+
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1124,7 +1462,11 @@ async function geminiAnalyse(base64, prompt) {
       })
     }
   );
-  if (!res.ok) { const t = await res.text(); throw new Error(t.slice(0,300)); }
+  if (!res.ok) {
+    const t = await res.text();
+    markKeyFailed(t + ' ' + res.status);
+    throw new Error(t.slice(0,300));
+  }
   const data = await res.json();
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
   const clean = raw.replace(/```json|```/g,'').trim();
@@ -1531,6 +1873,79 @@ function demoRandom() {
   lightPhysLED(ans);
   haptic(ans);
   log('[DEMO] Random = ' + ans + ' conf=' + conf + '%', 'ok');
+}
+
+// ═══════════════════════════════════════════════════
+// LIVE CAMERA CONTROLS
+// ═══════════════════════════════════════════════════
+let contrastLevel = 1.25; // used by captureFrame
+
+function updateContrast(val) {
+  contrastLevel = parseFloat(val);
+  document.getElementById('contrastVal').textContent = '×' + contrastLevel.toFixed(2);
+}
+
+function getActiveTrack() {
+  const v = document.getElementById('video');
+  return v.srcObject?.getVideoTracks()[0] || null;
+}
+
+async function applyExposure(val) {
+  document.getElementById('expVal').textContent = val;
+  const track = getActiveTrack();
+  if (!track) return;
+  try {
+    await track.applyConstraints({ advanced: [{ exposureCompensation: parseFloat(val) }] });
+    log('Exposure set to ' + val, 'ok');
+  } catch(e) { log('Exposure not supported: ' + e.message, 'warn'); }
+}
+
+async function applyFocusFar() {
+  const track = getActiveTrack();
+  if (!track) return;
+  const caps = track.getCapabilities ? track.getCapabilities() : {};
+  try {
+    if (caps.focusDistance) {
+      const far = caps.focusDistance.max * 0.75;
+      await track.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: far }] });
+      log('Focus set to far field (' + far.toFixed(2) + ')', 'ok');
+    } else {
+      log('Manual focus distance not supported on this device', 'warn');
+    }
+  } catch(e) { log('Focus far failed: ' + e.message, 'warn'); }
+}
+
+async function applyFocusNear() {
+  const track = getActiveTrack();
+  if (!track) return;
+  const caps = track.getCapabilities ? track.getCapabilities() : {};
+  try {
+    if (caps.focusDistance) {
+      const near = caps.focusDistance.min + (caps.focusDistance.max - caps.focusDistance.min) * 0.2;
+      await track.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: near }] });
+      log('Focus set to near (' + near.toFixed(2) + ')', 'ok');
+    } else {
+      log('Manual focus distance not supported', 'warn');
+    }
+  } catch(e) { log('Focus near failed: ' + e.message, 'warn'); }
+}
+
+async function applyFocusAuto() {
+  const track = getActiveTrack();
+  if (!track) return;
+  try {
+    await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+    log('Auto-focus restored', 'ok');
+  } catch(e) { log('Auto-focus failed: ' + e.message, 'warn'); }
+}
+
+async function forceTorchOff() {
+  const track = getActiveTrack();
+  if (!track) return;
+  try {
+    await track.applyConstraints({ advanced: [{ torch: false }] });
+    log('Torch forced OFF', 'ok');
+  } catch(e) { log('Torch control not supported: ' + e.message, 'warn'); }
 }
 
 // ═══════════════════════════════════════════════════
