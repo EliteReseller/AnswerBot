@@ -3,221 +3,213 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>AnswerBot Pro v3</title>
+<title>AnswerBot Pro v4</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=Bebas+Neue&display=swap');
-
-:root {
-  --bg:#07080a; --surface:#0e1117; --border:#1e2530;
-  --accent:#e8ff47; --accent2:#ff6b35;
-  --blue:#4db8ff; --red:#ff3355; --green:#39ff85;
-  --amber:#ffaa00; --dim:#3a4455; --text:#c8d8e8; --muted:#506070;
-  --a:#ff4466; --b:#4488ff; --c:#ffcc00; --d:#44dd88; --e:#cc55ff;
+:root{
+  --bg:#07080a;--surface:#0e1117;--border:#1e2530;
+  --accent:#e8ff47;--accent2:#ff6b35;
+  --blue:#4db8ff;--red:#ff3355;--green:#39ff85;
+  --amber:#ffaa00;--dim:#3a4455;--text:#c8d8e8;--muted:#506070;
+  --a:#ff4466;--b:#4488ff;--c:#ffcc00;--d:#44dd88;--e:#cc55ff;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;overflow-x:hidden;}
 
 /* ── LOCK SCREEN ── */
-#lockScreen{
-  position:fixed;inset:0;background:#000;z-index:9999;
-  display:flex;align-items:center;justify-content:center;
-  transition:opacity 0.3s;
-}
+#lockScreen{position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center;transition:opacity 0.3s;}
 #lockScreen.hidden{opacity:0;pointer-events:none;}
-
-/* Discreet answer — bottom left, just a letter */
-#lockAnswer{
-  position:absolute;bottom:28px;left:24px;
-  font-family:'Bebas Neue';font-size:42px;line-height:1;
-  opacity:0;transition:all 0.25s;letter-spacing:2px;
-}
-#lockAnswer.ans-A{opacity:1;color:var(--a);text-shadow:0 0 18px var(--a);}
-#lockAnswer.ans-B{opacity:1;color:var(--b);text-shadow:0 0 18px var(--b);}
-#lockAnswer.ans-C{opacity:1;color:var(--c);text-shadow:0 0 18px var(--c);}
-#lockAnswer.ans-D{opacity:1;color:var(--d);text-shadow:0 0 18px var(--d);}
-#lockAnswer.ans-E{opacity:1;color:var(--e);text-shadow:0 0 18px var(--e);}
-#lockAnswer.ans-WARN{opacity:1;color:var(--red);font-size:28px;animation:warnblink 0.4s ease-in-out infinite;}
-#lockAnswer.ans-BLUR{opacity:1;color:var(--red);font-size:22px;animation:warnblink 0.4s ease-in-out infinite;}
+#lockAnswer{position:absolute;bottom:28px;left:24px;font-family:'Bebas Neue';font-size:48px;line-height:1;opacity:0;transition:all 0.25s;letter-spacing:2px;}
+#lockAnswer.ans-A{opacity:1;color:var(--a);text-shadow:0 0 20px var(--a);}
+#lockAnswer.ans-B{opacity:1;color:var(--b);text-shadow:0 0 20px var(--b);}
+#lockAnswer.ans-C{opacity:1;color:var(--c);text-shadow:0 0 20px var(--c);}
+#lockAnswer.ans-D{opacity:1;color:var(--d);text-shadow:0 0 20px var(--d);}
+#lockAnswer.ans-E{opacity:1;color:var(--e);text-shadow:0 0 20px var(--e);}
+#lockAnswer.ans-WARN,#lockAnswer.ans-BLUR{opacity:1;color:var(--red);font-size:26px;animation:warnblink 0.4s infinite;}
 #lockAnswer.ans-UNCERTAIN{opacity:1;color:var(--amber);font-size:28px;}
-@keyframes warnblink{0%,100%{opacity:1}50%{opacity:0.15}}
+@keyframes warnblink{0%,100%{opacity:1}50%{opacity:0.1}}
 
-/* Scanning indicator on lock screen — tiny pulsing dot top right */
-#lockScanDot{
-  position:absolute;top:20px;right:20px;
-  width:8px;height:8px;border-radius:50%;
-  background:var(--dim);transition:all 0.2s;
-}
-#lockScanDot.scanning{background:var(--accent);box-shadow:0 0 10px var(--accent);animation:scandot 0.6s ease-in-out infinite;}
+/* SOS button on lock screen — hidden corner tap zone */
+#sosTapZone{position:absolute;top:0;right:0;width:60px;height:60px;z-index:10000;}
+
+/* Live stream status on lock screen */
+#lockStatus{position:absolute;top:16px;left:16px;font-size:8px;letter-spacing:2px;color:#111;transition:color 0.3s;}
+#lockStatus.active{color:#1a2a1a;}
+#lockStatus.scanning{color:var(--accent);opacity:0.4;}
+#lockStatus.newq{color:var(--green);opacity:0.6;animation:newqpulse 0.5s ease-out;}
+@keyframes newqpulse{0%{opacity:1;font-size:10px}100%{opacity:0.4;font-size:8px}}
+
+#lockScanDot{position:absolute;top:18px;right:18px;width:7px;height:7px;border-radius:50%;background:var(--dim);transition:all 0.2s;}
+#lockScanDot.scanning{background:var(--accent);box-shadow:0 0 10px var(--accent);animation:dotpulse 0.6s infinite;}
 #lockScanDot.ok{background:var(--green);box-shadow:0 0 8px var(--green);}
-#lockScanDot.warn{background:var(--red);box-shadow:0 0 8px var(--red);animation:warnblink 0.4s infinite;}
-@keyframes scandot{0%,100%{opacity:1}50%{opacity:0.2}}
+#lockScanDot.warn{background:var(--red);box-shadow:0 0 8px var(--red);}
+@keyframes dotpulse{0%,100%{opacity:1}50%{opacity:0.2}}
 
-/* Autoscan countdown ring on lock screen */
-#lockCountdown{
-  position:absolute;bottom:24px;right:20px;
-  width:32px;height:32px;display:none;
-}
-#lockCountdown svg{width:100%;height:100%;transform:rotate(-90deg);}
-#lockCountdown circle{fill:none;stroke:var(--dim);stroke-width:2;}
-#lockCountdown .ring{stroke:var(--accent);stroke-dasharray:88;stroke-dashoffset:88;transition:stroke-dashoffset 0.1s linear;}
+#lockHistory{position:absolute;bottom:86px;left:16px;display:flex;gap:8px;}
+.lock-hist{font-family:'Bebas Neue';font-size:20px;opacity:0.12;transition:all 0.3s;}
+.lock-hist.a{color:var(--a)}.lock-hist.b{color:var(--b)}.lock-hist.c{color:var(--c)}.lock-hist.d{color:var(--d)}.lock-hist.e{color:var(--e)}
 
-/* History strip on lock screen */
-#lockHistory{
-  position:absolute;bottom:80px;left:16px;
-  display:flex;gap:6px;
-}
-.lock-hist-item{
-  font-family:'Bebas Neue';font-size:18px;opacity:0.2;
-  transition:all 0.2s;
-}
-.lock-hist-item.a{color:var(--a)}.lock-hist-item.b{color:var(--b)}
-.lock-hist-item.c{color:var(--c)}.lock-hist-item.d{color:var(--d)}
-.lock-hist-item.e{color:var(--e)}
+/* Live filter status bar on lock screen */
+#lockFilterBar{position:absolute;bottom:8px;right:8px;display:flex;gap:3px;opacity:0.15;}
+.lfb-dot{width:5px;height:5px;border-radius:50%;background:var(--dim);}
+.lfb-dot.pass{background:var(--green);}
+.lfb-dot.fail{background:var(--red);}
 
-/* ── PROCESSING OVERLAY ── */
-#overlay{
-  position:fixed;inset:0;background:#000c;z-index:500;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
-  opacity:0;pointer-events:none;transition:opacity 0.2s;
+/* SOS overlay */
+#sosOverlay{
+  position:fixed;inset:0;background:#000;z-index:99998;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:20px;opacity:0;pointer-events:none;transition:opacity 0.3s;
 }
+#sosOverlay.on{opacity:1;pointer-events:all;}
+#sosOverlay .sos-title{font-family:'Bebas Neue';font-size:48px;color:var(--red);letter-spacing:8px;text-shadow:0 0 30px var(--red);}
+#sosOverlay .sos-msg{font-size:10px;color:var(--muted);letter-spacing:2px;text-align:center;line-height:2;}
+#sosOverlay .sos-btn{font-family:'Bebas Neue';font-size:20px;letter-spacing:4px;padding:14px 30px;border-radius:8px;border:none;cursor:pointer;margin:4px;}
+
+/* Top scan progress bar */
+#scanBar{position:fixed;top:0;left:0;right:0;height:3px;z-index:200;}
+#scanFill{height:100%;width:0;background:var(--accent);transition:width 0.1s linear;}
+
+/* Processing overlay */
+#overlay{position:fixed;inset:0;background:#000b;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;opacity:0;pointer-events:none;transition:opacity 0.2s;}
 #overlay.on{opacity:1;pointer-events:all;}
-.scan-ring{width:70px;height:70px;position:relative;}
-.scan-ring::before,.scan-ring::after{
-  content:'';position:absolute;inset:0;border-radius:50%;border:2px solid transparent;
-}
-.scan-ring::before{border-top-color:var(--accent);animation:spin 0.8s linear infinite;}
-.scan-ring::after{border-bottom-color:var(--accent2);animation:spin 1.2s linear infinite reverse;inset:6px;}
-@keyframes spin{to{transform:rotate(360deg);}}
-.scan-step{font-family:'Bebas Neue';font-size:14px;letter-spacing:3px;color:var(--accent);}
+.spin-ring{width:60px;height:60px;position:relative;}
+.spin-ring::before,.spin-ring::after{content:'';position:absolute;inset:0;border-radius:50%;border:2px solid transparent;}
+.spin-ring::before{border-top-color:var(--accent);animation:spin 0.8s linear infinite;}
+.spin-ring::after{border-bottom-color:var(--accent2);animation:spin 1.2s linear infinite reverse;inset:6px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.scan-step{font-family:'Bebas Neue';font-size:13px;letter-spacing:3px;color:var(--accent);}
 
-/* ── LAYOUT ── */
+/* Layout */
 .wrap{max-width:430px;margin:0 auto;padding:12px;}
 .topbar{display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:12px;}
 .topbar-title{font-family:'Bebas Neue';font-size:22px;letter-spacing:6px;color:var(--accent);text-shadow:0 0 20px #e8ff4755;}
 .topbar-sub{font-size:8px;color:var(--muted);letter-spacing:2px;margin-top:2px;}
 .pill{margin-left:auto;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:8px;letter-spacing:2px;color:var(--muted);display:flex;align-items:center;gap:5px;}
 .pill-dot{width:6px;height:6px;border-radius:50%;background:var(--dim);}
-.pill-dot.on{background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 1.5s infinite;}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.pill-dot.on{background:var(--green);box-shadow:0 0 6px var(--green);animation:glow 1.5s infinite;}
+@keyframes glow{0%,100%{opacity:1}50%{opacity:0.4}}
 
 .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;}
 .card-title{font-size:8px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
 .card-title::before{content:'';width:3px;height:12px;background:var(--accent);border-radius:2px;display:block;opacity:0.7;}
 
-.input-row{display:flex;gap:6px;}
 input[type=password],input[type=text],input[type=number],select{
-  flex:1;background:#060810;border:1px solid var(--border);
-  color:var(--text);font-family:'JetBrains Mono';font-size:11px;
-  padding:8px 10px;border-radius:5px;outline:none;
+  flex:1;background:#060810;border:1px solid var(--border);color:var(--text);
+  font-family:'JetBrains Mono';font-size:11px;padding:8px 10px;border-radius:5px;outline:none;
 }
 input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
-select option{background:#0e1117;}
 
-.btn{
-  background:transparent;border:1px solid var(--border);color:var(--muted);
-  font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;
-  padding:8px 12px;border-radius:5px;cursor:pointer;transition:all 0.15s;white-space:nowrap;
-}
+.btn{background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;padding:8px 12px;border-radius:5px;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
 .btn:active{transform:scale(0.95);}
 .btn-accent{border-color:var(--accent);color:var(--accent);}
-.btn-accent:hover{background:#e8ff4715;box-shadow:0 0 10px #e8ff4730;}
+.btn-accent:hover{background:#e8ff4715;}
 .btn-blue{border-color:var(--blue);color:var(--blue);}
 .btn-red{border-color:var(--red);color:var(--red);}
 .btn-green{border-color:var(--green);color:var(--green);}
 .btn-amber{border-color:var(--amber);color:var(--amber);}
 .btn-wide{width:100%;padding:13px;font-family:'Bebas Neue';font-size:18px;letter-spacing:4px;border-radius:7px;}
 
-/* ── TOGGLE SWITCHES ── */
+/* Toggle switches */
 .toggle-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);}
 .toggle-row:last-child{border-bottom:none;}
 .toggle-label{flex:1;font-size:9px;color:var(--text);letter-spacing:1px;}
 .toggle-sub{font-size:8px;color:var(--muted);display:block;margin-top:2px;}
 .toggle{position:relative;width:36px;height:20px;flex-shrink:0;}
 .toggle input{opacity:0;width:0;height:0;position:absolute;}
-.toggle-track{
-  position:absolute;inset:0;background:#111;border:1px solid var(--border);
-  border-radius:10px;cursor:pointer;transition:all 0.2s;
-}
-.toggle input:checked + .toggle-track{background:#1a2a10;border-color:var(--green);}
-.toggle-track::after{
-  content:'';position:absolute;top:2px;left:2px;
-  width:14px;height:14px;border-radius:50%;
-  background:var(--dim);transition:all 0.2s;
-}
-.toggle input:checked + .toggle-track::after{
-  transform:translateX(16px);background:var(--green);
-  box-shadow:0 0 6px var(--green);
-}
+.toggle-track{position:absolute;inset:0;background:#111;border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all 0.2s;}
+.toggle input:checked+.toggle-track{background:#1a2a10;border-color:var(--green);}
+.toggle-track::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--dim);transition:all 0.2s;}
+.toggle input:checked+.toggle-track::after{transform:translateX(16px);background:var(--green);box-shadow:0 0 6px var(--green);}
 
-/* ── CAMERA ── */
-.cam-wrap{position:relative;width:100%;aspect-ratio:16/10;background:#000;border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:10px;}
+/* Camera */
+.cam-wrap{position:relative;width:100%;aspect-ratio:16/10;background:#000;border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:8px;}
 #video{width:100%;height:100%;object-fit:cover;display:block;}
 .guide{position:absolute;inset:0;pointer-events:none;}
-.guide::before,.guide::after,.guide .c3,.guide .c4{content:'';position:absolute;width:18px;height:18px;border-style:solid;border-color:var(--accent);opacity:0.6;}
+.guide::before,.guide::after,.guide .c3,.guide .c4{content:'';position:absolute;width:18px;height:18px;border-style:solid;border-color:var(--accent);opacity:0.5;}
 .guide::before{top:8px;left:8px;border-width:2px 0 0 2px;}
 .guide::after{top:8px;right:8px;border-width:2px 2px 0 0;}
 .guide .c3{bottom:8px;left:8px;border-width:0 0 2px 2px;}
 .guide .c4{bottom:8px;right:8px;border-width:0 2px 2px 0;}
-.scanline{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;top:0;}
-.scanline.active{opacity:0.7;animation:scanmove 1.5s ease-in-out infinite;}
-@keyframes scanmove{0%{top:0%}100%{top:100%}}
 .cam-badge{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:#000a;border:1px solid var(--dim);border-radius:3px;font-size:8px;letter-spacing:2px;padding:3px 8px;color:var(--dim);white-space:nowrap;}
 .cam-badge.live{color:var(--green);border-color:var(--green);}
+.cam-badge.live-auto{color:var(--accent);border-color:var(--accent);}
 .cam-badge.error{color:var(--red);border-color:var(--red);}
 
-/* Image quality meter bar */
-#qualityBar{
-  position:absolute;top:6px;left:8px;right:8px;
-  height:3px;background:#0005;border-radius:2px;overflow:hidden;
+/* Live stream filter status */
+#filterStatus{
+  position:absolute;top:6px;left:6px;right:6px;
+  display:flex;gap:4px;align-items:center;
 }
+.fs-pill{
+  font-size:7px;letter-spacing:1px;padding:2px 6px;border-radius:2px;
+  background:#000a;border:1px solid var(--dim);color:var(--dim);
+  transition:all 0.15s;white-space:nowrap;
+}
+.fs-pill.pass{border-color:var(--green);color:var(--green);}
+.fs-pill.fail{border-color:var(--red);color:var(--red);}
+.fs-pill.skip{border-color:var(--amber);color:var(--amber);}
+
+/* Change detection flash */
+#changeFlash{
+  position:absolute;inset:0;background:var(--accent);opacity:0;pointer-events:none;
+  border-radius:6px;
+}
+#changeFlash.flash{animation:cflash 0.3s ease-out;}
+@keyframes cflash{0%{opacity:0.3}100%{opacity:0}}
+
+/* Quality bar */
+#qualityBar{position:absolute;bottom:0;left:0;right:0;height:2px;background:transparent;}
 #qualityFill{height:100%;width:0;border-radius:2px;transition:width 0.3s,background 0.3s;}
 
-/* ── VALIDATION ── */
-.validation-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;}
-.vcheck{display:flex;align-items:center;gap:6px;background:#060810;border:1px solid var(--border);border-radius:5px;padding:6px 8px;font-size:8px;letter-spacing:1px;transition:all 0.2s;}
+/* Validation */
+.val-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px;}
+.vcheck{display:flex;align-items:center;gap:5px;background:#060810;border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:8px;letter-spacing:1px;transition:all 0.2s;}
 .vcheck.pass{border-color:#39ff8540;background:#39ff8508;color:var(--green);}
 .vcheck.fail{border-color:#ff335540;background:#ff335508;color:var(--red);}
 .vcheck.warn{border-color:#ffaa0040;background:#ffaa0008;color:var(--amber);}
 .vcheck-icon{font-size:10px;flex-shrink:0;}
-.vcheck-text{flex:1;}
+.vcheck-txt{flex:1;}
 .vcheck-val{font-size:9px;font-weight:800;margin-left:auto;}
-.conf-bar-wrap{background:#060810;border:1px solid var(--border);border-radius:5px;padding:7px 10px;margin-bottom:6px;}
-.conf-label{font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;display:flex;justify-content:space-between;}
+.conf-wrap{background:#060810;border:1px solid var(--border);border-radius:5px;padding:7px 10px;margin-bottom:6px;}
+.conf-lbl{font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;display:flex;justify-content:space-between;}
 .conf-bar{height:4px;background:#0e1117;border-radius:2px;overflow:hidden;}
-.conf-fill{height:100%;border-radius:2px;width:0%;transition:width 0.5s,background 0.3s;}
+.conf-fill{height:100%;border-radius:2px;width:0;transition:width 0.5s,background 0.3s;}
 
-/* ── ANSWER DISPLAY ── */
+/* Answer display */
 .answer-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;text-align:center;position:relative;overflow:hidden;}
 .answer-card::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 100%,#e8ff4708,transparent 70%);pointer-events:none;}
-.answer-pre{font-size:8px;letter-spacing:3px;color:var(--muted);margin-bottom:4px;}
-.answer-big{font-family:'Bebas Neue';font-size:88px;line-height:1;color:var(--accent);text-shadow:0 0 30px #e8ff4755;transition:all 0.25s;min-height:90px;display:flex;align-items:center;justify-content:center;}
-.answer-big.ans-A{color:var(--a);text-shadow:0 0 30px var(--a);}
-.answer-big.ans-B{color:var(--b);text-shadow:0 0 30px var(--b);}
-.answer-big.ans-C{color:var(--c);text-shadow:0 0 30px var(--c);}
-.answer-big.ans-D{color:var(--d);text-shadow:0 0 30px var(--d);}
-.answer-big.ans-E{color:var(--e);text-shadow:0 0 30px var(--e);}
-.answer-big.ans-WARN{color:var(--red);font-size:22px;letter-spacing:1px;font-family:'JetBrains Mono';text-shadow:0 0 15px var(--red);}
-.answer-big.ans-UNCERTAIN{color:var(--amber);text-shadow:0 0 20px var(--amber);}
-.answer-big.ans-BLUR{color:var(--red);font-size:26px;font-family:'JetBrains Mono';text-shadow:0 0 15px var(--red);}
-.answer-sub{font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;min-height:14px;}
-
-/* Held answer indicator */
-#heldBadge{
-  position:absolute;top:8px;right:8px;
-  background:#1a1500;border:1px solid var(--amber);
-  border-radius:3px;padding:2px 7px;font-size:7px;
-  letter-spacing:2px;color:var(--amber);display:none;
-}
-
+.ans-pre{font-size:8px;letter-spacing:3px;color:var(--muted);margin-bottom:4px;}
+.ans-big{font-family:'Bebas Neue';font-size:88px;line-height:1;color:var(--accent);text-shadow:0 0 30px #e8ff4755;transition:all 0.25s;min-height:90px;display:flex;align-items:center;justify-content:center;}
+.ans-big.ans-A{color:var(--a);text-shadow:0 0 30px var(--a);}
+.ans-big.ans-B{color:var(--b);text-shadow:0 0 30px var(--b);}
+.ans-big.ans-C{color:var(--c);text-shadow:0 0 30px var(--c);}
+.ans-big.ans-D{color:var(--d);text-shadow:0 0 30px var(--d);}
+.ans-big.ans-E{color:var(--e);text-shadow:0 0 30px var(--e);}
+.ans-big.ans-WARN,.ans-big.ans-BLUR{color:var(--red);font-size:22px;font-family:'JetBrains Mono';text-shadow:0 0 15px var(--red);}
+.ans-big.ans-UNCERTAIN{color:var(--amber);text-shadow:0 0 20px var(--amber);}
+.ans-sub{font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;min-height:14px;}
+#heldBadge{position:absolute;top:8px;right:8px;background:#1a1500;border:1px solid var(--amber);border-radius:3px;padding:2px 7px;font-size:7px;letter-spacing:2px;color:var(--amber);display:none;}
 .opt-chips{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin-bottom:6px;}
-.chip{width:32px;height:32px;border-radius:5px;border:1px solid var(--dim);color:var(--dim);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:16px;transition:all 0.2s;}
-.chip.active-A{background:#ff446622;border-color:var(--a);color:var(--a);box-shadow:0 0 8px var(--a);}
-.chip.active-B{background:#4488ff22;border-color:var(--b);color:var(--b);box-shadow:0 0 8px var(--b);}
-.chip.active-C{background:#ffcc0022;border-color:var(--c);color:var(--c);box-shadow:0 0 8px var(--c);}
-.chip.active-D{background:#44dd8822;border-color:var(--d);color:var(--d);box-shadow:0 0 8px var(--d);}
-.chip.active-E{background:#cc55ff22;border-color:var(--e);color:var(--e);box-shadow:0 0 8px var(--e);}
+.chip{width:30px;height:30px;border-radius:5px;border:1px solid var(--dim);color:var(--dim);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:16px;transition:all 0.2s;}
+.chip.act-A{background:#ff446622;border-color:var(--a);color:var(--a);box-shadow:0 0 8px var(--a);}
+.chip.act-B{background:#4488ff22;border-color:var(--b);color:var(--b);box-shadow:0 0 8px var(--b);}
+.chip.act-C{background:#ffcc0022;border-color:var(--c);color:var(--c);box-shadow:0 0 8px var(--c);}
+.chip.act-D{background:#44dd8822;border-color:var(--d);color:var(--d);box-shadow:0 0 8px var(--d);}
+.chip.act-E{background:#cc55ff22;border-color:var(--e);color:var(--e);box-shadow:0 0 8px var(--e);}
 
-/* ── LED DOTS ── */
+/* History */
+.hist-strip{display:flex;gap:6px;margin-bottom:10px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;align-items:center;}
+.hist-lbl{font-size:8px;color:var(--muted);letter-spacing:2px;margin-right:4px;white-space:nowrap;}
+.hist-item{width:26px;height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:15px;border:1px solid var(--dim);color:var(--dim);transition:all 0.2s;flex-shrink:0;}
+.hist-item.h-A{border-color:var(--a);color:var(--a);background:#ff446612;}
+.hist-item.h-B{border-color:var(--b);color:var(--b);background:#4488ff12;}
+.hist-item.h-C{border-color:var(--c);color:var(--c);background:#ffcc0012;}
+.hist-item.h-D{border-color:var(--d);color:var(--d);background:#44dd8812;}
+.hist-item.h-E{border-color:var(--e);color:var(--e);background:#cc55ff12;}
+.hist-newest{box-shadow:0 0 8px currentColor;}
+
+/* LEDs */
 .leds-row{display:flex;gap:8px;justify-content:center;margin-bottom:10px;}
 .led-unit{text-align:center;}
 .led{width:22px;height:22px;border-radius:50%;background:#060810;border:1px solid var(--border);margin:0 auto 3px;transition:all 0.2s;}
@@ -226,98 +218,102 @@ select option{background:#0e1117;}
 .led.C{background:var(--c);border-color:var(--c);box-shadow:0 0 12px var(--c),0 0 24px #ffcc0044;}
 .led.D{background:var(--d);border-color:var(--d);box-shadow:0 0 12px var(--d),0 0 24px #44dd8844;}
 .led.E{background:var(--e);border-color:var(--e);box-shadow:0 0 12px var(--e),0 0 24px #cc55ff44;}
-.led.WARN{background:var(--red);border-color:var(--red);box-shadow:0 0 12px var(--red);animation:wblink 0.35s ease-in-out infinite;}
+.led.WARN{background:var(--red);border-color:var(--red);box-shadow:0 0 12px var(--red);animation:wblink 0.35s infinite;}
 @keyframes wblink{0%,100%{opacity:1}50%{opacity:0.2}}
 .led-lbl{font-size:8px;color:var(--dim);letter-spacing:1px;}
 .led-lbl.active{color:var(--text);}
 
-/* ── ANSWER HISTORY ── */
-.history-strip{display:flex;gap:6px;margin-bottom:10px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;align-items:center;}
-.hist-label{font-size:8px;color:var(--muted);letter-spacing:2px;margin-right:4px;white-space:nowrap;}
-.hist-item{
-  width:28px;height:28px;border-radius:4px;
-  display:flex;align-items:center;justify-content:center;
-  font-family:'Bebas Neue';font-size:16px;
-  border:1px solid var(--dim);color:var(--dim);
-  transition:all 0.2s;flex-shrink:0;
-}
-.hist-item.h-A{border-color:var(--a);color:var(--a);background:#ff446612;}
-.hist-item.h-B{border-color:var(--b);color:var(--b);background:#4488ff12;}
-.hist-item.h-C{border-color:var(--c);color:var(--c);background:#ffcc0012;}
-.hist-item.h-D{border-color:var(--d);color:var(--d);background:#44dd8812;}
-.hist-item.h-E{border-color:var(--e);color:var(--e);background:#cc55ff12;}
-.hist-item.h-WARN,.hist-item.h-BLUR,.hist-item.h-UNCERTAIN{border-color:var(--red);color:var(--red);background:#ff335512;font-size:11px;}
-.hist-newest{box-shadow:0 0 8px currentColor;}
-
-/* ── PHYSICAL LED SIM ── */
-.phys-led-unit{text-align:center;}
-.phys-led{width:32px;height:32px;border-radius:50%;background:radial-gradient(circle at 38% 35%,#2a2a2a,#0a0a0a);border:2px solid #222;margin:0 auto 5px;transition:all 0.25s;box-shadow:0 3px 8px #000,inset 0 1px 0 #333;position:relative;}
-.phys-led::after{content:'';position:absolute;top:5px;left:7px;width:10px;height:6px;background:radial-gradient(ellipse,rgba(255,255,255,0.12),transparent);border-radius:50%;}
+/* Phys LED sim */
+.phys-led{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 38% 35%,#2a2a2a,#0a0a0a);border:2px solid #222;margin:0 auto 4px;transition:all 0.25s;box-shadow:0 3px 8px #000;position:relative;}
+.phys-led::after{content:'';position:absolute;top:5px;left:7px;width:9px;height:5px;background:radial-gradient(ellipse,rgba(255,255,255,0.1),transparent);border-radius:50%;}
 .phys-led.led-A{background:radial-gradient(circle at 38% 35%,#3a0a14,#180008);border-color:#3a1020;}
 .phys-led.led-B{background:radial-gradient(circle at 38% 35%,#0a1a3a,#000818);border-color:#101830;}
 .phys-led.led-C{background:radial-gradient(circle at 38% 35%,#3a2e00,#181200);border-color:#302400;}
 .phys-led.led-D{background:radial-gradient(circle at 38% 35%,#0a3020,#001808);border-color:#102820;}
 .phys-led.led-E{background:radial-gradient(circle at 38% 35%,#2a0a3a,#100018);border-color:#201030;}
 .phys-led.led-W{background:radial-gradient(circle at 38% 35%,#3a0a14,#180008);border-color:#3a1020;}
-.phys-led.led-A.lit{background:radial-gradient(circle at 38% 35%,#ff99aa,#ff4466);border-color:#ff4466;box-shadow:0 0 16px #ff4466,0 0 32px #ff446688,inset 0 1px 0 rgba(255,255,255,0.4);}
-.phys-led.led-B.lit{background:radial-gradient(circle at 38% 35%,#99bbff,#4488ff);border-color:#4488ff;box-shadow:0 0 16px #4488ff,0 0 32px #4488ff88,inset 0 1px 0 rgba(255,255,255,0.4);}
-.phys-led.led-C.lit{background:radial-gradient(circle at 38% 35%,#ffee88,#ffcc00);border-color:#ffcc00;box-shadow:0 0 16px #ffcc00,0 0 32px #ffcc0088,inset 0 1px 0 rgba(255,255,255,0.4);}
-.phys-led.led-D.lit{background:radial-gradient(circle at 38% 35%,#88ffbb,#44dd88);border-color:#44dd88;box-shadow:0 0 16px #44dd88,0 0 32px #44dd8888,inset 0 1px 0 rgba(255,255,255,0.4);}
-.phys-led.led-E.lit{background:radial-gradient(circle at 38% 35%,#dd99ff,#cc55ff);border-color:#cc55ff;box-shadow:0 0 16px #cc55ff,0 0 32px #cc55ff88,inset 0 1px 0 rgba(255,255,255,0.4);}
-.phys-led.led-W.lit{background:radial-gradient(circle at 38% 35%,#ff8899,#ff3355);border-color:#ff3355;box-shadow:0 0 16px #ff3355,0 0 32px #ff335588;}
-.phys-led.led-W.blink{animation:physblink-w 0.35s ease-in-out infinite;}
-@keyframes physblink-w{0%,100%{background:radial-gradient(circle at 38% 35%,#ff8899,#ff3355);border-color:#ff3355;box-shadow:0 0 16px #ff3355;}50%{background:radial-gradient(circle at 38% 35%,#3a0a14,#180008);border-color:#3a1020;box-shadow:0 3px 8px #000;}}
-.phys-lbl{font-size:9px;color:#506070;letter-spacing:1px;font-weight:700;}
+.phys-led.led-A.lit{background:radial-gradient(circle at 38% 35%,#ff99aa,#ff4466);border-color:#ff4466;box-shadow:0 0 16px #ff4466,0 0 32px #ff446688;}
+.phys-led.led-B.lit{background:radial-gradient(circle at 38% 35%,#99bbff,#4488ff);border-color:#4488ff;box-shadow:0 0 16px #4488ff,0 0 32px #4488ff88;}
+.phys-led.led-C.lit{background:radial-gradient(circle at 38% 35%,#ffee88,#ffcc00);border-color:#ffcc00;box-shadow:0 0 16px #ffcc00,0 0 32px #ffcc0088;}
+.phys-led.led-D.lit{background:radial-gradient(circle at 38% 35%,#88ffbb,#44dd88);border-color:#44dd88;box-shadow:0 0 16px #44dd88,0 0 32px #44dd8888;}
+.phys-led.led-E.lit{background:radial-gradient(circle at 38% 35%,#dd99ff,#cc55ff);border-color:#cc55ff;box-shadow:0 0 16px #cc55ff,0 0 32px #cc55ff88;}
+.phys-led.led-W.blink{animation:wblink2 0.35s infinite;}
+@keyframes wblink2{0%,100%{background:radial-gradient(circle at 38% 35%,#ff8899,#ff3355);border-color:#ff3355;box-shadow:0 0 16px #ff3355;}50%{background:radial-gradient(circle at 38% 35%,#3a0a14,#180008);border-color:#3a1020;box-shadow:0 3px 8px #000;}}
+.phys-lbl{font-size:9px;color:#506070;letter-spacing:1px;font-weight:700;text-align:center;}
 
-/* ── MISC ── */
+/* Key status */
+.key-slot{display:flex;gap:6px;margin-bottom:6px;align-items:center;}
+.key-num{font-size:8px;color:var(--muted);width:36px;flex-shrink:0;letter-spacing:1px;}
+.key-dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex-shrink:0;transition:all 0.3s;}
+.key-dot.ok{background:var(--green);box-shadow:0 0 5px var(--green);}
+.key-dot.active{background:var(--accent);box-shadow:0 0 5px var(--accent);animation:glow 1s infinite;}
+.key-dot.limited{background:var(--red);box-shadow:0 0 5px var(--red);}
+
+/* Log */
 .log{background:#000;border:1px solid var(--border);border-radius:5px;height:72px;overflow-y:auto;padding:6px 8px;font-size:9px;line-height:1.7;margin-bottom:10px;}
-.log .ok{color:var(--green);}.log .err{color:var(--red);}.log .warn{color:var(--amber);}.log .info{color:var(--blue);}.log .dim{color:var(--dim);}
-.ctrl-row{display:flex;gap:8px;margin-bottom:10px;}
-.ctrl-row .btn{flex:1;}
-.sep{height:1px;background:var(--border);margin:8px 0;}
+.log .ok{color:var(--green)}.log .err{color:var(--red)}.log .warn{color:var(--amber)}.log .info{color:var(--blue)}.log .dim{color:var(--dim)}
+
+/* Live stream stats bar */
+#liveStats{
+  display:flex;gap:6px;padding:7px 10px;background:var(--surface);
+  border:1px solid var(--accent);border-radius:6px;margin-bottom:10px;
+  align-items:center;display:none;
+}
+.lst-item{text-align:center;flex:1;}
+.lst-val{font-family:'Bebas Neue';font-size:18px;color:var(--accent);}
+.lst-lbl{font-size:7px;color:var(--muted);letter-spacing:1px;}
+
 ::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px;}
-
-/* ── AUTOSCAN PROGRESS BAR ── */
-#autoscanBar{
-  position:fixed;top:0;left:0;right:0;height:2px;
-  background:transparent;z-index:200;
-}
-#autoscanFill{height:100%;width:0;background:var(--accent);transition:width linear;}
 </style>
 </head>
 <body>
 
 <!-- LOCK SCREEN -->
 <div id="lockScreen" class="hidden">
+  <div id="sosTapZone" ontouchstart="sosTap()" onclick="sosTap()"></div>
+  <div id="lockStatus">LIVE</div>
   <div id="lockScanDot"></div>
   <div id="lockAnswer"></div>
   <div id="lockHistory">
-    <div class="lock-hist-item" id="lh4"></div>
-    <div class="lock-hist-item" id="lh3"></div>
-    <div class="lock-hist-item" id="lh2"></div>
-    <div class="lock-hist-item" id="lh1"></div>
+    <div class="lock-hist" id="lh3"></div>
+    <div class="lock-hist" id="lh2"></div>
+    <div class="lock-hist" id="lh1"></div>
+    <div class="lock-hist" id="lh0"></div>
   </div>
-  <div id="lockCountdown">
-    <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="14"/><circle class="ring" id="cdRing" cx="16" cy="16" r="14"/></svg>
+  <div id="lockFilterBar">
+    <div class="lfb-dot" id="lfb-motion"></div>
+    <div class="lfb-dot" id="lfb-blur"></div>
+    <div class="lfb-dot" id="lfb-bright"></div>
+    <div class="lfb-dot" id="lfb-change"></div>
   </div>
 </div>
 
-<!-- AUTOSCAN BAR -->
-<div id="autoscanBar"><div id="autoscanFill"></div></div>
+<!-- SOS OVERLAY -->
+<div id="sosOverlay">
+  <div class="sos-title">SOS</div>
+  <div class="sos-msg" id="sosMsg">PANIC MODE ACTIVE<br>ALL SYSTEMS RESTARTING</div>
+  <button class="sos-btn" style="background:var(--green);color:#000" onclick="sosRecover()">▶ RESTART APP</button>
+  <button class="sos-btn" style="background:var(--accent);color:#000" onclick="sosContinue()">✓ KEEP LAST ANSWER</button>
+  <button class="sos-btn" style="background:#111;color:var(--red);border:1px solid var(--red)" onclick="sosClose()">✕ CLOSE</button>
+  <div style="font-size:8px;color:var(--dim);letter-spacing:1px;margin-top:10px">Triple-tap top-right corner to trigger SOS</div>
+</div>
+
+<!-- SCAN BAR -->
+<div id="scanBar"><div id="scanFill"></div></div>
 
 <!-- PROCESSING OVERLAY -->
 <div id="overlay">
-  <div class="scan-ring"></div>
-  <div class="scan-step" id="scanStep">CAPTURING</div>
+  <div class="spin-ring"></div>
+  <div class="scan-step" id="scanStep">ANALYSING</div>
 </div>
 
 <div class="wrap">
 
   <div class="topbar">
     <div>
-      <div class="topbar-title">ANSWERBOT <span style="color:var(--accent2)">v3</span></div>
-      <div class="topbar-sub">ANY MULTIPLE CHOICE · BULLETPROOF EDITION</div>
+      <div class="topbar-title">ANSWERBOT <span style="color:var(--accent2)">v4</span></div>
+      <div class="topbar-sub">LIVE STREAM · AUTO-SNAP · BULLETPROOF</div>
     </div>
     <div class="pill">
       <div class="pill-dot" id="statusDot"></div>
@@ -327,220 +323,209 @@ select option{background:#0e1117;}
 
   <!-- API KEYS -->
   <div class="card">
-    <div class="card-title">Gemini API Keys <span style="color:var(--accent);font-size:9px;margin-left:6px">AUTO-ROTATION</span></div>
-    <div style="font-size:8px;color:var(--muted);margin-bottom:10px;line-height:1.7">
-      Add up to 5 keys from different Google accounts · <b style="color:var(--blue)">aistudio.google.com</b><br>
-      Rate limited? Instantly switches to the next key. <b style="color:var(--accent)">gemini-2.5-flash</b>
+    <div class="card-title">API Keys <span style="color:var(--accent);font-size:9px;margin-left:4px">5-KEY ROTATION</span></div>
+    <div style="font-size:8px;color:var(--muted);margin-bottom:10px;line-height:1.8">
+      Add keys from different Google accounts · <b style="color:var(--blue)">aistudio.google.com</b><br>
+      Rate limited? Switches instantly. Using <b style="color:var(--accent)">gemini-2.5-flash</b>
     </div>
     <div id="keySlots"></div>
-    <div style="display:flex;gap:6px;margin-top:8px">
-      <button class="btn btn-accent" style="flex:1" onclick="saveKeys()">SAVE ALL KEYS</button>
-      <button class="btn btn-blue" onclick="testAllKeys()" style="font-size:8px;padding:8px 10px">TEST ALL</button>
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      <button class="btn btn-accent" style="flex:1" onclick="saveKeys()">SAVE ALL</button>
+      <button class="btn btn-blue" style="font-size:8px" onclick="testAllKeys()">TEST ALL</button>
     </div>
-    <div style="display:flex;gap:5px;margin-top:10px;align-items:center">
-      <div style="font-size:8px;color:var(--muted);margin-right:4px;white-space:nowrap">KEY STATUS</div>
-      <div id="keyStatusBar" style="display:flex;gap:4px;flex:1;flex-wrap:wrap"></div>
-      <div style="font-size:8px;color:var(--muted);white-space:nowrap">Active: <span id="activeKeyNum" style="color:var(--accent)">—</span></div>
+    <div style="display:flex;gap:5px;margin-top:8px;align-items:center;">
+      <div style="font-size:8px;color:var(--muted);">Status:</div>
+      <div id="keyStatusBar" style="display:flex;gap:4px;flex:1;"></div>
+      <div style="font-size:8px;color:var(--muted);">Active: <span id="activeKeyNum" style="color:var(--accent)">—</span></div>
     </div>
   </div>
 
-  <!-- FEATURE TOGGLES -->
-  <div class="card">
-    <div class="card-title">Feature Toggles</div>
+  <!-- CAMERA SETUP -->
+  <div class="card" id="camPermCard">
+    <div class="card-title">Camera Setup</div>
+    <div id="httpsWarn" style="display:none;background:#1a0808;border:1px solid #ff335540;border-radius:6px;padding:10px;margin-bottom:10px;">
+      <div style="font-size:10px;color:var(--red);font-weight:700;margin-bottom:4px;">⚠ NEEDS HTTPS</div>
+      <div style="font-size:9px;color:#c05050;line-height:1.7;">Host on <b style="color:var(--blue)">GitHub Pages</b> for camera access · Free HTTPS in 2 mins</div>
+    </div>
+    <button class="btn btn-accent btn-wide" style="margin-bottom:8px" onclick="requestCam()">📷 ENABLE CAMERA</button>
+    <div id="permGranted" style="display:none;margin-bottom:8px;">
+      <div style="font-size:9px;color:var(--green);margin-bottom:8px;">✓ Camera permission granted</div>
+      <button class="btn btn-blue btn-wide" onclick="startCamera()">▶ START LIVE STREAM</button>
+    </div>
+    <div id="permDenied" style="display:none;background:#1a0808;border:1px solid #ff335540;border-radius:6px;padding:10px;margin-bottom:8px;">
+      <div style="font-size:9px;color:var(--red);">Camera blocked — tap 🔒 in address bar → Allow → Refresh</div>
+      <button class="btn btn-accent" style="margin-top:8px;width:100%" onclick="requestCam()">Try Again</button>
+    </div>
+    <label>
+      <input type="file" id="photoUpload" accept="image/*" capture="environment" onchange="handleUpload(event)" style="display:none">
+      <div class="btn btn-green btn-wide" style="text-align:center;cursor:pointer;">📁 TAKE / UPLOAD PHOTO</div>
+    </label>
+  </div>
+
+  <!-- LIVE CAMERA -->
+  <div class="cam-wrap" id="camWrap" style="display:none;">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <div class="guide"><div class="c3"></div><div class="c4"></div></div>
+    <div id="filterStatus">
+      <div class="fs-pill" id="fs-motion">MOTION</div>
+      <div class="fs-pill" id="fs-blur">BLUR</div>
+      <div class="fs-pill" id="fs-bright">BRIGHT</div>
+      <div class="fs-pill" id="fs-change">CHANGE</div>
+      <div class="fs-pill" id="fs-cooldown" style="margin-left:auto;">READY</div>
+    </div>
+    <div id="changeFlash"></div>
+    <div id="qualityBar"><div id="qualityFill"></div></div>
+    <div class="cam-badge" id="camBadge">STARTING…</div>
+  </div>
+
+  <!-- LIVE STATS (shown when live stream active) -->
+  <div id="liveStats">
+    <div class="lst-item"><div class="lst-val" id="stat-frames">0</div><div class="lst-lbl">FRAMES</div></div>
+    <div class="lst-item"><div class="lst-val" id="stat-passed">0</div><div class="lst-lbl">PASSED</div></div>
+    <div class="lst-item"><div class="lst-val" id="stat-sent">0</div><div class="lst-lbl">API CALLS</div></div>
+    <div class="lst-item"><div class="lst-val" id="stat-answers">0</div><div class="lst-lbl">ANSWERS</div></div>
+    <div class="lst-item"><div class="lst-val" id="stat-ratio">—</div><div class="lst-lbl">EFFICIENCY</div></div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div style="display:flex;gap:8px;margin-bottom:10px;">
+    <button class="btn btn-accent btn-wide" id="liveBtn" onclick="toggleLiveStream()">◉ START LIVE</button>
+    <button class="btn btn-red" onclick="triggerManualScan()" style="white-space:nowrap;padding:13px 12px;font-family:'Bebas Neue';font-size:16px;">SNAP</button>
+    <button class="btn btn-amber" onclick="toggleLock()" style="white-space:nowrap;padding:13px 12px;font-family:'Bebas Neue';font-size:16px;">LOCK</button>
+  </div>
+
+  <!-- LIVE STREAM SETTINGS -->
+  <div class="card" id="liveSettingsCard">
+    <div class="card-title">Live Stream Settings</div>
 
     <div class="toggle-row">
-      <div class="toggle-label">Blur Detection
-        <span class="toggle-sub">Checks sharpness before API call — saves quota</span>
+      <div class="toggle-label">Auto-Snap (Live Stream)
+        <span class="toggle-sub">Automatically captures when question detected</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-autosnap" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-label">Motion Filter
+        <span class="toggle-sub">Skip blurry frames from camera movement</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-motion" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-label">Blur Filter
+        <span class="toggle-sub">Only send sharp frames to Gemini</span>
       </div>
       <label class="toggle"><input type="checkbox" id="tog-blur" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
 
     <div class="toggle-row">
-      <div class="toggle-label">Partial Question Detection
-        <span class="toggle-sub">AI verifies question is grammatically complete</span>
+      <div class="toggle-label">Change Detection
+        <span class="toggle-sub">Skip if question hasn't changed since last scan</span>
       </div>
-      <label class="toggle"><input type="checkbox" id="tog-partial" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
-    </div>
-
-    <div class="toggle-row">
-      <div class="toggle-label">Option Text Completeness
-        <span class="toggle-sub">All 5 options must have readable text</span>
-      </div>
-      <label class="toggle"><input type="checkbox" id="tog-options" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
+      <label class="toggle"><input type="checkbox" id="tog-change" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
 
     <div class="toggle-row">
       <div class="toggle-label">Wrong Answer Protection
-        <span class="toggle-sub">Shows ? instead of guessing when AI disagrees</span>
+        <span class="toggle-sub">? if AI disagrees with itself</span>
       </div>
       <label class="toggle"><input type="checkbox" id="tog-protect" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
 
     <div class="toggle-row">
-      <div class="toggle-label">Minimum Confidence Gate (65%)
-        <span class="toggle-sub">Auto-retry if score below threshold</span>
-      </div>
-      <label class="toggle"><input type="checkbox" id="tog-confgate" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
-    </div>
-
-    <div class="toggle-row">
-      <div class="toggle-label">⚡ Speed Mode (1 AI pass ~1.5s)
-        <span class="toggle-sub">Skip Pass 2 verification — faster, slightly less safe</span>
+      <div class="toggle-label">⚡ Speed Mode (1 AI pass)
+        <span class="toggle-sub">~1.5s vs ~4s — skip verification</span>
       </div>
       <label class="toggle"><input type="checkbox" id="tog-speed" onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
 
     <div class="toggle-row">
       <div class="toggle-label">Answer Hold
-        <span class="toggle-sub">Last good answer stays until replaced — never goes blank</span>
+        <span class="toggle-sub">Never go blank — keep last good answer</span>
       </div>
       <label class="toggle"><input type="checkbox" id="tog-hold" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
 
     <div class="toggle-row">
-      <div class="toggle-label">Answer History (last 5)
-        <span class="toggle-sub">Shows recent answers as small chips</span>
-      </div>
-      <label class="toggle"><input type="checkbox" id="tog-history" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
-    </div>
-
-    <div class="toggle-row">
       <div class="toggle-label">Haptic Buzz (A=1 B=2 C=3 D=4 E=5)
-        <span class="toggle-sub">Feel the answer without looking</span>
+        <span class="toggle-sub">Feel the answer in your hand</span>
       </div>
       <label class="toggle"><input type="checkbox" id="tog-haptic" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
 
-    <div class="toggle-row" style="border-bottom:none">
-      <div class="toggle-label">Auto-Scan Loop
-        <span class="toggle-sub">Scans every N seconds automatically</span>
+    <div class="toggle-row" style="border-bottom:none;">
+      <div class="toggle-label">Answer History
+        <span class="toggle-sub">Show last 5 answers</span>
       </div>
-      <label class="toggle"><input type="checkbox" id="tog-autoscan" onchange="toggleAutoscan()"><div class="toggle-track"></div></label>
+      <label class="toggle"><input type="checkbox" id="tog-history" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
-    <div id="autoscanIntervalRow" style="display:none;margin-top:8px;display:none">
-      <div style="display:flex;align-items:center;gap:8px;font-size:9px;color:var(--muted)">
-        Interval: <input type="number" id="autoscanSecs" value="5" min="2" max="30" style="width:52px;flex:none" onchange="saveToggles()"> seconds
-      </div>
-    </div>
-  </div>
 
-  <!-- CAMERA PERMISSION -->
-  <div class="card" id="camPermCard">
-    <div class="card-title">Camera Setup</div>
-    <div id="httpsWarn" style="display:none;background:#1a0808;border:1px solid #ff335540;border-radius:6px;padding:10px;margin-bottom:10px">
-      <div style="font-size:10px;color:#ff3355;font-weight:700;margin-bottom:6px">⚠ CAMERA NEEDS HTTPS</div>
-      <div style="font-size:9px;color:#c05050;line-height:1.7">
-        Chrome blocks camera on plain files.<br>
-        <b style="color:#ff8888">Fix:</b> Host on <b style="color:#4db8ff">GitHub Pages</b> (free HTTPS) or use the Upload button below.
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+      <div style="font-size:8px;color:var(--muted);margin-bottom:8px;">Frame capture interval</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:8px;color:var(--dim);">Fast</span>
+        <input type="range" id="captureInterval" min="300" max="2000" step="100" value="600"
+          style="flex:1;accent-color:var(--accent);" oninput="updateIntervalLabel()">
+        <span style="font-size:8px;color:var(--dim);">Slow</span>
+        <span style="font-size:9px;color:var(--accent);min-width:36px;" id="intervalLbl">600ms</span>
+      </div>
+      <div style="font-size:8px;color:var(--muted);margin-top:10px;margin-bottom:8px;">API cooldown between calls</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:8px;color:var(--dim);">Fast</span>
+        <input type="range" id="cooldownSecs" min="2" max="15" step="1" value="4"
+          style="flex:1;accent-color:var(--accent);" oninput="updateCooldownLabel()">
+        <span style="font-size:8px;color:var(--dim);">Safe</span>
+        <span style="font-size:9px;color:var(--accent);min-width:36px;" id="cooldownLbl">4s</span>
+      </div>
+      <div style="font-size:8px;color:var(--muted);margin-top:10px;margin-bottom:8px;">Change sensitivity</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:8px;color:var(--dim);">Low</span>
+        <input type="range" id="changeSens" min="5" max="40" step="5" value="15"
+          style="flex:1;accent-color:var(--accent);" oninput="updateSensLabel()">
+        <span style="font-size:8px;color:var(--dim);">High</span>
+        <span style="font-size:9px;color:var(--accent);min-width:36px;" id="sensLbl">15%</span>
+      </div>
+      <div style="font-size:8px;color:var(--muted);margin-top:10px;margin-bottom:6px;">Auto-retry on fail</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="btn" style="padding:2px 8px;" onclick="changeRetry(-1)">−</button>
+        <div style="font-size:10px;color:var(--accent);min-width:16px;text-align:center;" id="retryMax">2</div>
+        <button class="btn" style="padding:2px 8px;" onclick="changeRetry(1)">+</button>
+        <div style="font-size:8px;color:var(--muted);">retries before giving up</div>
       </div>
     </div>
-    <div id="permUnknown">
-      <div style="font-size:9px;color:var(--muted);margin-bottom:10px;line-height:1.7">Tap below — Chrome will ask for camera access. Tap <b style="color:var(--accent)">Allow</b>.</div>
-      <button class="btn btn-accent btn-wide" style="margin-bottom:8px" onclick="requestCameraPermission()">📷  ENABLE CAMERA</button>
-    </div>
-    <div id="permGranted" style="display:none">
-      <div style="font-size:9px;color:var(--green);margin-bottom:8px;letter-spacing:1px">✓ Permission granted</div>
-      <button class="btn btn-blue btn-wide" onclick="startCamera()">▶  START LIVE CAMERA</button>
-    </div>
-    <div id="permDenied" style="display:none;background:#1a0808;border:1px solid #ff335540;border-radius:6px;padding:10px">
-      <div style="font-size:10px;color:#ff3355;font-weight:700;margin-bottom:6px">Camera blocked</div>
-      <div style="font-size:9px;color:#c05050;line-height:1.7">Tap 🔒 in address bar → Site settings → Camera → Allow → Refresh.</div>
-      <button class="btn btn-accent" style="margin-top:8px;width:100%" onclick="requestCameraPermission()">Try Again</button>
-    </div>
-    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-      <div style="font-size:8px;color:var(--muted);margin-bottom:7px;letter-spacing:1px">OR — UPLOAD / TAKE PHOTO (works without HTTPS)</div>
-      <label>
-        <input type="file" id="photoUpload" accept="image/*" capture="environment" onchange="handlePhotoUpload(event)" style="display:none">
-        <div class="btn btn-green btn-wide" style="text-align:center;cursor:pointer">📁  TAKE / UPLOAD PHOTO</div>
-      </label>
-    </div>
-  </div>
-
-  <!-- LIVE CAM VIEW -->
-  <div class="cam-wrap" id="camWrap" style="display:none">
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="canvas" style="display:none"></canvas>
-    <div class="guide"><div class="c3"></div><div class="c4"></div></div>
-    <div class="scanline" id="scanline"></div>
-    <div id="qualityBar"><div id="qualityFill"></div></div>
-    <div class="cam-badge" id="camBadge">STARTING…</div>
-    <div onclick="triggerScan()" style="position:absolute;inset:0;cursor:pointer;display:flex;align-items:flex-end;justify-content:center;padding-bottom:40px">
-      <div style="background:#000a;border:1px solid var(--accent);border-radius:20px;padding:6px 18px;font-size:9px;color:var(--accent);letter-spacing:2px">TAP TO SCAN</div>
-    </div>
-  </div>
-
-  <!-- CAMERA CONTROLS (shown after camera starts) -->
-  <div id="camControls" style="display:none;margin-bottom:10px">
-    <div class="card" style="padding:10px">
-      <div class="card-title" style="margin-bottom:8px">Camera Controls</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
-        <button class="btn btn-blue" onclick="applyFocusFar()" style="font-size:8px;padding:7px">🔭 Focus Far</button>
-        <button class="btn btn-blue" onclick="applyFocusNear()" style="font-size:8px;padding:7px">🔬 Focus Near</button>
-        <button class="btn btn-green" onclick="applyFocusAuto()" style="font-size:8px;padding:7px">🔄 Auto Focus</button>
-        <button class="btn btn-red" onclick="forceTorchOff()" style="font-size:8px;padding:7px">🔦 Force Torch Off</button>
-      </div>
-      <div style="font-size:8px;color:var(--muted);margin-bottom:5px">Exposure Compensation</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span style="font-size:8px;color:var(--dim)">Dark</span>
-        <input type="range" id="expSlider" min="-2" max="2" step="0.5" value="-1"
-          style="flex:1;accent-color:var(--accent)" oninput="applyExposure(this.value)">
-        <span style="font-size:8px;color:var(--dim)">Bright</span>
-        <span style="font-size:9px;color:var(--accent);min-width:24px" id="expVal">-1</span>
-      </div>
-      <div style="font-size:8px;color:var(--muted);margin-bottom:5px">Post-Processing</div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:8px;color:var(--dim)">Off</span>
-        <input type="range" id="contrastSlider" min="1" max="2" step="0.05" value="1.25"
-          style="flex:1;accent-color:var(--accent)" oninput="updateContrast(this.value)">
-        <span style="font-size:8px;color:var(--dim)">Max</span>
-        <span style="font-size:9px;color:var(--accent);min-width:32px" id="contrastVal">×1.25</span>
-      </div>
-      <div style="font-size:7px;color:var(--dim);margin-top:6px" id="camCapabilities">Detecting capabilities…</div>
-    </div>
-  </div>
-  <canvas id="canvas" style="display:none"></canvas>
-
-  <!-- CONTROLS -->
-  <div class="ctrl-row">
-    <button class="btn btn-accent btn-wide" onclick="triggerScan()">◉  SCAN</button>
-    <button class="btn btn-red" onclick="toggleLock()">⬛ LOCK</button>
   </div>
 
   <!-- VALIDATION -->
   <div class="card">
-    <div class="card-title">Quality &amp; Validation Checks</div>
-    <div class="validation-grid">
-      <div class="vcheck" id="vc-blur"><span class="vcheck-icon">🔎</span><span class="vcheck-text">Image sharp</span><span class="vcheck-val" id="vc-blur-val">—</span></div>
-      <div class="vcheck" id="vc-count"><span class="vcheck-icon">🔢</span><span class="vcheck-text">Option count</span><span class="vcheck-val" id="vc-count-val">—</span></div>
-      <div class="vcheck" id="vc-question"><span class="vcheck-icon">❓</span><span class="vcheck-text">Full question</span><span class="vcheck-val" id="vc-question-val">—</span></div>
-      <div class="vcheck" id="vc-text"><span class="vcheck-icon">📝</span><span class="vcheck-text">Options readable</span><span class="vcheck-val" id="vc-text-val">—</span></div>
-      <div class="vcheck" id="vc-conf"><span class="vcheck-icon">🎯</span><span class="vcheck-text">Confidence</span><span class="vcheck-val" id="vc-conf-val">—</span></div>
-      <div class="vcheck" id="vc-agree"><span class="vcheck-icon">🔁</span><span class="vcheck-text">Dual-check</span><span class="vcheck-val" id="vc-agree-val">—</span></div>
+    <div class="card-title">Scan Validation</div>
+    <div class="val-grid">
+      <div class="vcheck" id="vc-motion"><span class="vcheck-icon">📷</span><span class="vcheck-txt">Still</span><span class="vcheck-val" id="vc-motion-val">—</span></div>
+      <div class="vcheck" id="vc-blur"><span class="vcheck-icon">🔎</span><span class="vcheck-txt">Sharp</span><span class="vcheck-val" id="vc-blur-val">—</span></div>
+      <div class="vcheck" id="vc-change"><span class="vcheck-icon">🔄</span><span class="vcheck-txt">New Q</span><span class="vcheck-val" id="vc-change-val">—</span></div>
+      <div class="vcheck" id="vc-count"><span class="vcheck-icon">🔢</span><span class="vcheck-txt">5 options</span><span class="vcheck-val" id="vc-count-val">—</span></div>
+      <div class="vcheck" id="vc-conf"><span class="vcheck-icon">🎯</span><span class="vcheck-txt">Confidence</span><span class="vcheck-val" id="vc-conf-val">—</span></div>
+      <div class="vcheck" id="vc-agree"><span class="vcheck-icon">✓✓</span><span class="vcheck-txt">Dual check</span><span class="vcheck-val" id="vc-agree-val">—</span></div>
     </div>
-    <div class="conf-bar-wrap">
-      <div class="conf-label"><span>OVERALL CONFIDENCE</span><span id="confPct">—</span></div>
+    <div class="conf-wrap">
+      <div class="conf-lbl"><span>CONFIDENCE</span><span id="confPct">—</span></div>
       <div class="conf-bar"><div class="conf-fill" id="confFill"></div></div>
     </div>
-    <div style="display:flex;gap:6px;align-items:center">
-      <div style="font-size:8px;color:var(--muted)">Auto-retry max:</div>
-      <button class="btn" style="padding:2px 7px;font-size:9px" onclick="changeRetry(-1)">−</button>
-      <div style="font-size:10px;color:var(--accent);min-width:16px;text-align:center" id="retryMax">3</div>
-      <button class="btn" style="padding:2px 7px;font-size:9px" onclick="changeRetry(1)">+</button>
-    </div>
   </div>
 
-  <!-- ANSWER DISPLAY -->
+  <!-- ANSWER -->
   <div class="answer-card">
     <div id="heldBadge">HELD</div>
-    <div class="answer-pre">◈ CORRECT ANSWER</div>
+    <div class="ans-pre">◈ CORRECT ANSWER</div>
     <div class="opt-chips" id="optChips"></div>
-    <div class="answer-big" id="answerBig">—</div>
-    <div class="answer-sub" id="answerSub"></div>
+    <div class="ans-big" id="ansBig">—</div>
+    <div class="ans-sub" id="ansSub"></div>
   </div>
 
-  <!-- ANSWER HISTORY -->
-  <div class="history-strip" id="historyStrip" style="display:none">
-    <div class="hist-label">HISTORY</div>
+  <!-- HISTORY -->
+  <div class="hist-strip" id="histStrip" style="display:none;">
+    <div class="hist-lbl">HISTORY</div>
     <div class="hist-item" id="hi4">—</div>
     <div class="hist-item" id="hi3">—</div>
     <div class="hist-item" id="hi2">—</div>
@@ -549,261 +534,278 @@ select option{background:#0e1117;}
   </div>
 
   <!-- LED INDICATORS -->
-  <div style="font-size:8px;letter-spacing:3px;color:var(--muted);text-align:center;margin-bottom:6px">◈ OUTPUT LEDs</div>
+  <div style="font-size:8px;letter-spacing:3px;color:var(--muted);text-align:center;margin-bottom:6px;">◈ LED OUTPUTS</div>
   <div class="leds-row">
     <div class="led-unit"><div class="led" id="la"></div><div class="led-lbl" id="lla">A</div></div>
     <div class="led-unit"><div class="led" id="lb"></div><div class="led-lbl" id="llb">B</div></div>
     <div class="led-unit"><div class="led" id="lc"></div><div class="led-lbl" id="llc">C</div></div>
     <div class="led-unit"><div class="led" id="ld"></div><div class="led-lbl" id="lld">D</div></div>
     <div class="led-unit"><div class="led" id="le"></div><div class="led-lbl" id="lle">E</div></div>
-    <div class="led-unit"><div class="led" id="lwarn"></div><div class="led-lbl" style="color:var(--red)">⚠</div></div>
+    <div class="led-unit"><div class="led" id="lwarn"></div><div class="led-lbl" style="color:var(--red);">⚠</div></div>
   </div>
 
   <!-- DEMO PANEL -->
   <div class="card" style="border-color:#e8ff4740;background:#0d1208;">
-    <div class="card-title" style="color:var(--accent)">🧪 Test Mode</div>
-    <div style="font-size:8px;color:var(--muted);margin-bottom:10px">Simulate results without camera. Also tests lock screen + dark mode.</div>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px">
-      <button class="btn" style="border-color:var(--a);color:var(--a);padding:14px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('A')">A</button>
-      <button class="btn" style="border-color:var(--b);color:var(--b);padding:14px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('B')">B</button>
-      <button class="btn" style="border-color:var(--c);color:var(--c);padding:14px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('C')">C</button>
-      <button class="btn" style="border-color:var(--d);color:var(--d);padding:14px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('D')">D</button>
-      <button class="btn" style="border-color:var(--e);color:var(--e);padding:14px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('E')">E</button>
+    <div class="card-title" style="color:var(--accent);">🧪 Test / Demo</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px;">
+      <button class="btn" style="border-color:var(--a);color:var(--a);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px;" onclick="demoAnswer('A')">A</button>
+      <button class="btn" style="border-color:var(--b);color:var(--b);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px;" onclick="demoAnswer('B')">B</button>
+      <button class="btn" style="border-color:var(--c);color:var(--c);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px;" onclick="demoAnswer('C')">C</button>
+      <button class="btn" style="border-color:var(--d);color:var(--d);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px;" onclick="demoAnswer('D')">D</button>
+      <button class="btn" style="border-color:var(--e);color:var(--e);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px;" onclick="demoAnswer('E')">E</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
-      <button class="btn btn-red" style="padding:9px;font-size:8px" onclick="demoWarn()">⚠ REPOSITION</button>
-      <button class="btn btn-red" style="padding:9px;font-size:8px" onclick="demoBlur()">🔴 BLUR</button>
-      <button class="btn" style="border-color:var(--muted);padding:9px;font-size:8px" onclick="demoRandom()">🎲 RANDOM</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+      <button class="btn btn-red" onclick="demoWarn()">⚠ REPOSITION</button>
+      <button class="btn" style="border-color:var(--muted);" onclick="demoRandom()">🎲 RANDOM</button>
     </div>
   </div>
 
-  <!-- PHYSICAL LED SIM -->
+  <!-- PHYS LED SIM -->
   <div class="card">
     <div class="card-title">Physical LED Simulator</div>
-    <div id="ledHousing" style="background:#050708;border:2px solid #1a2030;border-radius:14px;padding:20px 16px 16px;margin-bottom:10px;position:relative;">
-      <div style="position:absolute;top:7px;left:50%;transform:translateX(-50%);font-size:7px;letter-spacing:3px;color:#1a2030;white-space:nowrap">ANSWERBOT DEVICE</div>
-      <div style="display:flex;justify-content:space-around;align-items:flex-end;margin-top:8px;margin-bottom:16px">
-        <div class="phys-led-unit"><div class="phys-led led-A" id="pled-a"></div><div class="phys-lbl" style="color:#ff4466">A</div></div>
-        <div class="phys-led-unit"><div class="phys-led led-B" id="pled-b"></div><div class="phys-lbl" style="color:#4488ff">B</div></div>
-        <div class="phys-led-unit"><div class="phys-led led-C" id="pled-c"></div><div class="phys-lbl" style="color:#ffcc00">C</div></div>
-        <div class="phys-led-unit"><div class="phys-led led-D" id="pled-d"></div><div class="phys-lbl" style="color:#44dd88">D</div></div>
-        <div class="phys-led-unit"><div class="phys-led led-E" id="pled-e"></div><div class="phys-lbl" style="color:#cc55ff">E</div></div>
+    <div style="background:#050708;border:2px solid #1a2030;border-radius:14px;padding:18px 14px 14px;position:relative;margin-bottom:8px;">
+      <div style="position:absolute;top:6px;left:50%;transform:translateX(-50%);font-size:7px;letter-spacing:3px;color:#1a2030;white-space:nowrap;">ANSWERBOT DEVICE</div>
+      <div style="display:flex;justify-content:space-around;align-items:flex-end;margin-top:6px;margin-bottom:14px;">
+        <div><div class="phys-led led-A" id="pled-a"></div><div class="phys-lbl" style="color:#ff4466;">A</div></div>
+        <div><div class="phys-led led-B" id="pled-b"></div><div class="phys-lbl" style="color:#4488ff;">B</div></div>
+        <div><div class="phys-led led-C" id="pled-c"></div><div class="phys-lbl" style="color:#ffcc00;">C</div></div>
+        <div><div class="phys-led led-D" id="pled-d"></div><div class="phys-lbl" style="color:#44dd88;">D</div></div>
+        <div><div class="phys-led led-E" id="pled-e"></div><div class="phys-lbl" style="color:#cc55ff;">E</div></div>
       </div>
-      <div style="height:1px;background:#111;margin:0 8px 16px"></div>
-      <div style="display:flex;justify-content:space-around;align-items:center">
-        <div class="phys-led-unit"><div class="phys-led led-W" id="pled-warn" style="width:22px;height:22px"></div><div class="phys-lbl" style="color:#ff3355">WARN</div></div>
-        <div style="text-align:center">
-          <div onclick="triggerScan()" style="width:52px;height:52px;border-radius:50%;background:linear-gradient(145deg,#0f1a0f,#060e06);border:3px solid #1a2a1a;display:flex;align-items:center;justify-content:center;cursor:pointer;margin:0 auto 5px;box-shadow:0 5px 15px #000,inset 0 1px 0 #2a3a2a;font-size:20px;color:#39ff85;text-shadow:0 0 8px #39ff85;transition:all 0.1s"
-            onmousedown="this.style.transform='scale(0.93)'" onmouseup="this.style.transform=''"
-            ontouchstart="this.style.transform='scale(0.93)'" ontouchend="this.style.transform=''">◉</div>
-          <div class="phys-lbl" style="color:#39ff85">SCAN</div>
-        </div>
-        <div class="phys-led-unit">
-          <div style="width:32px;height:32px;border-radius:5px;background:#060810;border:1px solid #1a2530;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#506070;margin:0 auto 5px;transition:all 0.2s" id="confDot">—</div>
+      <div style="height:1px;background:#111;margin:0 6px 14px;"></div>
+      <div style="display:flex;justify-content:space-around;align-items:center;">
+        <div><div class="phys-led led-W" id="pled-warn" style="width:22px;height:22px;"></div><div class="phys-lbl" style="color:#ff3355;">WARN</div></div>
+        <div onclick="triggerManualScan()" style="width:50px;height:50px;border-radius:50%;background:linear-gradient(145deg,#0f1a0f,#060e06);border:3px solid #1a2a1a;display:flex;align-items:center;justify-content:center;cursor:pointer;margin:0 auto 4px;box-shadow:0 5px 15px #000;font-size:20px;color:var(--green);text-shadow:0 0 8px var(--green);transition:all 0.1s;"
+          onmousedown="this.style.transform='scale(0.93)'" onmouseup="this.style.transform=''"
+          ontouchstart="this.style.transform='scale(0.93)'" ontouchend="this.style.transform=''">◉</div>
+        <div style="text-align:center;">
+          <div style="width:30px;height:30px;border-radius:5px;background:#060810;border:1px solid #1a2530;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#506070;margin:0 auto 4px;transition:all 0.2s;" id="confDot">—</div>
           <div class="phys-lbl">CONF</div>
         </div>
       </div>
     </div>
-    <div style="font-size:8px;color:var(--dim);line-height:1.7"><b style="color:var(--muted)">Wiring:</b> A=pin13 B=pin12 C=pin14 D=pin27 E=pin26 WARN=pin25 · 220Ω→GND</div>
+    <div style="font-size:8px;color:var(--dim);line-height:1.7;"><b style="color:var(--muted);">Pins:</b> A=13 B=12 C=14 D=27 E=26 WARN=25 · 220Ω→GND</div>
   </div>
 
   <!-- BT -->
   <div class="card">
     <div class="card-title">Wireless Trigger</div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <div style="flex:1;font-size:9px;color:var(--muted)" id="btLbl">Not paired · Space/Enter/Volume keys also trigger scan</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div style="flex:1;font-size:9px;color:var(--muted);" id="btLbl">Space / Enter / Volume keys trigger manual snap</div>
       <button class="btn btn-blue" onclick="pairBT()">PAIR BT</button>
     </div>
   </div>
 
   <!-- LOG -->
-  <div style="font-size:8px;letter-spacing:3px;color:var(--muted);margin-bottom:4px">System Log</div>
+  <div style="font-size:8px;letter-spacing:3px;color:var(--muted);margin-bottom:4px;">System Log</div>
   <div class="log" id="logBox"></div>
 
-  <button class="btn btn-red btn-wide" onclick="toggleLock()" style="margin-bottom:24px">⬛ LOCK SCREEN (tap anywhere to scan)</button>
+  <button class="btn btn-amber btn-wide" onclick="toggleLock()" style="margin-bottom:10px;">⬛ LOCK SCREEN</button>
+  <button class="btn btn-red btn-wide" onclick="triggerSOS()" style="margin-bottom:24px;">🆘 SOS PANIC MODE</button>
 
-</div><!-- end wrap -->
+</div>
 
 <script>
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // STATE
-// ═══════════════════════════════════════════════════
-// ── Multi-key rotation state ──
-let apiKeys       = [];          // array of {key, fails, limited}
-let activeKeyIdx  = 0;           // which key we're currently using
-let apiKey        = '';          // always mirrors apiKeys[activeKeyIdx].key
-let camActive     = false;
-let isLocked      = false;
-let maxRetries    = 3;
-let retryCount    = 0;
-let scanning      = false;
-let btDev         = null;
-let uploadedB64   = null;
-let lastAnswer    = null;   // for answer hold
-let answerHistory = [];     // last 5
-let autoscanTimer = null;
-let autoscanRafId = null;
+// ══════════════════════════════════════════════════════════
+let apiKeys      = [];
+let activeKeyIdx = 0;
+let camActive    = false;
+let isLocked     = false;
+let maxRetries   = 2;
+let scanning     = false;
+let btDev        = null;
+let lastAnswer   = null;
+let answerHistory = [];
+
+// Live stream state
+let liveActive      = false;
+let liveTimer       = null;
+let lastFrameData   = null;   // ImageData of last sent frame (for change detection)
+let lastApiCallTime = 0;
+let statFrames = 0, statPassed = 0, statSent = 0, statAnswers = 0;
+let prevFrameData   = null;   // for motion detection (compare consecutive frames)
+
+// SOS
+let sosTapCount = 0;
+let sosTapTimer = null;
 
 const ANSWERS = ['A','B','C','D','E'];
-
-// Feature toggle getters
 const tog = id => document.getElementById('tog-'+id)?.checked ?? true;
 
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // BOOT
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 window.addEventListener('load', () => {
-  // Load saved keys
   loadKeys();
+  loadToggles();
+  checkCamSupport();
+  updateIntervalLabel();
+  updateCooldownLabel();
+  updateSensLabel();
 
-  // Load saved toggles
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); triggerManualScan(); }
+    if (e.code === 'VolumeUp' || e.code === 'VolumeDown') { e.preventDefault(); triggerManualScan(); }
+  });
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('nexttrack', triggerManualScan);
+    navigator.mediaSession.setActionHandler('previoustrack', triggerManualScan);
+  }
+
+  wakeLock();
+  log('AnswerBot Pro v4 ready · Live stream mode', 'info');
+});
+
+function loadToggles() {
   const saved = JSON.parse(localStorage.getItem('ab_toggles') || '{}');
   Object.keys(saved).forEach(k => {
     const el = document.getElementById('tog-'+k);
     if (el) el.checked = saved[k];
   });
-  const secs = localStorage.getItem('ab_autosecs');
-  if (secs) document.getElementById('autoscanSecs').value = secs;
-
-  updateAutoscanUI();
-  checkCameraSupport();
-
-  // Key triggers
-  document.addEventListener('keydown', e => {
-    if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); triggerScan(); }
-  });
-  if ('mediaSession' in navigator) {
-    navigator.mediaSession.setActionHandler('nexttrack', triggerScan);
-    navigator.mediaSession.setActionHandler('previoustrack', triggerScan);
-  }
-  wakeLock();
-  log('AnswerBot Pro v3 ready', 'info');
-});
+  const iv = localStorage.getItem('ab_interval');
+  if (iv) { document.getElementById('captureInterval').value = iv; updateIntervalLabel(); }
+  const cd = localStorage.getItem('ab_cooldown');
+  if (cd) { document.getElementById('cooldownSecs').value = cd; updateCooldownLabel(); }
+  const cs = localStorage.getItem('ab_changesens');
+  if (cs) { document.getElementById('changeSens').value = cs; updateSensLabel(); }
+}
 
 function saveToggles() {
-  const keys = ['blur','partial','options','protect','confgate','speed','hold','history','haptic','autoscan'];
+  const keys = ['autosnap','motion','blur','change','protect','speed','hold','haptic','history'];
   const obj = {};
   keys.forEach(k => { obj[k] = document.getElementById('tog-'+k)?.checked ?? false; });
   localStorage.setItem('ab_toggles', JSON.stringify(obj));
-  localStorage.setItem('ab_autosecs', document.getElementById('autoscanSecs').value);
-  updateAutoscanUI();
+  localStorage.setItem('ab_interval', document.getElementById('captureInterval').value);
+  localStorage.setItem('ab_cooldown', document.getElementById('cooldownSecs').value);
+  localStorage.setItem('ab_changesens', document.getElementById('changeSens').value);
 }
 
-function updateAutoscanUI() {
-  const on = tog('autoscan');
-  document.getElementById('autoscanIntervalRow').style.display = on ? 'block' : 'none';
-}
+function updateIntervalLabel() { document.getElementById('intervalLbl').textContent = document.getElementById('captureInterval').value + 'ms'; }
+function updateCooldownLabel() { document.getElementById('cooldownLbl').textContent = document.getElementById('cooldownSecs').value + 's'; }
+function updateSensLabel()     { document.getElementById('sensLbl').textContent     = document.getElementById('changeSens').value + '%'; }
+function changeRetry(d) { maxRetries = Math.max(0,Math.min(5,maxRetries+d)); document.getElementById('retryMax').textContent = maxRetries; }
 
-function toggleAutoscan() {
-  saveToggles();
-  if (tog('autoscan')) startAutoscan();
-  else stopAutoscan();
-}
-
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // WAKE LOCK
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+let wakeLockSentinel = null;
 async function wakeLock() {
-  try { if ('wakeLock' in navigator) { await navigator.wakeLock.request('screen'); } } catch(e) {}
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
+      wakeLockSentinel.addEventListener('release', () => {
+        log('Wake lock released — attempting reacquire', 'warn');
+        setTimeout(wakeLock, 1000);
+      });
+    }
+  } catch(e) {}
 }
 
-// ═══════════════════════════════════════════════════
-// MULTI-KEY MANAGEMENT
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// SOS PANIC MODE
+// ══════════════════════════════════════════════════════════
+function sosTap() {
+  sosTapCount++;
+  clearTimeout(sosTapTimer);
+  if (sosTapCount >= 3) { sosTapCount = 0; triggerSOS(); return; }
+  sosTapTimer = setTimeout(() => { sosTapCount = 0; }, 1000);
+}
 
-function buildKeySlots() {
-  const container = document.getElementById('keySlots');
-  container.innerHTML = '';
-  for (let i = 0; i < 5; i++) {
-    const saved = apiKeys[i] ? apiKeys[i].key : '';
-    container.innerHTML += `
-      <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
-        <div style="font-size:8px;color:var(--muted);width:36px;flex-shrink:0;letter-spacing:1px">KEY ${i+1}</div>
-        <input type="password" id="keyInput${i}" placeholder="AIza…" value="${saved}"
-          style="flex:1;font-size:10px;padding:7px 9px"
-          oninput="onKeyInput(${i})">
-        <div id="keyPill${i}" style="width:8px;height:8px;border-radius:50%;background:var(--dim);flex-shrink:0;transition:all 0.3s"></div>
-      </div>`;
+function triggerSOS() {
+  document.getElementById('sosOverlay').classList.add('on');
+  const msgs = [];
+  if (!apiKeys.length) msgs.push('⚠ No API keys saved');
+  if (!camActive) msgs.push('⚠ Camera not active');
+  if (apiKeys.every(k => k.limited)) msgs.push('⚠ All keys rate limited');
+  if (lastAnswer) msgs.push('✓ Last answer: ' + lastAnswer);
+  document.getElementById('sosMsg').innerHTML = msgs.length ? msgs.join('<br>') : 'APP RUNNING NORMALLY<br>Use buttons below if needed';
+}
+
+function sosClose()    { document.getElementById('sosOverlay').classList.remove('on'); }
+function sosContinue() { sosClose(); if (lastAnswer) showAnswer(lastAnswer, {answer_text:'Held from last scan',question_summary:'',confidence:'medium',options_count:5,options_complete:true,question_complete:true,options_visible:['A','B','C','D','E']}, 80); }
+async function sosRecover() {
+  sosClose();
+  log('SOS: restarting systems…', 'warn');
+  stopLiveStream();
+  scanning = false;
+  await wakeLock();
+  if (camActive) {
+    await delay(500);
+    startLiveStream();
   }
+  log('SOS: recovery complete', 'ok');
 }
 
-function onKeyInput(i) {
-  // Clear status dot when user edits
-  document.getElementById('keyPill'+i).style.background = 'var(--dim)';
+// ══════════════════════════════════════════════════════════
+// MULTI-KEY MANAGEMENT
+// ══════════════════════════════════════════════════════════
+function buildKeySlots() {
+  const c = document.getElementById('keySlots');
+  c.innerHTML = '';
+  for (let i = 0; i < 5; i++) {
+    const val = apiKeys[i] ? apiKeys[i].key : '';
+    const slot = document.createElement('div');
+    slot.className = 'key-slot';
+    slot.innerHTML = `
+      <div class="key-num">KEY ${i+1}</div>
+      <input type="password" id="ki${i}" placeholder="AIza…" value="${val}" style="flex:1;font-size:10px;padding:7px 9px;">
+      <div class="key-dot" id="kd${i}"></div>`;
+    c.appendChild(slot);
+  }
 }
 
 function saveKeys() {
   apiKeys = [];
   for (let i = 0; i < 5; i++) {
-    const val = document.getElementById('keyInput'+i).value.trim();
-    if (val) apiKeys.push({ key: val, fails: 0, limited: false, limitedUntil: 0 });
+    const v = document.getElementById('ki'+i)?.value.trim();
+    if (v) apiKeys.push({key:v, fails:0, limited:false, limitedUntil:0});
   }
-  localStorage.setItem('ab_keys', JSON.stringify(apiKeys.map(k => k.key)));
+  localStorage.setItem('ab_keys', JSON.stringify(apiKeys.map(k=>k.key)));
   activeKeyIdx = 0;
-  apiKey = apiKeys[0]?.key || '';
   updateKeyStatusBar();
-  log(apiKeys.length + ' API key(s) saved ✓', 'ok');
-  setPill(apiKeys.length ? 'KEYS OK ×' + apiKeys.length : 'NO KEYS', !!apiKeys.length);
+  log(apiKeys.length + ' key(s) saved', 'ok');
+  setPill(apiKeys.length ? 'KEYS ×' + apiKeys.length : 'NO KEYS', !!apiKeys.length);
 }
 
 function loadKeys() {
-  // Load from new multi-key storage
   const saved = JSON.parse(localStorage.getItem('ab_keys') || '[]');
-  // Also migrate old single key if present
-  const oldKey = localStorage.getItem('ab_key');
-  const allKeys = [...new Set([...saved, oldKey ? oldKey : ''].filter(Boolean))];
-  apiKeys = allKeys.map(k => ({ key: k, fails: 0, limited: false, limitedUntil: 0 }));
+  const old = localStorage.getItem('ab_key');
+  const all = [...new Set([...saved, old||''].filter(Boolean))];
+  apiKeys = all.map(k => ({key:k, fails:0, limited:false, limitedUntil:0}));
   activeKeyIdx = 0;
-  apiKey = apiKeys[0]?.key || '';
   buildKeySlots();
   updateKeyStatusBar();
-  if (apiKeys.length) log(apiKeys.length + ' API key(s) loaded', 'ok');
-  setPill(apiKeys.length ? 'KEYS OK ×' + apiKeys.length : 'NO KEYS', !!apiKeys.length);
+  if (apiKeys.length) log(apiKeys.length + ' key(s) loaded', 'ok');
+  setPill(apiKeys.length ? 'KEYS ×' + apiKeys.length : 'NO KEYS', !!apiKeys.length);
 }
 
 function getActiveKey() {
   if (!apiKeys.length) return null;
   const now = Date.now();
-  // Find first non-rate-limited key starting from activeKeyIdx
   for (let i = 0; i < apiKeys.length; i++) {
     const idx = (activeKeyIdx + i) % apiKeys.length;
     const k = apiKeys[idx];
-    // Clear rate limit if cooldown passed (60s)
-    if (k.limited && now > k.limitedUntil) {
-      k.limited = false;
-      log('Key ' + (idx+1) + ' cooldown expired — back in rotation', 'ok');
-      updateKeyStatusBar();
-    }
-    if (!k.limited) {
-      activeKeyIdx = idx;
-      return k;
-    }
+    if (k.limited && now > k.limitedUntil) { k.limited = false; updateKeyStatusBar(); }
+    if (!k.limited) { activeKeyIdx = idx; return k; }
   }
-  return null; // all keys rate limited
+  return null;
 }
 
 function markKeyFailed(reason) {
   if (!apiKeys[activeKeyIdx]) return;
   const k = apiKeys[activeKeyIdx];
-  const isRateLimit = reason.includes('429') || reason.includes('RESOURCE_EXHAUSTED') ||
-                      reason.includes('quota') || reason.includes('rate');
-  if (isRateLimit) {
+  const isLimit = /429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(reason);
+  if (isLimit) {
     k.limited = true;
-    k.limitedUntil = Date.now() + 60000; // 60s cooldown
-    log('⚠ Key ' + (activeKeyIdx+1) + ' rate limited — switching to next key', 'warn');
-    // Rotate to next key
+    k.limitedUntil = Date.now() + 65000;
+    log('Key ' + (activeKeyIdx+1) + ' rate limited — switching', 'warn');
     for (let i = 1; i < apiKeys.length; i++) {
-      const next = (activeKeyIdx + i) % apiKeys.length;
-      if (!apiKeys[next].limited) {
-        activeKeyIdx = next;
-        apiKey = apiKeys[next].key;
-        log('Switched to key ' + (next+1), 'ok');
-        break;
-      }
+      const next = (activeKeyIdx+i) % apiKeys.length;
+      if (!apiKeys[next].limited) { activeKeyIdx = next; log('Switched to key ' + (next+1), 'ok'); break; }
     }
-  } else {
-    k.fails++;
-  }
+  } else { k.fails++; }
   updateKeyStatusBar();
 }
 
@@ -812,1153 +814,774 @@ function updateKeyStatusBar() {
   if (!bar) return;
   bar.innerHTML = '';
   const now = Date.now();
-  apiKeys.forEach((k, i) => {
-    const isActive = i === activeKeyIdx;
+  apiKeys.forEach((k,i) => {
+    const isActive  = i === activeKeyIdx && !k.limited;
     const isLimited = k.limited && now < k.limitedUntil;
     const color = isLimited ? 'var(--red)' : isActive ? 'var(--green)' : 'var(--accent)';
-    const label = isLimited ? '⏳' : isActive ? '●' : '○';
-    bar.innerHTML += `<div title="Key ${i+1}${isLimited?' (rate limited)':isActive?' (active)':' (ready)'}"
-      style="font-size:10px;color:${color};cursor:default;transition:all 0.3s">${label}</div>`;
-    // Also update the input dot
-    const dot = document.getElementById('keyPill'+i);
-    if (dot) dot.style.background = isLimited ? 'var(--red)' : k.key ? 'var(--green)' : 'var(--dim)';
+    bar.innerHTML += `<div style="font-size:11px;color:${color};cursor:default;" title="Key ${i+1}">
+      ${isLimited ? '⏳' : isActive ? '●' : '○'}</div>`;
+    const dot = document.getElementById('kd'+i);
+    if (dot) {
+      dot.className = 'key-dot' + (isLimited ? ' limited' : isActive ? ' active' : k.key ? ' ok' : '');
+    }
   });
-  document.getElementById('activeKeyNum').textContent =
-    apiKeys.length ? (activeKeyIdx + 1) + '/' + apiKeys.length : '—';
+  document.getElementById('activeKeyNum').textContent = apiKeys.length ? (activeKeyIdx+1)+'/'+apiKeys.length : '—';
 }
 
 async function testAllKeys() {
-  if (!apiKeys.length) { log('No keys saved yet', 'err'); return; }
-  log('Testing all ' + apiKeys.length + ' keys…', 'info');
-  const tiny = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='; // 1x1 px
+  if (!apiKeys.length) { log('No keys to test', 'err'); return; }
+  const tiny = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
   for (let i = 0; i < apiKeys.length; i++) {
-    const k = apiKeys[i];
     try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${k.key}`,
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKeys[i].key}`,
         { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ contents:[{parts:[{text:'Reply OK'},{inline_data:{mime_type:'image/png',data:tiny}}]}], generationConfig:{maxOutputTokens:5} }) }
-      );
-      const ok = res.ok || res.status === 200;
-      const dot = document.getElementById('keyPill'+i);
-      if (dot) dot.style.background = ok ? 'var(--green)' : 'var(--red)';
-      log('Key ' + (i+1) + ': ' + (ok ? '✓ VALID' : '✗ INVALID (status '+res.status+')'), ok ? 'ok' : 'err');
-    } catch(e) {
-      log('Key ' + (i+1) + ': ✗ ERROR — ' + e.message, 'err');
-    }
-    await new Promise(r => setTimeout(r, 300)); // small gap between tests
+          body: JSON.stringify({contents:[{parts:[{text:'Say OK'},{inline_data:{mime_type:'image/png',data:tiny}}]}],generationConfig:{maxOutputTokens:4}})});
+      const dot = document.getElementById('kd'+i);
+      if (dot) dot.className = 'key-dot ' + (res.ok ? 'ok' : 'limited');
+      log('Key '+(i+1)+': '+(res.ok?'✓ VALID':'✗ '+res.status), res.ok?'ok':'err');
+    } catch(e) { log('Key '+(i+1)+': ✗ ERROR', 'err'); }
+    await delay(400);
   }
 }
 
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // CAMERA
-// ═══════════════════════════════════════════════════
-async function checkCameraSupport() {
-  const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  if (!isSecure && location.protocol !== 'file:') {
-    document.getElementById('httpsWarn').style.display = 'block';
-  }
+// ══════════════════════════════════════════════════════════
+async function checkCamSupport() {
+  const secure = location.protocol==='https:' || location.hostname==='localhost';
+  if (!secure) document.getElementById('httpsWarn').style.display = 'block';
   if (navigator.permissions) {
     try {
-      const p = await navigator.permissions.query({ name: 'camera' });
-      handlePermState(p.state);
-      p.onchange = () => handlePermState(p.state);
+      const p = await navigator.permissions.query({name:'camera'});
+      handlePerm(p.state);
+      p.onchange = () => handlePerm(p.state);
       return;
     } catch(e) {}
   }
-  handlePermState('prompt');
+  handlePerm('prompt');
 }
 
-function handlePermState(s) {
-  document.getElementById('permUnknown').style.display = s === 'prompt'  ? 'block' : 'none';
-  document.getElementById('permGranted').style.display = s === 'granted' ? 'block' : 'none';
-  document.getElementById('permDenied').style.display  = s === 'denied'  ? 'block' : 'none';
+function handlePerm(s) {
+  document.getElementById('permGranted').style.display = s==='granted' ? 'block' : 'none';
+  document.getElementById('permDenied').style.display  = s==='denied'  ? 'block' : 'none';
 }
 
-async function requestCameraPermission() {
+async function requestCam() {
   try {
-    // Minimal constraints just to trigger the permission dialog
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-    handlePermState('granted');
-    // Stop this low-quality stream immediately, startCamera will open properly
-    stream.getTracks().forEach(t => t.stop());
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    stream.getTracks().forEach(t=>t.stop());
+    handlePerm('granted');
     await startCamera();
   } catch(e) {
-    if (e.name === 'NotAllowedError') handlePermState('denied');
-    else {
-      log('Camera error: ' + e.name, 'err');
-      document.getElementById('httpsWarn').style.display = 'block';
-    }
+    if (e.name==='NotAllowedError') handlePerm('denied');
+    else { log('Camera: '+e.message,'err'); document.getElementById('httpsWarn').style.display='block'; }
   }
 }
 
 async function startCamera() {
-  log('Starting camera with quality optimisations…', 'info');
-
-  // Best possible constraints for reading text on screens
-  const constraints = {
-    video: {
-      facingMode: { exact: 'environment' },    // force rear camera
-      width:      { ideal: 3840, min: 1280 },  // 4K if available, min 1080p
-      height:     { ideal: 2160, min: 720 },
-      frameRate:  { ideal: 30,   max: 30 },    // cap at 30fps — avoids motion blur
-      focusMode:  'continuous',                 // keep hunting for sharp focus
-      exposureMode: 'continuous',              // auto exposure
-      whiteBalanceMode: 'continuous',          // auto white balance for screen colours
-    }
-  };
-
+  log('Starting camera…', 'info');
   let stream;
   try {
-    stream = await navigator.mediaDevices.getUserMedia(constraints);
-    log('High-res camera stream started', 'ok');
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode:{exact:'environment'}, width:{ideal:1920,min:1280}, height:{ideal:1080,min:720}, frameRate:{ideal:30,max:30} }
+    });
   } catch(e) {
-    // Fallback — some browsers reject advanced constraints
-    log('Advanced constraints failed, trying fallback: ' + e.message, 'warn');
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
-      });
-    } catch(e2) {
-      log('Camera failed: ' + e2.message, 'err');
-      if (e2.name === 'NotAllowedError') handlePermState('denied');
-      return;
-    }
+    try { stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}}); }
+    catch(e2) { log('Camera failed: '+e2.message,'err'); return; }
   }
 
-  await activateStream(stream);
-}
-
-async function activateStream(stream) {
   const v = document.getElementById('video');
   v.srcObject = stream;
-
-  await new Promise(resolve => { v.onloadedmetadata = resolve; });
+  await new Promise(r => { v.onloadedmetadata = r; });
   await v.play();
 
-  // ── Apply advanced track constraints after stream starts ──
+  // Apply quality constraints
   const track = stream.getVideoTracks()[0];
   if (track) {
     const caps = track.getCapabilities ? track.getCapabilities() : {};
     const settings = {};
-
-    // Force torch OFF — this is almost certainly your halo culprit
-    if (caps.torch !== undefined) {
-      settings.torch = false;
-      log('Torch forced OFF', 'ok');
+    if (caps.torch !== undefined) settings.torch = false;
+    if (caps.exposureCompensation) settings.exposureCompensation = Math.max(caps.exposureCompensation.min||-2, -1.0);
+    if (caps.focusMode?.includes('continuous')) settings.focusMode = 'continuous';
+    if (caps.fillLightMode) settings.fillLightMode = 'off';
+    if (Object.keys(settings).length) {
+      try { await track.applyConstraints({advanced:[settings]}); log('Camera quality optimised ✓','ok'); }
+      catch(e) { log('Some camera constraints unsupported','warn'); }
     }
-
-    // Lock exposure compensation slightly negative — stops bright screens blooming
-    if (caps.exposureCompensation) {
-      const min = caps.exposureCompensation.min || -2;
-      settings.exposureCompensation = Math.max(min, -1.0);
-      log('Exposure compensation: -1.0 (stops screen bloom)', 'ok');
-    }
-
-    // Continuous auto-focus — keeps refocusing on the screen
-    if (caps.focusMode && caps.focusMode.includes('continuous')) {
-      settings.focusMode = 'continuous';
-      log('Focus mode: continuous', 'ok');
-    }
-
-    // If manual focus distance is available, hint toward mid-far distance
-    // (avoids locking on bottle glass in front of lens)
-    if (caps.focusDistance && caps.focusMode && caps.focusMode.includes('manual')) {
-      const mid = (caps.focusDistance.min + caps.focusDistance.max) / 2;
-      settings.focusMode = 'manual';
-      settings.focusDistance = mid * 1.4; // bias toward far
-      log('Focus distance biased to far field', 'ok');
-    }
-
-    // Reduce sharpness artificially applied by browser (can cause ringing/halo)
-    if (caps.sharpness) {
-      settings.sharpness = Math.floor(caps.sharpness.min + (caps.sharpness.max - caps.sharpness.min) * 0.3);
-      log('Sharpness reduced (reduces browser ringing artefact)', 'ok');
-    }
-
-    // Turn off any flash/fill light
-    if (caps.fillLightMode) {
-      settings.fillLightMode = 'off';
-      log('Fill light forced OFF', 'ok');
-    }
-
-    if (Object.keys(settings).length > 0) {
-      try {
-        await track.applyConstraints({ advanced: [settings] });
-        log('Advanced camera constraints applied ✓', 'ok');
-      } catch(e) {
-        log('Some constraints not supported on this browser: ' + e.message, 'warn');
-      }
-    }
-
-    // Log what we actually got
     const applied = track.getSettings ? track.getSettings() : {};
-    log('Camera: ' + (applied.width||'?') + 'x' + (applied.height||'?') +
-        ' torch=' + (applied.torch ?? 'n/a') +
-        ' expComp=' + (applied.exposureCompensation ?? 'n/a'), 'dim');
+    log(`Camera: ${applied.width||'?'}×${applied.height||'?'} torch=${applied.torch??'n/a'}`, 'dim');
   }
 
   camActive = true;
   document.getElementById('camPermCard').style.display = 'none';
   document.getElementById('camWrap').style.display = 'block';
-  document.getElementById('camControls').style.display = 'block';
   setBadge('LIVE', 'live');
   setPill('CAM LIVE', true);
+  log('Camera ready', 'ok');
 
-  // Show what capabilities this device supports
-  if (track) {
-    const caps = track.getCapabilities ? track.getCapabilities() : {};
-    const supported = [];
-    if (caps.torch !== undefined)             supported.push('torch');
-    if (caps.exposureCompensation)            supported.push('exposure');
-    if (caps.focusMode)                       supported.push('focus:' + caps.focusMode.join('/'));
-    if (caps.focusDistance)                   supported.push('focusDist');
-    if (caps.sharpness)                       supported.push('sharpness');
-    if (caps.zoom)                            supported.push('zoom');
-    document.getElementById('camCapabilities').textContent =
-      'Supported: ' + (supported.length ? supported.join(' · ') : 'basic only');
+  if (tog('autosnap')) {
+    await delay(800);
+    startLiveStream();
   }
-
-  log('Camera ready — quality optimised for screen capture', 'ok');
-  if (tog('autoscan')) startAutoscan();
 }
 
-// ═══════════════════════════════════════════════════
-// PHOTO UPLOAD
-// ═══════════════════════════════════════════════════
-function handlePhotoUpload(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  if (!apiKeys.length) { log('Save API keys first', 'err'); return; }
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const img = new Image();
-    img.onload = async () => {
-      const c = document.getElementById('canvas');
-      c.width = img.width; c.height = img.height;
-      c.getContext('2d').drawImage(img, 0, 0);
-      uploadedB64 = c.toDataURL('image/jpeg', 0.90).split(',')[1];
-      log('Photo loaded (' + img.width + 'x' + img.height + ') — scanning…', 'ok');
-      retryCount = 0;
-      await runScanCycle(uploadedB64);
-      uploadedB64 = null;
-    };
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
+// ══════════════════════════════════════════════════════════
+// LIVE STREAM ENGINE
+// ══════════════════════════════════════════════════════════
+function toggleLiveStream() {
+  if (liveActive) stopLiveStream();
+  else startLiveStream();
 }
 
-// ═══════════════════════════════════════════════════
-// AUTO-SCAN
-// ═══════════════════════════════════════════════════
-function startAutoscan() {
-  stopAutoscan();
-  if (!camActive) return;
-  const secs = parseInt(document.getElementById('autoscanSecs').value) || 5;
-  log('Auto-scan started every ' + secs + 's', 'info');
-  scheduleNextScan(secs);
+function startLiveStream() {
+  if (!camActive) { log('Start camera first', 'warn'); return; }
+  if (liveActive) return;
+  liveActive = true;
+  statFrames = statPassed = statSent = statAnswers = 0;
+  document.getElementById('liveBtn').textContent = '⏹ STOP LIVE';
+  document.getElementById('liveBtn').style.borderColor = 'var(--red)';
+  document.getElementById('liveBtn').style.color = 'var(--red)';
+  document.getElementById('liveStats').style.display = 'flex';
+  setBadge('LIVE AUTO', 'live-auto');
+  setLockStatus('active');
+  log('Live stream started — auto-snapping every ' + document.getElementById('captureInterval').value + 'ms', 'ok');
+  scheduleNextFrame();
 }
 
-function stopAutoscan() {
-  clearTimeout(autoscanTimer);
-  cancelAnimationFrame(autoscanRafId);
-  autoscanTimer = null;
-  document.getElementById('autoscanFill').style.width = '0';
-  if (isLocked) document.getElementById('lockCountdown').style.display = 'none';
+function stopLiveStream() {
+  liveActive = false;
+  clearTimeout(liveTimer);
+  document.getElementById('liveBtn').textContent = '◉ START LIVE';
+  document.getElementById('liveBtn').style.borderColor = 'var(--accent)';
+  document.getElementById('liveBtn').style.color = 'var(--accent)';
+  setBadge('LIVE', 'live');
+  setLockStatus('');
+  log('Live stream stopped', 'warn');
 }
 
-function scheduleNextScan(secs) {
-  if (!tog('autoscan')) return;
-  const start = performance.now();
-  const fill = document.getElementById('autoscanFill');
-  const cdRing = document.getElementById('cdRing');
-  const totalMs = secs * 1000;
-
-  if (isLocked) document.getElementById('lockCountdown').style.display = 'block';
-
-  function tick(now) {
-    const elapsed = now - start;
-    const pct = Math.min(elapsed / totalMs, 1);
-    fill.style.transition = 'none';
-    fill.style.width = (pct * 100) + '%';
-    if (cdRing) cdRing.style.strokeDashoffset = 88 - (88 * pct);
-    if (elapsed < totalMs) {
-      autoscanRafId = requestAnimationFrame(tick);
-    } else {
-      fill.style.width = '0';
-      if (!scanning) triggerScan();
-      autoscanTimer = setTimeout(() => scheduleNextScan(secs), 200);
-    }
-  }
-  autoscanRafId = requestAnimationFrame(tick);
+function scheduleNextFrame() {
+  if (!liveActive) return;
+  const interval = parseInt(document.getElementById('captureInterval').value) || 600;
+  liveTimer = setTimeout(processLiveFrame, interval);
 }
 
-// ═══════════════════════════════════════════════════
-// IMAGE QUALITY — BLUR DETECTION
-// ═══════════════════════════════════════════════════
-function measureBlur(canvas) {
-  // Laplacian variance — low = blurry
+async function processLiveFrame() {
+  if (!liveActive || !camActive) return;
+  statFrames++;
+  updateStats();
+
+  const canvas = captureFrame();
   const ctx = canvas.getContext('2d');
-  const w = Math.min(canvas.width, 320);
-  const h = Math.min(canvas.height, 240);
-  const offscreen = document.createElement('canvas');
-  offscreen.width = w; offscreen.height = h;
-  const oc = offscreen.getContext('2d');
-  oc.drawImage(canvas, 0, 0, w, h);
-  const data = oc.getImageData(0, 0, w, h).data;
+  const w = canvas.width, h = canvas.height;
+  const currentData = ctx.getImageData(0, 0, w, h);
 
-  // Convert to greyscale and compute Laplacian variance
-  const grey = new Float32Array(w * h);
-  for (let i = 0; i < w * h; i++) {
-    grey[i] = 0.299*data[i*4] + 0.587*data[i*4+1] + 0.114*data[i*4+2];
+  let motionOk = true, blurOk = true, changeOk = true;
+
+  // ── Motion filter ──
+  if (tog('motion') && prevFrameData) {
+    const diff = frameDiff(prevFrameData, currentData);
+    motionOk = diff < 8; // less than 8% pixel change = camera is still
+    setFsPill('fs-motion', motionOk ? 'pass' : 'fail', motionOk ? 'STILL' : 'MOVING');
+    setLfbDot('lfb-motion', motionOk);
+  } else {
+    setFsPill('fs-motion', 'pass', 'STILL');
   }
-  let sum = 0, sum2 = 0, n = 0;
-  for (let y = 1; y < h-1; y++) {
-    for (let x = 1; x < w-1; x++) {
-      const lap = Math.abs(
-        -grey[(y-1)*w+x] - grey[(y+1)*w+x]
-        - grey[y*w+(x-1)] - grey[y*w+(x+1)]
-        + 4*grey[y*w+x]
-      );
-      sum += lap; sum2 += lap*lap; n++;
-    }
+  prevFrameData = currentData;
+
+  // ── Blur filter ──
+  if (tog('blur')) {
+    const blurScore = measureBlur(canvas);
+    blurOk = blurScore > 45;
+    const pct = Math.min(100, blurScore / 5);
+    document.getElementById('qualityFill').style.width = pct + '%';
+    document.getElementById('qualityFill').style.background = blurOk ? 'var(--green)' : 'var(--red)';
+    setFsPill('fs-blur', blurOk ? 'pass' : 'fail', blurOk ? 'SHARP' : 'BLUR');
+    setLfbDot('lfb-blur', blurOk);
+  } else {
+    setFsPill('fs-blur', 'pass', 'SHARP');
   }
-  const mean = sum/n;
-  const variance = (sum2/n) - mean*mean;
-  return variance; // higher = sharper
+
+  // Brightness check
+  const brightness = measureBrightness(canvas);
+  if (brightness < 20 || brightness > 240) { blurOk = false; setFsPill('fs-blur', 'fail', brightness < 20 ? 'DARK' : 'BRIGHT'); }
+
+  // ── Change detection ──
+  if (tog('change') && lastFrameData) {
+    const changePct = frameDiff(lastFrameData, currentData);
+    const threshold = parseInt(document.getElementById('changeSens').value) || 15;
+    changeOk = changePct > threshold;
+    setFsPill('fs-change', changeOk ? 'pass' : 'skip', changeOk ? 'NEW Q' : 'SAME');
+    setLfbDot('lfb-change', changeOk);
+  } else {
+    setFsPill('fs-change', 'pass', 'NEW Q');
+    changeOk = true;
+  }
+
+  // ── Cooldown check ──
+  const cooldown = (parseInt(document.getElementById('cooldownSecs').value) || 4) * 1000;
+  const timeSinceLast = Date.now() - lastApiCallTime;
+  const cooldownOk = timeSinceLast >= cooldown;
+  setFsPill('fs-cooldown', cooldownOk ? 'pass' : 'skip',
+    cooldownOk ? 'READY' : Math.ceil((cooldown - timeSinceLast)/1000) + 's');
+
+  // ── Decision ──
+  if (motionOk && blurOk && changeOk && cooldownOk) {
+    statPassed++;
+    updateStats();
+    // Flash the frame to show we're sending
+    const cf = document.getElementById('changeFlash');
+    cf.className = ''; void cf.offsetWidth; cf.className = 'flash';
+    setLockStatus('scanning');
+    await sendToGemini(canvas);
+  }
+
+  scheduleNextFrame();
 }
 
-function measureBrightness(canvas) {
-  const ctx = canvas.getContext('2d');
-  const w = Math.min(canvas.width, 160), h = Math.min(canvas.height, 120);
-  const o = document.createElement('canvas');
-  o.width = w; o.height = h;
-  o.getContext('2d').drawImage(canvas, 0, 0, w, h);
-  const d = o.getContext('2d').getImageData(0, 0, w, h).data;
-  let sum = 0;
-  for (let i = 0; i < d.length; i += 4) sum += 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
-  return sum / (w * h); // 0-255
+// ── Frame comparison (returns % pixels changed) ──
+function frameDiff(a, b) {
+  if (!a || !b || a.data.length !== b.data.length) return 100;
+  const d1 = a.data, d2 = b.data;
+  let diff = 0;
+  // Sample every 16th pixel for speed
+  for (let i = 0; i < d1.length; i += 64) {
+    const dr = Math.abs(d1[i]-d2[i]);
+    const dg = Math.abs(d1[i+1]-d2[i+1]);
+    const db = Math.abs(d1[i+2]-d2[i+2]);
+    if ((dr+dg+db) > 30) diff++;
+  }
+  return (diff / (d1.length / 64)) * 100;
 }
 
-function updateQualityBar(score) {
-  const fill = document.getElementById('qualityFill');
-  fill.style.width = score + '%';
-  fill.style.background = score > 60 ? 'var(--green)' : score > 30 ? 'var(--amber)' : 'var(--red)';
-}
-
-// ═══════════════════════════════════════════════════
-// CAPTURE FRAME
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// CAPTURE & ENHANCE FRAME
+// ══════════════════════════════════════════════════════════
 function captureFrame() {
   const v = document.getElementById('video');
   const c = document.getElementById('canvas');
-  const w = v.videoWidth  || 1280;
-  const h = v.videoHeight || 720;
-  c.width = w; c.height = h;
+  c.width  = v.videoWidth  || 1280;
+  c.height = v.videoHeight || 720;
   const ctx = c.getContext('2d');
-
-  // Draw raw frame
   ctx.drawImage(v, 0, 0);
 
-  // ── Post-process to fix browser camera weaknesses ──
-
-  // 1. Contrast + brightness correction
-  // Slightly increase contrast and reduce brightness to counter over-exposure
-  ctx.globalCompositeOperation = 'source-over';
-  // Use CSS filter equivalent via canvas filter (Chrome/Android supports this)
+  // Post-process: contrast boost + brightness correction
   try {
-    const offscreen = document.createElement('canvas');
-    offscreen.width = w; offscreen.height = h;
-    const octx = offscreen.getContext('2d');
-
-    // Apply: slight brightness reduction + contrast boost + sharpness
-    octx.filter = 'contrast(' + contrastLevel + ') brightness(0.92) saturate(1.1)';
+    const o = document.createElement('canvas');
+    o.width = c.width; o.height = c.height;
+    const octx = o.getContext('2d');
+    octx.filter = 'contrast(1.2) brightness(0.94) saturate(1.1)';
     octx.drawImage(c, 0, 0);
-
-    // Unsharp mask — sharpen text edges
-    // Draw original at low opacity on top of itself offset = sharpening effect
-    octx.filter = 'none';
-    octx.globalAlpha = 0.08;
-    octx.globalCompositeOperation = 'difference';
-    // Draw blurred version
-    const blurCanvas = document.createElement('canvas');
-    blurCanvas.width = w; blurCanvas.height = h;
-    const bctx = blurCanvas.getContext('2d');
-    bctx.filter = 'blur(1px)';
-    bctx.drawImage(c, 0, 0);
-    octx.drawImage(blurCanvas, 0, 0);
-
-    // Composite final back onto main canvas
-    ctx.clearRect(0, 0, w, h);
-    ctx.filter = 'none';
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(offscreen, 0, 0);
-  } catch(e) {
-    // Canvas filter not supported — just use raw frame, it's fine
-    log('Canvas enhancement not supported — using raw frame', 'dim');
-  }
-
+    ctx.clearRect(0,0,c.width,c.height);
+    ctx.drawImage(o, 0, 0);
+  } catch(e) {}
   return c;
 }
 
-// ═══════════════════════════════════════════════════
-// SCAN TRIGGER
-// ═══════════════════════════════════════════════════
-async function triggerScan() {
-  if (scanning) return;
-  if (!apiKeys.length) { log('No API keys saved. Add at least one key.', 'err'); return; }
-  if (!camActive && !uploadedB64) { log('Start camera or upload a photo first', 'warn'); return; }
-  retryCount = 0;
-
-  let imgB64;
-  if (uploadedB64) {
-    imgB64 = uploadedB64;
-  } else {
-    const canvas = captureFrame();
-
-    // ── Blur check (pre-API, free) ──
-    if (tog('blur')) {
-      const blurScore = measureBlur(canvas);
-      const brightness = measureBrightness(canvas);
-      const blurPct = Math.min(100, blurScore / 5);
-      updateQualityBar(blurPct);
-      log('Image quality: blur=' + blurScore.toFixed(1) + ' brightness=' + brightness.toFixed(1), 'dim');
-
-      if (blurScore < 50) {
-        log('⚠ Image too blurry (score ' + blurScore.toFixed(1) + ') — adjust angle', 'warn');
-        showBlurWarning();
-        haptic('WARN');
-        updateVCheck('vc-blur', false, blurScore.toFixed(0));
-        return;
-      }
-      if (brightness < 30) {
-        log('⚠ Too dark — improve lighting', 'warn');
-        showBlurWarning('TOO DARK');
-        return;
-      }
-      updateVCheck('vc-blur', true, '✓');
-    }
-
-    imgB64 = canvas.toDataURL('image/jpeg', 0.90).split(',')[1];
+// ══════════════════════════════════════════════════════════
+// BLUR & BRIGHTNESS CHECKS
+// ══════════════════════════════════════════════════════════
+function measureBlur(canvas) {
+  const w = Math.min(canvas.width, 320), h = Math.min(canvas.height, 240);
+  const o = document.createElement('canvas');
+  o.width = w; o.height = h;
+  o.getContext('2d').drawImage(canvas, 0, 0, w, h);
+  const d = o.getContext('2d').getImageData(0,0,w,h).data;
+  const g = new Float32Array(w*h);
+  for (let i=0;i<w*h;i++) g[i]=0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2];
+  let s=0,s2=0,n=0;
+  for (let y=1;y<h-1;y++) for (let x=1;x<w-1;x++) {
+    const l=Math.abs(-g[(y-1)*w+x]-g[(y+1)*w+x]-g[y*w+x-1]-g[y*w+x+1]+4*g[y*w+x]);
+    s+=l;s2+=l*l;n++;
   }
-
-  await runScanCycle(imgB64);
+  const mean=s/n;
+  return (s2/n)-mean*mean;
 }
 
-// ═══════════════════════════════════════════════════
-// MAIN SCAN CYCLE
-// ═══════════════════════════════════════════════════
-async function runScanCycle(imgB64) {
+function measureBrightness(canvas) {
+  const w=80,h=60;
+  const o=document.createElement('canvas');
+  o.width=w;o.height=h;
+  o.getContext('2d').drawImage(canvas,0,0,w,h);
+  const d=o.getContext('2d').getImageData(0,0,w,h).data;
+  let sum=0;
+  for(let i=0;i<d.length;i+=4) sum+=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+  return sum/(w*h);
+}
+
+// ══════════════════════════════════════════════════════════
+// MANUAL SCAN (BT button / tap)
+// ══════════════════════════════════════════════════════════
+async function triggerManualScan() {
+  if (scanning) return;
+  if (!apiKeys.length) { log('No API keys saved', 'err'); return; }
+  if (!camActive) { log('Camera not active', 'warn'); return; }
+  log('Manual scan triggered', 'info');
+  const canvas = captureFrame();
+  await sendToGemini(canvas);
+}
+
+// ══════════════════════════════════════════════════════════
+// SEND TO GEMINI
+// ══════════════════════════════════════════════════════════
+async function sendToGemini(canvas, retryCount = 0) {
+  if (scanning) return;
   scanning = true;
+  lastApiCallTime = Date.now();
+  statSent++;
+  updateStats();
+
+  // Save current frame as "last sent" for change detection
+  const ctx = canvas.getContext('2d');
+  lastFrameData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  const imgB64 = canvas.toDataURL('image/jpeg', 0.88).split(',')[1];
+
   clearValidation();
-  clearLEDs();
+  showOverlay(true, 'PASS 1 · READING');
   setLockDot('scanning');
-  showOverlay(true, 'CAPTURING');
+  setLockStatus('scanning');
 
   try {
     // ── PASS 1 ──
-    showOverlay(true, 'PASS 1 · ANALYSING');
-    const pass1 = await geminiAnalyse(imgB64, buildPass1Prompt());
-    log('P1→ status:' + pass1.status + ' count:' + pass1.options_count + ' conf:' + pass1.confidence, 'dim');
+    const p1 = await geminiCall(imgB64, buildPass1Prompt());
+    log('P1→ status:'+p1.status+' count:'+p1.options_count+' ans:'+p1.answer+' conf:'+p1.confidence, 'dim');
 
-    updateValidation(pass1);
+    updateValidation(p1);
 
-    // Check for reposition / incomplete question
-    if (pass1.status !== 'ok' || pass1.options_count !== 5) {
-      await handleReposition(pass1, imgB64);
+    if (p1.status !== 'ok' || p1.options_count !== 5) {
+      const visible = p1.options_count || 0;
+      if (retryCount < maxRetries) {
+        log('Reposition — retrying ('+(retryCount+1)+'/'+maxRetries+')', 'warn');
+        scanning = false; showOverlay(false);
+        await delay(600);
+        const newCanvas = captureFrame();
+        await sendToGemini(newCanvas, retryCount+1);
+        return;
+      }
+      showWarn(p1);
+      scanning = false; showOverlay(false); setLockDot('warn'); setLockStatus('active');
       return;
     }
 
     // ── PASS 2 (unless speed mode) ──
-    let pass2 = { agree: true, final_answer: pass1.answer, your_answer: pass1.answer };
+    let p2 = {agree:true, final_answer:p1.answer, your_answer:p1.answer};
     if (!tog('speed')) {
       showOverlay(true, 'PASS 2 · VERIFYING');
-      pass2 = await geminiAnalyse(imgB64, buildPass2Prompt(pass1));
-      log('P2→ agree:' + pass2.agree + ' answer:' + pass2.final_answer, 'dim');
-    } else {
-      log('Speed mode: skipped Pass 2', 'warn');
+      p2 = await geminiCall(imgB64, buildPass2Prompt(p1));
+      log('P2→ agree:'+p2.agree+' ans:'+p2.final_answer, 'dim');
     }
 
-    updateVCheck('vc-agree', pass2.agree !== false, pass2.agree ? 'YES' : 'NO');
+    updateVCheck('vc-agree', p2.agree!==false, p2.agree ? 'YES' : 'NO');
 
-    // ── Wrong answer protection ──
-    if (tog('protect') && pass2.agree === false && !tog('speed')) {
+    // Protection
+    if (tog('protect') && p2.agree===false && !tog('speed')) {
       if (retryCount < maxRetries) {
-        log('Passes disagree — retrying (' + (retryCount+1) + '/' + maxRetries + ')', 'warn');
-        retryCount++;
-        scanning = false;
-        showOverlay(false);
+        log('AI disagrees — retrying', 'warn');
+        scanning = false; showOverlay(false);
         await delay(400);
-        await runScanCycle(imgB64);
+        await sendToGemini(canvas, retryCount+1);
         return;
       }
-      // Still disagreeing — show uncertain
-      log('⚠ Passes still disagree after retries — showing ? (protection active)', 'warn');
-      showUncertain(pass1.answer, pass2.your_answer);
-      scanning = false; showOverlay(false); setLockDot('warn');
+      showUncertain(p1.answer, p2.your_answer);
+      scanning = false; showOverlay(false); setLockDot('warn'); setLockStatus('active');
       return;
     }
 
-    // ── Confidence gate ──
-    const conf = scoreConfidence(pass1, pass2);
-    setConfBar(conf);
+    const conf = scoreConfidence(p1, p2);
+    const finalAns = p2.final_answer || p1.answer;
 
-    if (tog('confgate') && conf < 65 && retryCount < maxRetries) {
-      log('Confidence ' + conf + '% < 65% — retrying (' + (retryCount+1) + '/' + maxRetries + ')', 'warn');
-      retryCount++;
-      scanning = false; showOverlay(false);
-      await delay(400);
-      await runScanCycle(imgB64);
-      return;
-    }
-
-    // ── SUCCESS ──
-    const finalAnswer = pass2.final_answer || pass1.answer;
-    showAnswer(finalAnswer, pass1, conf);
-    lightPhysLED(finalAnswer);
+    showAnswer(finalAns, p1, conf);
+    lightPhysLED(finalAns);
+    haptic(finalAns);
+    statAnswers++;
+    updateStats();
     setLockDot('ok');
-    haptic(finalAnswer);
-    log('✓ ANSWER = ' + finalAnswer + ' | conf=' + conf + '% | "' + (pass1.question_summary||'') + '"', 'ok');
+    setLockStatus('active');
+    log('✓ ANSWER = ' + finalAns + ' | conf=' + conf + '% | "' + (p1.question_summary||'') + '"', 'ok');
 
   } catch(e) {
-    log('Error: ' + e.message, 'err');
+    markKeyFailed(e.message);
+    log('API error: '+e.message, 'err');
     setLockDot('warn');
+    // If we have more keys, retry automatically
+    if (getActiveKey() && retryCount < maxRetries) {
+      log('Retrying with next key…', 'info');
+      scanning = false; showOverlay(false);
+      await delay(300);
+      await sendToGemini(canvas, retryCount+1);
+      return;
+    }
   }
 
   scanning = false;
   showOverlay(false);
 }
 
-// ═══════════════════════════════════════════════════
-// REPOSITION HANDLER
-// ═══════════════════════════════════════════════════
-async function handleReposition(result, imgB64) {
-  const visible = result.options_count || 0;
-  const reason = result.reason || '';
-  log('Reposition: ' + visible + '/5 options · ' + reason, 'warn');
-
-  if (retryCount < maxRetries) {
-    retryCount++;
-    log('Auto-retry ' + retryCount + '/' + maxRetries, 'warn');
-    showOverlay(false);
-    flashWarn();
-    await delay(900);
-    scanning = false;
-    await runScanCycle(imgB64);
-    return;
-  }
-
-  showOverlay(false);
-  scanning = false;
-
-  // Determine specific reason to show
-  const msg = result.question_complete === false ? 'PARTIAL QUESTION' :
-              result.options_complete === false   ? 'OPTIONS CUT OFF' :
-              'REPOSITION (' + visible + '/5)';
-
-  setAnswerWarn(msg);
-  fireWarnLED();
-  lightPhysLED('WARN');
-  setLockDot('warn');
-  haptic('WARN');
-}
-
-// ═══════════════════════════════════════════════════
-// GEMINI PROMPTS
-// ═══════════════════════════════════════════════════
-function buildPass1Prompt() {
-  const checkPartial = tog('partial');
-  const checkOptions = tog('options');
-
-  return `You are analysing a photo of a multiple choice question.
-This could be from ANY format: Kahoot, Quizlet, Google Forms, exam paper, pub quiz slide, whiteboard, printed sheet, PowerPoint, etc.
-
-STEP 1 — Count answer options:
-Count EVERY distinct option visible. Options may be: letters (A B C D E), numbers (1-5), coloured Kahoot tiles, bullet points, numbered paragraphs, radio buttons.
-
-STEP 2 — Only if EXACTLY 5 options are clearly visible:
-${checkPartial ? `Check the question is COMPLETE — it must end with a ? or be a grammatically complete sentence. If it appears cut off mid-word or mid-sentence, set question_complete to false.` : ''}
-${checkOptions ? `Check each option has readable text content — not just a label/colour with nothing next to it. If any option text is cut off or missing, set options_complete to false.` : ''}
-Determine the correct answer using your full knowledge.
-
-RESPOND ONLY WITH THIS JSON (no markdown, no explanation):
-
-If 5 options visible AND question complete AND options readable:
-{
-  "status": "ok",
-  "options_count": 5,
-  "answer": "A",
-  "answer_text": "the exact text of the correct option",
-  "question_summary": "the question text",
-  "question_complete": true,
-  "options_complete": true,
-  "confidence": "high",
-  "options_visible": ["A","B","C","D","E"],
-  "format": "kahoot|exam|slides|printed|whiteboard|other"
-}
-
-If fewer than 5 options, or question cut off, or options unreadable:
-{
-  "status": "reposition",
-  "options_count": <0-4>,
-  "question_complete": <true|false>,
-  "options_complete": <true|false>,
-  "reason": "specific reason",
-  "suggestion": "move bottle left / zoom out / reduce glare"
-}`;
-}
-
-function buildPass2Prompt(p1) {
-  return `You are independently verifying an answer to a multiple choice question.
-
-Previous analysis said:
-- Question: "${p1.question_summary}"
-- Proposed answer: "${p1.answer}" — "${p1.answer_text}"
-- Options: ${JSON.stringify(p1.options_visible)}
-
-Look at this image again completely fresh.
-1. Is "${p1.answer}" correct?
-2. What is YOUR independent answer?
-
-RESPOND ONLY WITH THIS JSON:
-{
-  "agree": true,
-  "final_answer": "A",
-  "your_answer": "A",
-  "reason": "one sentence"
-}`;
-}
-
-// ═══════════════════════════════════════════════════
-// GEMINI CALL
-// ═══════════════════════════════════════════════════
-async function geminiAnalyse(base64, prompt) {
+// ══════════════════════════════════════════════════════════
+// GEMINI API CALL
+// ══════════════════════════════════════════════════════════
+async function geminiCall(base64, prompt) {
   const keyObj = getActiveKey();
   if (!keyObj) {
-    const allLimited = apiKeys.every(k => k.limited);
-    if (allLimited) {
-      // Find soonest key to become available
-      const soonest = Math.min(...apiKeys.map(k => k.limitedUntil));
-      const waitSecs = Math.ceil((soonest - Date.now()) / 1000);
-      throw new Error('All ' + apiKeys.length + ' keys are rate limited. Next available in ' + waitSecs + 's.');
-    }
-    throw new Error('No API keys saved. Add keys in the key manager above.');
+    const soonest = Math.min(...apiKeys.map(k=>k.limitedUntil||0));
+    const wait = Math.ceil((soonest - Date.now())/1000);
+    throw new Error('All keys rate limited. Next available in ' + wait + 's');
   }
-  const currentKey = keyObj.key;
-  log('Using key ' + (activeKeyIdx+1) + '/' + apiKeys.length, 'dim');
-
+  log('Using key ' + (activeKeyIdx+1), 'dim');
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${keyObj.key}`,
+    { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        contents: [{ parts: [
-          { text: prompt },
-          { inline_data: { mime_type: 'image/jpeg', data: base64 } }
-        ]}],
-        generationConfig: { temperature: 0.05, maxOutputTokens: 1024 }
+        contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:base64}}]}],
+        generationConfig:{temperature:0.05,maxOutputTokens:1024}
       })
     }
   );
-  if (!res.ok) {
-    const t = await res.text();
-    markKeyFailed(t + ' ' + res.status);
-    throw new Error(t.slice(0,300));
-  }
+  if (!res.ok) { const t=await res.text(); throw new Error(t.slice(0,300)+' status='+res.status); }
   const data = await res.json();
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
   const clean = raw.replace(/```json|```/g,'').trim();
   try { return JSON.parse(clean); }
   catch(e) {
     try { return JSON.parse(repairJSON(clean)); }
-    catch(e2) {
-      const fb = extractFieldsFallback(clean);
-      if (fb) return fb;
-      throw new Error('JSON parse fail: ' + clean.slice(0,120));
-    }
+    catch(e2) { return extractFallback(clean) || {status:'reposition',options_count:0}; }
   }
 }
 
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// PROMPTS
+// ══════════════════════════════════════════════════════════
+function buildPass1Prompt() {
+  return `You are analysing a photo of a multiple choice question. It may be from Kahoot, Quizlet, Google Forms, an exam paper, pub quiz slide, whiteboard, or any other format.
+
+Count ALL distinct answer options visible (letters A-E, numbers, coloured tiles, bullets, etc).
+
+Only if EXACTLY 5 options are clearly visible AND the question text is complete:
+- Determine the correct answer using your full knowledge
+- Verify the question ends properly (not cut off mid-sentence)
+- Verify all 5 options have readable text
+
+RESPOND ONLY WITH JSON — no markdown, no explanation:
+
+If ready:
+{"status":"ok","options_count":5,"answer":"A","answer_text":"exact text of correct option","question_summary":"the question","question_complete":true,"options_complete":true,"confidence":"high","options_visible":["A","B","C","D","E"],"format":"kahoot|exam|slides|other"}
+
+If not ready:
+{"status":"reposition","options_count":0,"question_complete":true,"options_complete":false,"reason":"what is missing"}`;
+}
+
+function buildPass2Prompt(p1) {
+  return `Independently verify this multiple choice answer. Look at the image fresh.
+
+Previous analysis: question="${p1.question_summary}" proposed answer="${p1.answer}" text="${p1.answer_text}"
+
+Do you agree? What is YOUR independent answer?
+
+RESPOND ONLY WITH JSON:
+{"agree":true,"final_answer":"A","your_answer":"A","reason":"brief reason"}`;
+}
+
+// ══════════════════════════════════════════════════════════
 // JSON REPAIR
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 function repairJSON(s) {
   s = s.trim().replace(/```json|```/g,'').trim();
-  const start = s.indexOf('{');
-  if (start > 0) s = s.slice(start);
-  let open = 0;
-  for (const ch of s) { if (ch==='{') open++; else if (ch==='}') open--; }
-  if (open > 0) {
-    s = s.replace(/,\s*"[^"]*$/, '').replace(/:\s*"[^"]*$/, '').replace(/,\s*$/, '');
-    s += '}'.repeat(open);
-  }
+  const st = s.indexOf('{'); if (st>0) s=s.slice(st);
+  let o=0; for(const c of s){if(c==='{')o++;else if(c==='}')o--;}
+  if(o>0){s=s.replace(/,\s*"[^"]*$/,'').replace(/:\s*"[^"]*$/,'').replace(/,\s*$/,'');s+='}'.repeat(o);}
   return s;
 }
 
-function extractFieldsFallback(raw) {
-  const get = k => { const m = raw.match(new RegExp('"'+k+'"\\s*:\\s*"([^"]*)"')); return m?m[1]:null; };
-  const getNum = k => { const m = raw.match(new RegExp('"'+k+'"\\s*:\\s*(\\d+)')); return m?parseInt(m[1]):null; };
-  const getBool = k => raw.includes('"'+k+'": true') || raw.includes('"'+k+'":true');
-  const status = get('status') || (raw.includes('"ok"') ? 'ok' : 'reposition');
-  const answer = get('answer');
-  log('JSON repaired via fallback extraction', 'warn');
-  return {
-    status, answer, options_count: getNum('options_count') || 0,
-    answer_text: get('answer_text') || '', question_summary: get('question_summary') || '',
-    confidence: get('confidence') || 'medium', options_visible: ['A','B','C','D','E'],
-    question_complete: getBool('question_complete'), options_complete: getBool('options_complete'),
-    reason: get('reason') || '', agree: getBool('agree'),
-    final_answer: get('final_answer') || answer, your_answer: get('your_answer') || answer,
-  };
+function extractFallback(raw) {
+  const g = k => { const m=raw.match(new RegExp('"'+k+'"\\s*:\\s*"([^"]*)"')); return m?m[1]:null; };
+  const gn = k => { const m=raw.match(new RegExp('"'+k+'"\\s*:\\s*(\\d+)')); return m?parseInt(m[1]):null; };
+  const status = g('status') || (raw.includes('"ok"')?'ok':'reposition');
+  const answer = g('answer');
+  if (!answer && status!=='ok') return null;
+  return {status,answer,options_count:gn('options_count')||0,answer_text:g('answer_text')||'',
+    question_summary:g('question_summary')||'',confidence:g('confidence')||'medium',
+    options_visible:['A','B','C','D','E'],question_complete:true,options_complete:true,
+    agree:raw.includes('"agree": true'),final_answer:g('final_answer')||answer,your_answer:g('your_answer')||answer};
 }
 
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // CONFIDENCE SCORING
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 function scoreConfidence(p1, p2) {
-  let s = 0;
-  if (p1.options_count === 5)         s += 20;
-  if (p1.confidence === 'high')       s += 30;
-  if (p1.confidence === 'medium')     s += 15;
-  if (p1.question_complete !== false) s += 15;
-  if (p1.options_complete !== false)  s += 10;
-  if (p2.agree === true)              s += 20;
-  if (p2.your_answer === p1.answer)   s += 5;
-  return Math.min(s, 100);
+  let s=0;
+  if(p1.options_count===5)          s+=20;
+  if(p1.confidence==='high')        s+=30;
+  if(p1.confidence==='medium')      s+=15;
+  if(p1.question_complete!==false)  s+=15;
+  if(p1.options_complete!==false)   s+=10;
+  if(p2.agree===true)               s+=20;
+  if(p2.your_answer===p1.answer)    s+=5;
+  return Math.min(s,100);
 }
 
-// ═══════════════════════════════════════════════════
-// HAPTIC FEEDBACK
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// HAPTIC
+// ══════════════════════════════════════════════════════════
 function haptic(ans) {
-  if (!tog('haptic')) return;
-  if (!navigator.vibrate) return;
-  const patterns = {
-    A: [80],
-    B: [80,80,80],
-    C: [80,80,80,80,80],
-    D: [80,80,80,80,80,80,80],
-    E: [80,80,80,80,80,80,80,80,80],
-    WARN: [200,100,200,100,200],
-    BLUR: [400],
-  };
-  navigator.vibrate(patterns[ans] || [100]);
+  if (!tog('haptic') || !navigator.vibrate) return;
+  const p = {A:[80],B:[80,80,80],C:[80,80,80,80,80],D:[80,80,80,80,80,80,80],E:[80,80,80,80,80,80,80,80,80],WARN:[200,100,200]};
+  navigator.vibrate(p[ans]||[100]);
 }
 
-// ═══════════════════════════════════════════════════
-// SHOW ANSWER
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// SHOW RESULTS
+// ══════════════════════════════════════════════════════════
 function showAnswer(ans, data, conf) {
   showOverlay(false);
+  if (tog('hold')) { lastAnswer = ans; document.getElementById('heldBadge').style.display='none'; }
 
-  // Answer hold: only update if we have a real answer or hold is off
-  if (tog('hold')) {
-    lastAnswer = ans;
-    document.getElementById('heldBadge').style.display = 'none';
-  }
+  const ab = document.getElementById('ansBig');
+  ab.textContent = ans; ab.className = 'ans-big ans-'+ans;
+  document.getElementById('ansSub').textContent = (data.answer_text||'') + (conf ? '  ·  '+conf+'%' : '');
+  document.getElementById('optChips').innerHTML = ANSWERS.map(l =>
+    `<div class="chip ${l===ans?'act-'+ans:''}">${l}</div>`).join('');
 
-  const ab = document.getElementById('answerBig');
-  ab.textContent = ans;
-  ab.className = 'answer-big ans-' + ans;
-  document.getElementById('answerSub').textContent =
-    (data.answer_text || '') + (conf ? '  ·  ' + conf + '%' : '');
-
-  // Chips
-  document.getElementById('optChips').innerHTML =
-    ANSWERS.map(l => `<div class="chip ${l===ans?'active-'+ans:''}">${l}</div>`).join('');
-
-  // On-screen LEDs
   clearLEDs();
   ['a','b','c','d','e'].forEach((x,i) => {
-    document.getElementById('l'+x).className = 'led' + (ANSWERS[i]===ans ? ' '+ans : '');
-    document.getElementById('ll'+x).className = 'led-lbl' + (ANSWERS[i]===ans ? ' active' : '');
+    document.getElementById('l'+x).className = 'led' + (ANSWERS[i]===ans?' '+ans:'');
+    document.getElementById('ll'+x).className = 'led-lbl' + (ANSWERS[i]===ans?' active':'');
   });
 
-  // Lock screen — small letter bottom left
   const la = document.getElementById('lockAnswer');
-  la.textContent = ans;
-  la.className = 'ans-' + ans;
-
-  // History
-  addHistory(ans);
+  la.textContent = ans; la.className = 'ans-'+ans;
 
   setConfBar(conf);
-  document.getElementById('confPct').textContent = conf + '%';
-  setPill('ANSWER: ' + ans, true);
+  document.getElementById('confPct').textContent = conf+'%';
+  setPill('ANSWER: '+ans, true);
+  addHistory(ans);
 }
 
-function showUncertain(ans1, ans2) {
+function showWarn(result) {
   showOverlay(false);
-  const ab = document.getElementById('answerBig');
-  ab.textContent = '?';
-  ab.className = 'answer-big ans-UNCERTAIN';
-  document.getElementById('answerSub').textContent = 'AI disagrees: ' + ans1 + ' vs ' + ans2 + ' — reposition for clarity';
+  const msg = result.question_complete===false ? 'QUESTION CUT OFF' :
+              result.options_complete===false   ? 'OPTIONS MISSING'  : 'REPOSITION';
+  const ab = document.getElementById('ansBig');
+  ab.textContent = msg; ab.className = 'ans-big ans-WARN';
+  document.getElementById('ansSub').textContent = result.reason || 'Adjust angle — need all 5 options visible';
   document.getElementById('optChips').innerHTML = '';
-
-  // If hold is on, show the held answer
-  if (tog('hold') && lastAnswer) {
-    ab.textContent = lastAnswer + '?';
-    document.getElementById('heldBadge').style.display = 'block';
-    document.getElementById('answerSub').textContent = 'Uncertain — showing last held answer · ' + ans1 + ' vs ' + ans2;
-  }
-
+  if (tog('hold') && lastAnswer) document.getElementById('heldBadge').style.display='block';
   const la = document.getElementById('lockAnswer');
-  la.textContent = '?';
-  la.className = 'ans-UNCERTAIN';
-  addHistory('?');
+  la.textContent = '⚠'; la.className = 'ans-WARN';
+  clearLEDs();
+  document.getElementById('lwarn').className = 'led WARN';
+  lightPhysLED('WARN');
+  setPill('REPOSITION', false);
+}
+
+function showUncertain(a1, a2) {
+  showOverlay(false);
+  const ab = document.getElementById('ansBig');
+  if (tog('hold') && lastAnswer) {
+    ab.textContent = lastAnswer; ab.className = 'ans-big ans-'+lastAnswer;
+    document.getElementById('heldBadge').style.display='block';
+    document.getElementById('ansSub').textContent = 'AI uncertain ('+a1+' vs '+a2+') — showing held answer';
+  } else {
+    ab.textContent = '?'; ab.className = 'ans-big ans-UNCERTAIN';
+    document.getElementById('ansSub').textContent = 'AI disagrees: '+a1+' vs '+a2;
+  }
+  document.getElementById('lockAnswer').textContent = tog('hold')&&lastAnswer ? lastAnswer : '?';
+  document.getElementById('lockAnswer').className = tog('hold')&&lastAnswer ? 'ans-'+lastAnswer : 'ans-UNCERTAIN';
   setPill('UNCERTAIN', false);
 }
 
-function showBlurWarning(msg) {
-  const ab = document.getElementById('answerBig');
-  ab.textContent = msg || 'BLURRY';
-  ab.className = 'answer-big ans-BLUR';
-  document.getElementById('answerSub').textContent = 'Hold camera steady / move closer';
-  document.getElementById('optChips').innerHTML = '';
-
-  if (tog('hold') && lastAnswer) {
-    document.getElementById('heldBadge').style.display = 'block';
-  }
-
-  const la = document.getElementById('lockAnswer');
-  la.textContent = '⚠';
-  la.className = 'ans-BLUR';
-  fireWarnLED();
-  setPill('BLUR', false);
-}
-
-// ═══════════════════════════════════════════════════
-// ANSWER HISTORY
-// ═══════════════════════════════════════════════════
-function addHistory(ans) {
-  if (!tog('history')) {
-    document.getElementById('historyStrip').style.display = 'none';
-    return;
-  }
-  answerHistory.unshift(ans);
-  if (answerHistory.length > 5) answerHistory.pop();
-  document.getElementById('historyStrip').style.display = 'flex';
-
-  // Main strip
-  for (let i = 0; i <= 4; i++) {
-    const el = document.getElementById('hi' + i);
-    const val = answerHistory[i] || '—';
-    el.textContent = val;
-    el.className = 'hist-item' + (answerHistory[i] ? ' h-' + val : '') + (i === 0 ? ' hist-newest' : '');
-  }
-
-  // Lock screen history (show last 4, oldest first)
-  const hist4 = [...answerHistory].reverse().slice(-4);
-  for (let i = 0; i < 4; i++) {
-    const el = document.getElementById('lh' + (i+1));
-    const val = hist4[i] || '';
-    el.textContent = val;
-    el.className = 'lock-hist-item' + (val ? ' ' + val.toLowerCase() : '');
-    el.style.opacity = val ? (0.1 + i * 0.07).toString() : '0';
-  }
-}
-
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // VALIDATION UI
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 function updateValidation(r) {
-  const ok5 = r.options_count === 5;
-  updateVCheck('vc-count',    ok5,                              r.options_count + '/5');
-  updateVCheck('vc-question', r.question_complete !== false,    r.question_complete !== false ? '✓' : 'CUT OFF', r.question_complete === false ? 'warn' : '');
-  updateVCheck('vc-text',     r.options_complete !== false,     r.options_complete !== false  ? '✓' : 'MISSING',  r.options_complete === false  ? 'warn' : '');
-  updateVCheck('vc-conf',     r.confidence === 'high',
-    r.confidence === 'high' ? 'HIGH' : r.confidence === 'medium' ? 'MED' : r.confidence || '?');
+  updateVCheck('vc-count',  r.options_count===5,           r.options_count+'/5');
+  updateVCheck('vc-conf',   r.confidence==='high',         r.confidence==='high'?'HIGH':r.confidence==='medium'?'MED':r.confidence||'?');
 }
 
-function updateVCheck(id, pass, val, forceClass) {
-  const el = document.getElementById(id);
-  el.className = 'vcheck ' + (forceClass || (pass ? 'pass' : 'fail'));
-  const vv = el.querySelector('.vcheck-val');
-  if (vv) vv.textContent = val;
+function updateVCheck(id, pass, val, cls) {
+  const el = document.getElementById(id); if(!el) return;
+  el.className = 'vcheck ' + (cls || (pass?'pass':'fail'));
+  const vv = el.querySelector('.vcheck-val'); if(vv) vv.textContent = val;
 }
 
 function clearValidation() {
-  ['vc-blur','vc-count','vc-question','vc-text','vc-conf','vc-agree'].forEach(id => {
-    const el = document.getElementById(id);
-    el.className = 'vcheck';
-    const vv = el.querySelector('.vcheck-val');
-    if (vv) vv.textContent = '—';
+  ['vc-motion','vc-blur','vc-change','vc-count','vc-conf','vc-agree'].forEach(id => {
+    const el=document.getElementById(id); if(!el) return;
+    el.className='vcheck';
+    const vv=el.querySelector('.vcheck-val'); if(vv) vv.textContent='—';
   });
 }
 
 function setConfBar(pct) {
   const f = document.getElementById('confFill');
-  f.style.width = pct + '%';
-  f.style.background = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
-  document.getElementById('confPct').textContent = pct + '%';
+  f.style.width = pct+'%';
+  f.style.background = pct>=70?'var(--green)':pct>=40?'var(--amber)':'var(--red)';
+  document.getElementById('confPct').textContent = pct+'%';
 }
 
-// ═══════════════════════════════════════════════════
-// WARN / REPOSITION
-// ═══════════════════════════════════════════════════
-function setAnswerWarn(msg) {
-  const ab = document.getElementById('answerBig');
-  ab.textContent = msg || 'REPOSITION';
-  ab.className = 'answer-big ans-WARN';
-  document.getElementById('answerSub').textContent = 'Adjust until all 5 options are fully visible';
-  document.getElementById('optChips').innerHTML = '';
-
-  // Hold last answer on lock screen
-  if (tog('hold') && lastAnswer) {
-    document.getElementById('heldBadge').style.display = 'block';
+// ══════════════════════════════════════════════════════════
+// HISTORY
+// ══════════════════════════════════════════════════════════
+function addHistory(ans) {
+  if (!ANSWERS.includes(ans)) return;
+  if (!tog('history')) { document.getElementById('histStrip').style.display='none'; return; }
+  answerHistory.unshift(ans);
+  if (answerHistory.length>5) answerHistory.pop();
+  document.getElementById('histStrip').style.display='flex';
+  for (let i=0;i<=4;i++) {
+    const el=document.getElementById('hi'+i);
+    const v=answerHistory[i]||'—';
+    el.textContent=v;
+    el.className='hist-item'+(answerHistory[i]?' h-'+v:'')+(i===0?' hist-newest':'');
   }
-
-  const la = document.getElementById('lockAnswer');
-  la.textContent = '⚠';
-  la.className = 'ans-WARN';
-  setPill('REPOSITION', false);
+  // Lock screen history
+  const hist4=[...answerHistory].slice(0,4).reverse();
+  for(let i=0;i<4;i++){
+    const el=document.getElementById('lh'+i);
+    const v=hist4[i]||'';
+    el.textContent=v;
+    el.className='lock-hist'+(v?' '+v.toLowerCase():'');
+    el.style.opacity=v?(0.08+i*0.04).toString():'0';
+  }
 }
 
-function fireWarnLED() {
-  clearLEDs();
-  document.getElementById('lwarn').className = 'led WARN';
+// ══════════════════════════════════════════════════════════
+// LIVE STATS
+// ══════════════════════════════════════════════════════════
+function updateStats() {
+  document.getElementById('stat-frames').textContent = statFrames;
+  document.getElementById('stat-passed').textContent = statPassed;
+  document.getElementById('stat-sent').textContent   = statSent;
+  document.getElementById('stat-answers').textContent = statAnswers;
+  document.getElementById('stat-ratio').textContent  = statSent>0 ? Math.round(statAnswers/statSent*100)+'%' : '—';
 }
 
-function flashWarn() {
-  const lw = document.getElementById('lwarn');
-  lw.className = 'led WARN';
-  setTimeout(() => { lw.className = 'led'; }, 800);
+// ══════════════════════════════════════════════════════════
+// PHYS LED
+// ══════════════════════════════════════════════════════════
+function lightPhysLED(ans) {
+  const base={a:'led-A',b:'led-B',c:'led-C',d:'led-D',e:'led-E',warn:'led-W'};
+  Object.keys(base).forEach(x=>{const el=document.getElementById('pled-'+x);if(el)el.className='phys-led '+base[x];});
+  const cd=document.getElementById('confDot');
+  if(ans==='WARN'){
+    const w=document.getElementById('pled-warn');if(w)w.className='phys-led led-W blink';
+    cd.textContent='!';cd.style.color='#ff3355';cd.style.borderColor='#ff3355';
+  } else {
+    const el=document.getElementById('pled-'+ans.toLowerCase());
+    if(el)el.className='phys-led led-'+ans+' lit';
+    cd.textContent='OK';cd.style.color='#39ff85';cd.style.borderColor='#39ff85';
+  }
 }
 
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // LOCK SCREEN
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 function toggleLock() {
   isLocked = !isLocked;
   const ls = document.getElementById('lockScreen');
   ls.classList.toggle('hidden', !isLocked);
   if (isLocked) {
-    ls.onclick = () => triggerScan();
-    log('LOCKED — tap anywhere to scan', 'warn');
-    if (tog('autoscan')) document.getElementById('lockCountdown').style.display = 'block';
+    ls.onclick = e => { if(e.target.id!=='sosTapZone') triggerManualScan(); };
+    log('LOCKED — tap to snap · Triple-tap top-right for SOS', 'warn');
   } else {
     ls.onclick = null;
-    document.getElementById('lockCountdown').style.display = 'none';
     log('Unlocked', 'dim');
   }
 }
 
-function setLockDot(state) {
-  document.getElementById('lockScanDot').className = state;
+function setLockDot(state) { document.getElementById('lockScanDot').className = state; }
+function setLockStatus(s)   { document.getElementById('lockStatus').className = 'active' + (s?' '+s:''); }
+
+function setFsPill(id, cls, txt) {
+  const el=document.getElementById(id); if(!el) return;
+  el.className='fs-pill '+cls; el.textContent=txt;
 }
 
-// ═══════════════════════════════════════════════════
-// PHYSICAL LED
-// ═══════════════════════════════════════════════════
-function lightPhysLED(ans) {
-  const base = { a:'led-A', b:'led-B', c:'led-C', d:'led-D', e:'led-E', warn:'led-W' };
-  Object.keys(base).forEach(x => {
-    const el = document.getElementById('pled-'+x);
-    if (el) el.className = 'phys-led ' + base[x];
-  });
-  const cd = document.getElementById('confDot');
-  if (ans === 'WARN' || ans === 'BLUR') {
-    const w = document.getElementById('pled-warn');
-    if (w) w.className = 'phys-led led-W blink';
-    cd.textContent = '!'; cd.style.color = '#ff3355'; cd.style.borderColor = '#ff3355';
-  } else {
-    const el = document.getElementById('pled-' + ans.toLowerCase());
-    if (el) el.className = 'phys-led led-' + ans + ' lit';
-    cd.textContent = 'OK'; cd.style.color = '#39ff85'; cd.style.borderColor = '#39ff85';
-  }
+function setLfbDot(id, pass) {
+  const el=document.getElementById(id); if(!el) return;
+  el.className='lfb-dot '+(pass?'pass':'fail');
 }
 
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // BT
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 async function pairBT() {
   try {
-    btDev = await navigator.bluetooth.requestDevice({ acceptAllDevices: true });
-    btDev.addEventListener('gattserverdisconnected', () => {
-      document.getElementById('btLbl').textContent = 'BT disconnected';
-    });
-    document.getElementById('btLbl').textContent = 'PAIRED: ' + (btDev.name || btDev.id.slice(0,10)) + ' · press to scan';
-    document.getElementById('btLbl').style.color = 'var(--green)';
-    log('BT paired: ' + (btDev.name || 'unknown'), 'ok');
-  } catch(e) {
-    if (e.name !== 'NotFoundError') log('BT error: ' + e.message, 'err');
-  }
+    btDev = await navigator.bluetooth.requestDevice({acceptAllDevices:true});
+    btDev.addEventListener('gattserverdisconnected', () => { document.getElementById('btLbl').textContent='BT disconnected'; });
+    document.getElementById('btLbl').textContent='PAIRED: '+(btDev.name||btDev.id.slice(0,10))+' · press to snap';
+    document.getElementById('btLbl').style.color='var(--green)';
+    log('BT paired: '+(btDev.name||'unknown'),'ok');
+  } catch(e) { if(e.name!=='NotFoundError') log('BT: '+e.message,'err'); }
 }
 
-// ═══════════════════════════════════════════════════
-// RETRY / MISC UI
-// ═══════════════════════════════════════════════════
-function changeRetry(d) {
-  maxRetries = Math.max(0, Math.min(5, maxRetries + d));
-  document.getElementById('retryMax').textContent = maxRetries;
+// ══════════════════════════════════════════════════════════
+// UPLOAD FALLBACK
+// ══════════════════════════════════════════════════════════
+function handleUpload(e) {
+  const file=e.target.files[0]; if(!file) return;
+  if(!apiKeys.length){log('Save API keys first','err');return;}
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=async()=>{
+      const c=document.getElementById('canvas');
+      c.width=img.width;c.height=img.height;
+      c.getContext('2d').drawImage(img,0,0);
+      log('Photo loaded ('+img.width+'×'+img.height+') — scanning…','ok');
+      await sendToGemini(c);
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
-function showOverlay(on, step) {
-  document.getElementById('overlay').classList.toggle('on', on);
-  if (step) document.getElementById('scanStep').textContent = step;
-  const sl = document.getElementById('scanline');
-  if (sl) sl.className = 'scanline' + (on ? ' active' : '');
+// ══════════════════════════════════════════════════════════
+// UI HELPERS
+// ══════════════════════════════════════════════════════════
+function showOverlay(on,step){
+  document.getElementById('overlay').classList.toggle('on',on);
+  if(step) document.getElementById('scanStep').textContent=step;
 }
-
-function clearLEDs() {
-  ['a','b','c','d','e'].forEach(x => {
-    document.getElementById('l'+x).className = 'led';
-    document.getElementById('ll'+x).className = 'led-lbl';
-  });
-  document.getElementById('lwarn').className = 'led';
+function clearLEDs(){
+  ['a','b','c','d','e'].forEach(x=>{document.getElementById('l'+x).className='led';document.getElementById('ll'+x).className='led-lbl';});
+  document.getElementById('lwarn').className='led';
 }
+function setBadge(t,c){const b=document.getElementById('camBadge');if(b){b.textContent=t;b.className='cam-badge '+(c||'');}}
+function setPill(t,on){document.getElementById('statusPill').textContent=t;document.getElementById('statusDot').className='pill-dot'+(on?' on':'');}
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
 
-function setBadge(t, c) {
-  const b = document.getElementById('camBadge');
-  if (b) { b.textContent = t; b.className = 'cam-badge ' + (c||''); }
-}
-
-function setPill(t, on) {
-  document.getElementById('statusPill').textContent = t;
-  document.getElementById('statusDot').className = 'pill-dot' + (on ? ' on' : '');
-}
-
-function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-// ═══════════════════════════════════════════════════
-// DEMO / TEST
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// DEMO
+// ══════════════════════════════════════════════════════════
 function demoAnswer(ans) {
-  const p1 = { status:'ok', options_count:5, answer:ans, answer_text:'Demo option '+ans,
-    question_summary:'[DEMO] What is the correct answer?', confidence:'high',
-    question_complete:true, options_complete:true, options_visible:['A','B','C','D','E'] };
+  const p1={status:'ok',options_count:5,answer:ans,answer_text:'Demo option '+ans,question_summary:'[DEMO] Test question',confidence:'high',question_complete:true,options_complete:true,options_visible:['A','B','C','D','E']};
   clearValidation();
   updateValidation(p1);
-  updateVCheck('vc-blur', true, '✓');
-  updateVCheck('vc-agree', true, 'YES');
-  showAnswer(ans, p1, 100);
-  lightPhysLED(ans);
-  haptic(ans);
-  log('[DEMO] Answer = ' + ans + ' · all checks passed', 'ok');
+  updateVCheck('vc-motion',true,'STILL');updateVCheck('vc-blur',true,'SHARP');updateVCheck('vc-change',true,'NEW Q');updateVCheck('vc-agree',true,'YES');
+  showAnswer(ans,p1,100);
+  lightPhysLED(ans);haptic(ans);
+  log('[DEMO] '+ans+' · all checks passed','ok');
 }
-
-function demoWarn() {
+function demoWarn(){
   clearValidation();
-  updateValidation({ status:'reposition', options_count:3, confidence:'low', options_visible:['A','B','C'], question_complete:true, options_complete:false });
-  updateVCheck('vc-blur', true, '✓');
-  setAnswerWarn('OPTIONS CUT OFF');
-  fireWarnLED(); lightPhysLED('WARN');
-  setConfBar(10); document.getElementById('confPct').textContent = '10%';
-  setLockDot('warn'); haptic('WARN');
-  log('[DEMO] Reposition — options cut off', 'warn');
+  updateValidation({status:'reposition',options_count:3,confidence:'low'});
+  showWarn({options_count:3,reason:'Only 3 of 5 options visible'});
+  log('[DEMO] Reposition warning','warn');
+}
+function demoRandom(){
+  demoAnswer(ANSWERS[Math.floor(Math.random()*5)]);
 }
 
-function demoBlur() {
-  clearValidation();
-  updateVCheck('vc-blur', false, '32');
-  showBlurWarning();
-  lightPhysLED('WARN');
-  setLockDot('warn'); haptic('BLUR');
-  log('[DEMO] Blur detected — image too soft', 'warn');
-}
-
-function demoRandom() {
-  const ans = ANSWERS[Math.floor(Math.random()*5)];
-  const conf = 65 + Math.floor(Math.random()*35);
-  const p1 = { status:'ok', options_count:5, answer:ans, answer_text:'Random option '+ans,
-    question_summary:'[DEMO] Random question', confidence: conf>85?'high':'medium',
-    question_complete:true, options_complete:true, options_visible:['A','B','C','D','E'] };
-  clearValidation();
-  updateValidation(p1);
-  updateVCheck('vc-blur', true, '✓');
-  updateVCheck('vc-agree', true, 'YES');
-  showAnswer(ans, p1, conf);
-  lightPhysLED(ans);
-  haptic(ans);
-  log('[DEMO] Random = ' + ans + ' conf=' + conf + '%', 'ok');
-}
-
-// ═══════════════════════════════════════════════════
-// LIVE CAMERA CONTROLS
-// ═══════════════════════════════════════════════════
-let contrastLevel = 1.25; // used by captureFrame
-
-function updateContrast(val) {
-  contrastLevel = parseFloat(val);
-  document.getElementById('contrastVal').textContent = '×' + contrastLevel.toFixed(2);
-}
-
-function getActiveTrack() {
-  const v = document.getElementById('video');
-  return v.srcObject?.getVideoTracks()[0] || null;
-}
-
-async function applyExposure(val) {
-  document.getElementById('expVal').textContent = val;
-  const track = getActiveTrack();
-  if (!track) return;
-  try {
-    await track.applyConstraints({ advanced: [{ exposureCompensation: parseFloat(val) }] });
-    log('Exposure set to ' + val, 'ok');
-  } catch(e) { log('Exposure not supported: ' + e.message, 'warn'); }
-}
-
-async function applyFocusFar() {
-  const track = getActiveTrack();
-  if (!track) return;
-  const caps = track.getCapabilities ? track.getCapabilities() : {};
-  try {
-    if (caps.focusDistance) {
-      const far = caps.focusDistance.max * 0.75;
-      await track.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: far }] });
-      log('Focus set to far field (' + far.toFixed(2) + ')', 'ok');
-    } else {
-      log('Manual focus distance not supported on this device', 'warn');
-    }
-  } catch(e) { log('Focus far failed: ' + e.message, 'warn'); }
-}
-
-async function applyFocusNear() {
-  const track = getActiveTrack();
-  if (!track) return;
-  const caps = track.getCapabilities ? track.getCapabilities() : {};
-  try {
-    if (caps.focusDistance) {
-      const near = caps.focusDistance.min + (caps.focusDistance.max - caps.focusDistance.min) * 0.2;
-      await track.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: near }] });
-      log('Focus set to near (' + near.toFixed(2) + ')', 'ok');
-    } else {
-      log('Manual focus distance not supported', 'warn');
-    }
-  } catch(e) { log('Focus near failed: ' + e.message, 'warn'); }
-}
-
-async function applyFocusAuto() {
-  const track = getActiveTrack();
-  if (!track) return;
-  try {
-    await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
-    log('Auto-focus restored', 'ok');
-  } catch(e) { log('Auto-focus failed: ' + e.message, 'warn'); }
-}
-
-async function forceTorchOff() {
-  const track = getActiveTrack();
-  if (!track) return;
-  try {
-    await track.applyConstraints({ advanced: [{ torch: false }] });
-    log('Torch forced OFF', 'ok');
-  } catch(e) { log('Torch control not supported: ' + e.message, 'warn'); }
-}
-
-// ═══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // LOG
-// ═══════════════════════════════════════════════════
-function log(msg, type='dim') {
-  const b = document.getElementById('logBox');
-  const d = document.createElement('div');
-  d.className = type;
-  d.textContent = '[' + new Date().toTimeString().slice(0,8) + '] ' + msg;
-  b.appendChild(d);
-  b.scrollTop = b.scrollHeight;
-  if (b.children.length > 150) b.removeChild(b.firstChild);
+// ══════════════════════════════════════════════════════════
+function log(msg,type='dim'){
+  const b=document.getElementById('logBox');
+  const d=document.createElement('div');
+  d.className=type;
+  d.textContent='['+new Date().toTimeString().slice(0,8)+'] '+msg;
+  b.appendChild(d);b.scrollTop=b.scrollHeight;
+  if(b.children.length>150) b.removeChild(b.firstChild);
 }
 </script>
 </body>
