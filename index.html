@@ -219,7 +219,7 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
   <div class="topbar">
     <div>
       <div class="topbar-title">ANSWERBOT <span style="color:var(--accent2)">v5</span></div>
-      <div class="topbar-sub">STALE-PROOF &middot; DUAL-AI &middot; NEVER WRONG</div>
+      <div class="topbar-sub">STALE-PROOF &middot; DUAL-AI &middot; RATE-SMART</div>
     </div>
     <div class="pill"><div class="pill-dot" id="statusDot"></div><span id="statusPill">IDLE</span></div>
   </div>
@@ -302,9 +302,13 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
     <div class="lst-item"><div class="lst-val" id="s-an">0</div><div class="lst-lbl">ANSWERS</div></div>
     <div class="lst-item"><div class="lst-val" id="s-ca">0</div><div class="lst-lbl">CACHED</div></div>
     <div class="lst-item"><div class="lst-val" id="s-st">0</div><div class="lst-lbl">STALE&#9888;</div></div>
+    <div class="lst-item"><div class="lst-val" id="s-rpm">0</div><div class="lst-lbl">CALLS/MIN</div></div>
   </div>
 
-  <div style="display:flex;gap:8px;margin-bottom:10px">
+  <div id="rpmWarn" style="display:none;background:#1a0800;border:1px solid var(--amber);border-radius:5px;padding:6px 10px;margin-bottom:8px;font-size:8px;color:var(--amber);letter-spacing:1px;text-align:center">
+  &#9888; RATE LIMIT WARNING &mdash; slowing down to protect keys &mdash; <span id="rpmWarnDetail"></span>
+</div>
+<div style="display:flex;gap:8px;margin-bottom:10px">
     <button class="btn btn-accent btn-wide" id="liveBtn" onclick="toggleLive()">&#9711; START LIVE</button>
     <button class="btn btn-blue" onclick="triggerManual()" style="white-space:nowrap;padding:13px 12px;font-family:'Bebas Neue';font-size:16px">SNAP</button>
     <button class="btn btn-amber" onclick="toggleLock()" style="white-space:nowrap;padding:13px 12px;font-family:'Bebas Neue';font-size:16px">LOCK</button>
@@ -342,7 +346,7 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
     </div>
     <div class="toggle-row">
       <div class="toggle-label">&#9889; Speed Mode (1 pass)<span class="toggle-sub">~1s vs ~3s &mdash; skips verification pass</span></div>
-      <label class="toggle"><input type="checkbox" id="tog-speed" onchange="saveToggles()"><div class="toggle-track"></div></label>
+      <label class="toggle"><input type="checkbox" id="tog-speed" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
     <div class="toggle-row">
       <div class="toggle-label">Answer Hold<span class="toggle-sub">Never go blank &mdash; keep last good answer</span></div>
@@ -360,16 +364,16 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
       <div style="font-size:8px;color:var(--muted);margin-bottom:6px">Capture interval</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <span style="font-size:8px;color:var(--dim)">Fast</span>
-        <input type="range" id="captureMs" min="300" max="2000" step="100" value="600" style="flex:1;accent-color:var(--accent)" oninput="updateLabels()">
+        <input type="range" id="captureMs" min="500" max="5000" step="250" value="1000" style="flex:1;accent-color:var(--accent)" oninput="updateLabels()">
         <span style="font-size:8px;color:var(--dim)">Slow</span>
-        <span style="font-size:9px;color:var(--accent);min-width:40px" id="captureLbl">600ms</span>
+        <span style="font-size:9px;color:var(--accent);min-width:40px" id="captureLbl">1000ms</span>
       </div>
       <div style="font-size:8px;color:var(--muted);margin-bottom:6px">API cooldown</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <span style="font-size:8px;color:var(--dim)">Fast</span>
-        <input type="range" id="cooldownS" min="2" max="15" step="1" value="4" style="flex:1;accent-color:var(--accent)" oninput="updateLabels()">
+        <input type="range" id="cooldownS" min="4" max="30" step="1" value="8" style="flex:1;accent-color:var(--accent)" oninput="updateLabels()">
         <span style="font-size:8px;color:var(--dim)">Safe</span>
-        <span style="font-size:9px;color:var(--accent);min-width:30px" id="cooldownLbl">4s</span>
+        <span style="font-size:9px;color:var(--accent);min-width:30px" id="cooldownLbl">8s</span>
       </div>
       <div style="font-size:8px;color:var(--muted);margin-bottom:6px">Change sensitivity</div>
       <div style="display:flex;align-items:center;gap:8px">
@@ -490,6 +494,26 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
 // ═══════════════════════════════════════════════════════
 let geminiKeys=[], geminiIdx=0;
 let gptKeyVal='', useGPT=false, fallbackCount=0;
+// Per-key rate tracker: key → array of timestamps of recent calls
+let keyCallLog={};     // 'g0','g1'... → [timestamps]
+let gptCallLog=[];
+const GEMINI_RPM=9;    // stay under 10 RPM limit (buffer of 1)
+const GPT_RPM=7;       // gpt-4o-mini free tier is lower
+function canCallKey(keyId,log,rpm){
+  const now=Date.now(), window=60000;
+  const calls=(log[keyId]||[]).filter(t=>now-t<window);
+  log[keyId]=calls;
+  return calls.length<rpm;
+}
+function logKeyCall(keyId,log){
+  if(!log[keyId])log[keyId]=[];
+  log[keyId].push(Date.now());
+}
+function callsRemaining(keyId,log,rpm){
+  const now=Date.now();
+  const calls=(log[keyId]||[]).filter(t=>now-t<60000);
+  return Math.max(0,rpm-calls.length);
+}
 let camActive=false, isLocked=false, liveActive=false;
 let scanning=false, liveTimer=null;
 let lastAnswer=null, answerHistory=[], answerTime=0, ageTimer=null;
@@ -511,7 +535,7 @@ let qCache={};
 let sF=0,sP=0,sA=0,sAn=0,sCa=0,sSt=0;
 
 // Adaptive cooldown
-let cooldownMs=4000, recentConfs=[];
+let cooldownMs=8000, recentConfs=[];
 
 // SOS
 let sosTaps=0, sosTapT=null;
@@ -988,7 +1012,7 @@ async function sendToAI(canvas,hash,retry=0){
 
     updateValidation(p1);
     if(p1.status!=='ok'||p1.options_count!==5){
-      if(retry<2){scanning=false;showOverlay(false);await delay(500);await sendToAI(captureFrame(),currentFrameHash,retry+1);return;}
+      if(retry<2){scanning=false;showOverlay(false);await delay(2000+(retry*1000));await sendToAI(captureFrame(),currentFrameHash,retry+1);return;}
       showWarn(p1); scanning=false; showOverlay(false); setLockDot('warn'); return;
     }
 
@@ -1020,7 +1044,7 @@ async function sendToAI(canvas,hash,retry=0){
       recentConfs.push(conf); if(recentConfs.length>5)recentConfs.shift();
       const avg=recentConfs.reduce((a,b)=>a+b,0)/recentConfs.length;
       const base=parseInt(document.getElementById('cooldownS').value)*1000;
-      cooldownMs=avg>80?Math.max(2000,base-1000):avg<50?Math.min(10000,base+2000):base;
+      cooldownMs=avg>80?Math.max(6000,base-1000):avg<50?Math.min(20000,base+3000):base;
     }
 
     document.getElementById('staleWarn').style.display='none';
@@ -1033,15 +1057,17 @@ async function sendToAI(canvas,hash,retry=0){
     if(isGPT2){log('GPT error: '+e.message,'err');}
     else{markGeminiFailed(e.message);log('Gemini error: '+e.message,'err');}
     setLockDot('warn');
-    if(retry<2){scanning=false;showOverlay(false);await delay(400);await sendToAI(canvas,hash,retry+1);return;}
+    if(retry<2){scanning=false;showOverlay(false);await delay(2000+(retry*1000));await sendToAI(canvas,hash,retry+1);return;}
   }
 
   scanning=false; showOverlay(false);
-  // Process queued frame
+  // Process queued frame — MUST respect cooldown
   if(queuedCanvas&&tog('queue')){
     const qc=queuedCanvas,qh=queuedHash;queuedCanvas=null;queuedHash=0;
-    log('Processing queued frame','dim');
-    await delay(150);
+    const timeSinceLast=Date.now()-lastApiTime_;
+    const queueWait=Math.max(500,cooldownMs-timeSinceLast);
+    log('Queued frame — waiting '+queueWait+'ms before sending','dim');
+    await delay(queueWait);
     await sendToAI(qc,qh);
   }
 }
@@ -1050,8 +1076,22 @@ async function sendToAI(canvas,hash,retry=0){
 // GEMINI CALL
 // ═══════════════════════════════════════════════════════
 async function callGemini(base64,prompt){
-  const k=getGeminiKey();
-  if(!k)throw new Error('429 all Gemini keys limited');
+  // Find a key that has quota remaining
+  let k=null;
+  for(let attempt=0;attempt<geminiKeys.length;attempt++){
+    const candidate=getGeminiKey();
+    if(!candidate) break;
+    const keyId='g'+geminiIdx;
+    if(canCallKey(keyId,keyCallLog,GEMINI_RPM)){k=candidate;break;}
+    // This key is at its per-minute limit — mark it soft-limited and try next
+    log('Key '+(geminiIdx+1)+' at RPM limit — trying next','warn');
+    geminiKeys[geminiIdx].limited=true;
+    geminiKeys[geminiIdx].limitedUntil=Date.now()+15000; // 15s soft limit
+    updateGeminiBar();
+  }
+  if(!k)throw new Error('429 all Gemini keys at rate limit');
+  const keyId='g'+geminiIdx;
+  logKeyCall(keyId,keyCallLog);
   const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${k.key}`,
     {method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:base64}}]}],generationConfig:{temperature:0.05,maxOutputTokens:1024}})});
@@ -1065,6 +1105,10 @@ async function callGemini(base64,prompt){
 // ═══════════════════════════════════════════════════════
 async function callGPT(base64,prompt){
   if(!gptKeyVal)throw new Error('No GPT key configured');
+  if(!canCallKey('gpt',keyCallLog,GPT_RPM)){
+    throw new Error('429 GPT rate limit — calls in last 60s at limit');
+  }
+  logKeyCall('gpt',keyCallLog);
   log('Using GPT-4o-mini fallback','warn');
   const res=await fetch('https://api.openai.com/v1/chat/completions',{
     method:'POST',
@@ -1278,6 +1322,18 @@ function updateStats(){
   document.getElementById('s-an').textContent=sAn;
   document.getElementById('s-ca').textContent=sCa;
   document.getElementById('s-st').textContent=sSt;
+  // Calls in last 60s across all keys
+  const now60=Date.now();
+  const allCalls=Object.values(keyCallLog).flat().filter(t=>now60-t<60000).length;
+  document.getElementById('s-rpm').textContent=allCalls;
+  // Warn if burning through quota
+  const totalRpm=(geminiKeys.length*GEMINI_RPM)+(gptKeyVal?GPT_RPM:0);
+  const warnEl=document.getElementById('rpmWarn');
+  if(warnEl){
+    const pct=Math.round(allCalls/totalRpm*100);
+    if(pct>70){warnEl.style.display='block';document.getElementById('rpmWarnDetail').textContent=allCalls+'/'+totalRpm+' calls used ('+pct+'%)';}
+    else{warnEl.style.display='none';}
+  }
 }
 
 // ═══════════════════════════════════════════════════════
