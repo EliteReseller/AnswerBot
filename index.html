@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>AnswerBot Pro v5</title>
+<title>AnswerBot Pro v5.1</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=Bebas+Neue&display=swap');
 :root{--bg:#07080a;--surface:#0e1117;--border:#1e2530;--accent:#e8ff47;--accent2:#ff6b35;--blue:#4db8ff;--red:#ff3355;--green:#39ff85;--amber:#ffaa00;--dim:#3a4455;--text:#c8d8e8;--muted:#506070;--a:#ff4466;--b:#4488ff;--c:#ffcc00;--d:#44dd88;--e:#cc55ff;--gpt:#10a37f;}
@@ -171,7 +171,7 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
 .key-slot{display:flex;gap:6px;margin-bottom:6px;align-items:center;}
 .key-num{font-size:8px;color:var(--muted);width:50px;flex-shrink:0;letter-spacing:1px;}
 .key-dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex-shrink:0;transition:all 0.3s;}
-.key-dot.ok{background:var(--green);box-shadow:0 0 5px var(--green);}.key-dot.active{background:var(--accent);box-shadow:0 0 5px var(--accent);animation:glow 1s infinite;}.key-dot.limited{background:var(--red);}.key-dot.gpt-ok{background:var(--gpt);box-shadow:0 0 5px var(--gpt);}
+.key-dot.ok{background:var(--green);box-shadow:0 0 5px var(--green);}.key-dot.active{background:var(--accent);box-shadow:0 0 5px var(--accent);animation:glow 1s infinite;}.key-dot.limited{background:var(--red);}
 #liveStats{display:none;gap:4px;padding:7px 8px;background:var(--surface);border:1px solid var(--accent);border-radius:6px;margin-bottom:10px;}
 #liveStats.show{display:flex;}
 .lst-item{text-align:center;flex:1;}.lst-val{font-family:'Bebas Neue';font-size:15px;color:var(--accent);}.lst-lbl{font-size:6px;color:var(--muted);letter-spacing:1px;}
@@ -203,7 +203,7 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
   <div class="sos-msg" id="sosMsg">PANIC MODE</div>
   <button class="sos-btn" style="background:var(--green);color:#000" onclick="sosRecover()">&#9654; RESTART EVERYTHING</button>
   <button class="sos-btn" style="background:var(--accent);color:#000" onclick="sosContinue()">&#10003; KEEP LAST ANSWER</button>
-  <button class="sos-btn" style="background:#1a2a1a;color:var(--gpt);border:1px solid var(--gpt)" onclick="sosForceGPT()">&#8644; FORCE GPT FALLBACK</button>
+  
   <button class="sos-btn" style="background:#111;color:var(--red);border:1px solid var(--red)" onclick="sosClose()">&#10005; CLOSE</button>
   <div style="font-size:8px;color:#222;letter-spacing:1px;margin-top:8px">Triple-tap top-right corner to trigger SOS</div>
 </div>
@@ -219,15 +219,16 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
   <div class="topbar">
     <div>
       <div class="topbar-title">ANSWERBOT <span style="color:var(--accent2)">v5</span></div>
-      <div class="topbar-sub">STALE-PROOF &middot; DUAL-AI &middot; RATE-SMART</div>
+      <div class="topbar-sub">STALE-PROOF &middot; GEMINI-ONLY &middot; RATE-SMART</div>
     </div>
     <div class="pill"><div class="pill-dot" id="statusDot"></div><span id="statusPill">IDLE</span></div>
   </div>
 
   <div class="card">
-    <div class="card-title">Gemini Keys <span style="color:var(--accent);font-size:9px;margin-left:4px">PRIMARY &bull; 5-KEY ROTATION</span></div>
-    <div style="font-size:8px;color:var(--muted);margin-bottom:8px;line-height:1.8">Free at <b style="color:var(--blue)">aistudio.google.com</b> &bull; <b style="color:var(--accent)">gemini-2.5-flash</b> &bull; Always used first</div>
-    <div id="geminiSlots"></div>
+    <div class="card-title">Gemini Keys <span style="color:var(--accent);font-size:9px;margin-left:4px">PRIMARY &bull; 2-KEY ROTATION</span></div>
+    <div style="font-size:8px;color:var(--muted);margin-bottom:8px;line-height:1.8">Free at <b style="color:var(--blue)">aistudio.google.com</b> &bull; <b style="color:var(--accent)">gemini-2.5-flash</b></div>
+    <div class="key-slot"><div class="key-num">G-KEY 1</div><input type="password" id="gki0" placeholder="AIza..." style="flex:1;font-size:10px;padding:7px 9px"><div class="key-dot" id="gkd0"></div></div>
+    <div class="key-slot" style="margin-top:6px"><div class="key-num">G-KEY 2</div><input type="password" id="gki1" placeholder="AIza..." style="flex:1;font-size:10px;padding:7px 9px"><div class="key-dot" id="gkd1"></div></div>
     <div style="display:flex;gap:6px;margin-top:8px">
       <button class="btn btn-accent" style="flex:1" onclick="saveGeminiKeys()">SAVE GEMINI KEYS</button>
       <button class="btn btn-blue" style="font-size:8px" onclick="testGeminiKeys()">TEST ALL</button>
@@ -239,25 +240,9 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
     </div>
   </div>
 
-  <div class="card" style="border-color:#10a37f40">
-    <div class="card-title" style="color:var(--gpt)">ChatGPT Fallback <span style="font-size:9px;margin-left:4px;color:var(--muted)">gpt-4o-mini &bull; BACKUP ONLY</span></div>
-    <div style="font-size:8px;color:var(--muted);margin-bottom:8px;line-height:1.8">
-      $5 free at <b style="color:var(--gpt)">platform.openai.com</b> (no card needed) &bull; Vision-capable<br>
-      <b style="color:var(--amber)">Auto-activates when ALL Gemini keys fail &bull; Gemini takes priority back when any key recovers</b>
-    </div>
-    <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
-      <input type="password" id="gptKeyInput" placeholder="sk-... OpenAI API key" style="flex:1;font-size:10px">
-      <div class="key-dot" id="gptDot"></div>
-    </div>
-    <div style="display:flex;gap:6px">
-      <button class="btn btn-gpt" style="flex:1" onclick="saveGptKey()">SAVE GPT KEY</button>
-      <button class="btn btn-gpt" style="font-size:8px" onclick="testGptKey()">TEST</button>
-    </div>
-    <div style="font-size:8px;color:var(--dim);margin-top:8px;padding:6px 8px;background:#060810;border-radius:4px;border:1px solid var(--border)">
-      Provider: <span id="providerLbl" style="color:var(--accent)">GEMINI</span> &nbsp;&bull;&nbsp;
-      GPT fallbacks: <span id="fallbackCnt" style="color:var(--gpt)">0</span> &nbsp;&bull;&nbsp;
-      Stale blocked: <span id="staleCnt" style="color:var(--amber)">0</span>
-    </div>
+  <div style="font-size:8px;color:var(--dim);padding:4px 0 8px;letter-spacing:1px">
+    Provider: <span id="providerLbl" style="color:var(--accent)">GEMINI</span> &nbsp;&bull;&nbsp;
+    Stale blocked: <span id="staleCnt" style="color:var(--amber)">0</span>
   </div>
 
   <div class="card" id="camCard">
@@ -376,6 +361,11 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
         <span style="font-size:9px;color:var(--accent);min-width:30px" id="cooldownLbl">8s</span>
       </div>
       <div style="font-size:8px;color:var(--muted);margin-bottom:6px">Change sensitivity</div>
+      <div style="display:flex;gap:5px;margin-bottom:6px">
+        <button id="sens-low"  onclick="setSensPreset('low')"  style="flex:1;padding:6px 4px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'JetBrains Mono';font-size:8px;cursor:pointer">LOW<br><span style="font-size:7px;opacity:0.6">careful</span></button>
+        <button id="sens-med"  onclick="setSensPreset('med')"  style="flex:1;padding:6px 4px;border-radius:5px;border:1px solid var(--accent);background:#e8ff4710;color:var(--accent);font-family:'JetBrains Mono';font-size:8px;cursor:pointer">MEDIUM<br><span style="font-size:7px;opacity:0.7">★ preset</span></button>
+        <button id="sens-high" onclick="setSensPreset('high')" style="flex:1;padding:6px 4px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'JetBrains Mono';font-size:8px;cursor:pointer">HIGH<br><span style="font-size:7px;opacity:0.6">trigger happy</span></button>
+      </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:8px;color:var(--dim)">Low</span>
         <input type="range" id="changeSens" min="5" max="40" step="5" value="15" style="flex:1;accent-color:var(--accent)" oninput="updateLabels()">
@@ -442,7 +432,7 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
       <button class="btn btn-red" onclick="demoWarn()">&#9888; WARN</button>
-      <button class="btn btn-gpt" onclick="demoGPT()">GPT DEMO</button>
+      <button class="btn" onclick="demoRandom()">&#127922; RANDOM 2</button>
       <button class="btn" onclick="demoRandom()">&#127922; RANDOM</button>
     </div>
   </div>
@@ -493,12 +483,11 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
 // STATE
 // ═══════════════════════════════════════════════════════
 let geminiKeys=[], geminiIdx=0;
-let gptKeyVal='', useGPT=false, fallbackCount=0;
+
 // Per-key rate tracker: key → array of timestamps of recent calls
 let keyCallLog={};     // 'g0','g1'... → [timestamps]
 let gptCallLog=[];
 const GEMINI_RPM=9;    // stay under 10 RPM limit (buffer of 1)
-const GPT_RPM=7;       // gpt-4o-mini free tier is lower
 function canCallKey(keyId,log,rpm){
   const now=Date.now(), window=60000;
   const calls=(log[keyId]||[]).filter(t=>now-t<window);
@@ -548,7 +537,7 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));
 // BOOT
 // ═══════════════════════════════════════════════════════
 window.addEventListener('load',()=>{
-  loadGeminiKeys(); loadGptKey(); loadToggles(); updateLabels(); checkCamSupport();
+  loadGeminiKeys(); loadToggles(); updateLabels(); checkCamSupport();
 
   document.addEventListener('keydown',e=>{
     if(e.code==='Space'||e.code==='Enter'){e.preventDefault();triggerManual();}
@@ -568,8 +557,30 @@ window.addEventListener('load',()=>{
   try{ if(screen.orientation?.lock) screen.orientation.lock('portrait').catch(()=>{}); }catch(e){}
   wakeLock();
   registerSW();
-  log('AnswerBot Pro v5 — Stale-proof · Dual-AI · Bulletproof','info');
+  // Restore saved sensitivity preset
+  const sp=localStorage.getItem('ab_sp')||'med'; setSensPreset(sp,true);
+  log('AnswerBot Pro v5.1 — Stale-proof · Gemini · Bulletproof','info');
 });
+
+// Sensitivity presets
+const SENS_PRESETS={
+  low: {val:8,  label:'LOW',  color:'var(--green)',  bg:'#39ff8510'},
+  med: {val:15, label:'MEDIUM',color:'var(--accent)', bg:'#e8ff4710'},
+  high:{val:28, label:'HIGH', color:'var(--red)',    bg:'#ff335510'}
+};
+function setSensPreset(level, silent=false){
+  const p=SENS_PRESETS[level]; if(!p) return;
+  document.getElementById('changeSens').value=p.val;
+  document.getElementById('sensLbl').textContent=p.val+'%';
+  ['low','med','high'].forEach(l=>{
+    const b=document.getElementById('sens-'+l); if(!b) return;
+    const lp=SENS_PRESETS[l];
+    b.style.borderColor=l===level?lp.color:'var(--border)';
+    b.style.background=l===level?lp.bg:'transparent';
+    b.style.color=l===level?lp.color:'var(--muted)';
+  });
+  if(!silent){ localStorage.setItem('ab_sp',level); saveToggles(); }
+}
 
 function loadToggles(){
   const s=JSON.parse(localStorage.getItem('ab_t5')||'{}');
@@ -624,20 +635,18 @@ function sosTap(){
 function triggerSOS(){
   const m=[];
   if(!geminiKeys.length) m.push('⚠ No Gemini keys saved');
-  if(!gptKeyVal) m.push('⚠ No GPT fallback key');
   if(geminiKeys.every(k=>k.limited)) m.push('⚠ All Gemini keys rate-limited');
   if(!camActive) m.push('⚠ Camera not active');
-  if(useGPT) m.push('ℹ Currently on GPT fallback');
   if(lastAnswer) m.push('✓ Last answer: '+lastAnswer);
   document.getElementById('sosMsg').innerHTML=m.length?m.join('<br>'):'ALL SYSTEMS NORMAL';
   document.getElementById('sosOverlay').classList.add('on');
 }
 function sosClose(){document.getElementById('sosOverlay').classList.remove('on');}
-function sosForceGPT(){useGPT=true;updateProviderUI();log('SOS: forced GPT fallback','warn');sosClose();}
+function sosForceGPT(){log('GPT removed — Gemini only','warn');sosClose();}
 function sosContinue(){sosClose();if(lastAnswer)displayAnswer(lastAnswer,{answer_text:'Held answer',question_summary:'',confidence:'medium',options_count:5},80,'held');}
 async function sosRecover(){
   sosClose(); log('SOS: full restart…','warn');
-  stopLive(); scanning=false; inFlightId++; queuedCanvas=null; useGPT=false; updateProviderUI();
+  stopLive(); scanning=false; inFlightId++; queuedCanvas=null; updateProviderUI();
   await wakeLock();
   if(camActive){await delay(600);startLive();}
   log('SOS: recovery complete','ok');
@@ -646,29 +655,22 @@ async function sosRecover(){
 // ═══════════════════════════════════════════════════════
 // GEMINI KEYS
 // ═══════════════════════════════════════════════════════
-function buildGeminiSlots(){
-  const c=document.getElementById('geminiSlots'); c.innerHTML='';
-  for(let i=0;i<5;i++){
-    const v=geminiKeys[i]?geminiKeys[i].key:'';
-    const d=document.createElement('div'); d.className='key-slot';
-    d.innerHTML=`<div class="key-num">G-KEY ${i+1}</div><input type="password" id="gki${i}" placeholder="AIza..." value="${v}" style="flex:1;font-size:10px;padding:7px 9px"><div class="key-dot" id="gkd${i}"></div>`;
-    c.appendChild(d);
-  }
-}
 function saveGeminiKeys(){
   geminiKeys=[];
-  for(let i=0;i<5;i++){const v=document.getElementById('gki'+i)?.value.trim();if(v)geminiKeys.push({key:v,limited:false,limitedUntil:0,fails:0});}
+  for(let i=0;i<2;i++){const v=document.getElementById('gki'+i)?.value.trim();if(v)geminiKeys.push({key:v,limited:false,limitedUntil:0,fails:0});}
   localStorage.setItem('ab_gkeys',JSON.stringify(geminiKeys.map(k=>k.key)));
-  geminiIdx=0; useGPT=false; updateGeminiBar(); updateProviderUI();
+  geminiIdx=0; updateGeminiBar(); updateProviderUI();
   log(geminiKeys.length+' Gemini key(s) saved','ok');
   setPill(geminiKeys.length?'KEYS x'+geminiKeys.length:'NO KEYS',!!geminiKeys.length);
 }
 function loadGeminiKeys(){
   const s=JSON.parse(localStorage.getItem('ab_gkeys')||'[]');
   const old=localStorage.getItem('ab_key');
-  const all=[...new Set([...s,old||''].filter(Boolean))];
+  const all=[...new Set([...s,old||''].filter(Boolean))].slice(0,2);
   geminiKeys=all.map(k=>({key:k,limited:false,limitedUntil:0,fails:0}));
-  geminiIdx=0; buildGeminiSlots(); updateGeminiBar();
+  geminiIdx=0;
+  all.forEach((v,i)=>{const inp=document.getElementById('gki'+i);if(inp)inp.value=v;});
+  updateGeminiBar();
   if(geminiKeys.length)log(geminiKeys.length+' Gemini key(s) loaded','ok');
   setPill(geminiKeys.length?'KEYS x'+geminiKeys.length:'NO KEYS',!!geminiKeys.length);
 }
@@ -691,21 +693,11 @@ function markGeminiFailed(reason){
     k.limited=true; k.limitedUntil=Date.now()+65000;
     log('Gemini key '+(geminiIdx+1)+' rate-limited','warn');
     for(let i=1;i<geminiKeys.length;i++){const n=(geminiIdx+i)%geminiKeys.length;if(!geminiKeys[n].limited){geminiIdx=n;log('Switched to Gemini key '+(n+1),'ok');break;}}
-    if(geminiKeys.every(k=>k.limited)&&gptKeyVal){
-      useGPT=true; fallbackCount++;
-      document.getElementById('fallbackCnt').textContent=fallbackCount;
-      log('ALL Gemini keys limited — switching to GPT-4o-mini fallback','warn');
-      updateProviderUI();
-    }
+    if(geminiKeys.every(k=>k.limited)) log('All Gemini keys rate-limited — wait ~60s','err');
   } else {k.fails++;}
   updateGeminiBar();
 }
-function checkGeminiRecovery(){
-  if(!useGPT) return;
-  const now=Date.now();
-  if(geminiKeys.some(k=>!k.limited||now>k.limitedUntil)){
-    useGPT=false;
-    geminiKeys.forEach(k=>{if(now>k.limitedUntil)k.limited=false;});
+function checkGeminiRecovery(){});
     log('Gemini recovered — switching back from GPT','ok');
     updateProviderUI();
   }
@@ -735,41 +727,14 @@ async function testGeminiKeys(){
   }
 }
 
-// ═══════════════════════════════════════════════════════
-// GPT KEY
-// ═══════════════════════════════════════════════════════
-function saveGptKey(){
-  gptKeyVal=document.getElementById('gptKeyInput').value.trim();
-  localStorage.setItem('ab_gptkey',gptKeyVal);
-  document.getElementById('gptDot').className='key-dot'+(gptKeyVal?' gpt-ok':'');
-  log(gptKeyVal?'GPT key saved — fallback ready':'GPT key cleared',gptKeyVal?'gpt':'warn');
-}
-function loadGptKey(){
-  gptKeyVal=localStorage.getItem('ab_gptkey')||'';
-  if(gptKeyVal){document.getElementById('gptKeyInput').value=gptKeyVal;document.getElementById('gptDot').className='key-dot gpt-ok';}
-}
-async function testGptKey(){
-  if(!gptKeyVal){log('No GPT key saved','err');return;}
-  const tiny='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-  try{
-    const r=await fetch('https://api.openai.com/v1/chat/completions',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+gptKeyVal},
-      body:JSON.stringify({model:'gpt-4o-mini',messages:[{role:'user',content:[{type:'text',text:'Say OK'},{type:'image_url',image_url:{url:'data:image/png;base64,'+tiny}}]}],max_tokens:5})
-    });
-    const ok=r.ok;
-    document.getElementById('gptDot').className='key-dot '+(ok?'gpt-ok':'limited');
-    log('GPT key: '+(ok?'VALID':'FAIL '+r.status),ok?'gpt':'err');
-  }catch(e){log('GPT test error: '+e.message,'err');}
-}
 function updateProviderUI(){
-  const isGPT=useGPT&&!!gptKeyVal;
-  document.getElementById('providerLbl').textContent=isGPT?'GPT-4o-mini (FALLBACK)':'GEMINI (PRIMARY)';
-  document.getElementById('providerLbl').style.color=isGPT?'var(--gpt)':'var(--accent)';
-  document.getElementById('providerBadge').className=isGPT?'gpt':'gemini';
-  document.getElementById('providerBadge').textContent=isGPT?'◈ GPT-4o-mini':'◈ GEMINI';
-  document.getElementById('lockProvider').textContent=isGPT?'GPT':'GEMINI';
-  document.getElementById('lockProvider').className=isGPT?'gpt':'';
-  document.getElementById('overlayProvider').textContent=isGPT?'GPT-4o-mini FALLBACK':'GEMINI 2.5 FLASH';
+  document.getElementById('providerLbl').textContent='GEMINI (PRIMARY)';
+  document.getElementById('providerLbl').style.color='var(--accent)';
+  document.getElementById('providerBadge').className='gemini';
+  document.getElementById('providerBadge').textContent='◈ GEMINI';
+  document.getElementById('lockProvider').textContent='GEMINI';
+  document.getElementById('lockProvider').className='';
+  document.getElementById('overlayProvider').textContent='GEMINI 2.5 FLASH';
 }
 
 // ═══════════════════════════════════════════════════════
@@ -956,7 +921,7 @@ function measureBrightness(canvas){
 // ═══════════════════════════════════════════════════════
 async function triggerManual(){
   if(scanning)return;
-  if(!geminiKeys.length&&!gptKeyVal){log('No API keys saved','err');return;}
+  if(!geminiKeys.length){log('No Gemini keys saved','err');return;}
   if(!camActive){log('Camera not active','warn');return;}
   const canvas=captureFrame();
   const idata=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height);
@@ -964,7 +929,7 @@ async function triggerManual(){
 }
 
 // ═══════════════════════════════════════════════════════
-// SEND TO AI (Gemini primary → GPT fallback)
+// SEND TO AI (Gemini)
 // ═══════════════════════════════════════════════════════
 async function sendToAI(canvas,hash,retry=0){
   if(scanning)return;
@@ -982,11 +947,10 @@ async function sendToAI(canvas,hash,retry=0){
 
   // Check if Gemini recovered before calling
   checkGeminiRecovery();
-  const isGPT=useGPT&&!!gptKeyVal;
-  showOverlay(true,'PASS 1 · '+(isGPT?'GPT-4o-mini':'GEMINI'));
+  showOverlay(true,'PASS 1 · GEMINI');
 
   try{
-    const p1=isGPT?await callGPT(imgB64,buildP1()):await callGemini(imgB64,buildP1());
+    const p1=await callGemini(imgB64,buildP1());
 
     // ─── STALE CHECK #1 — did question change while we waited? ───
     if(tog('stale')){
@@ -1019,8 +983,8 @@ async function sendToAI(canvas,hash,retry=0){
     // Pass 2
     let p2={agree:true,final_answer:p1.answer,your_answer:p1.answer};
     if(!tog('speed')){
-      showOverlay(true,'PASS 2 · '+(isGPT?'GPT-4o-mini':'GEMINI'));
-      p2=isGPT?await callGPT(imgB64,buildP2(p1)):await callGemini(imgB64,buildP2(p1));
+      showOverlay(true,'PASS 2 · GEMINI');
+      p2=await callGemini(imgB64,buildP2(p1));
 
       // ─── STALE CHECK #2 — after pass 2 ───
       if(tog('stale')&&myId!==inFlightId){
@@ -1048,14 +1012,12 @@ async function sendToAI(canvas,hash,retry=0){
     }
 
     document.getElementById('staleWarn').style.display='none';
-    displayAnswer(ans,p1,conf,isGPT?'gpt':'gemini');
-    lightPhysLED(ans); haptic(ans); sAn++; updateStats(); setLockDot(isGPT?'gpt':'ok');
-    log('✓ '+(isGPT?'GPT':'GEMINI')+' → '+ans+' | conf='+conf+'% | "'+( p1.question_summary||'')+'"',isGPT?'gpt':'ok');
+    displayAnswer(ans,p1,conf,'gemini');
+    lightPhysLED(ans); haptic(ans); sAn++; updateStats(); setLockDot('ok');
+    log('✓ GEMINI → '+ans+' | conf='+conf+'% | "'+(p1.question_summary||'')+'"','ok');
 
   }catch(e){
-    const isGPT2=useGPT&&!!gptKeyVal;
-    if(isGPT2){log('GPT error: '+e.message,'err');}
-    else{markGeminiFailed(e.message);log('Gemini error: '+e.message,'err');}
+    markGeminiFailed(e.message); log('Gemini error: '+e.message,'err');
     setLockDot('warn');
     if(retry<2){scanning=false;showOverlay(false);await delay(2000+(retry*1000));await sendToAI(canvas,hash,retry+1);return;}
   }
@@ -1100,33 +1062,6 @@ async function callGemini(base64,prompt){
   return parseAIJSON(data.candidates?.[0]?.content?.parts?.[0]?.text||'{}');
 }
 
-// ═══════════════════════════════════════════════════════
-// GPT-4o-mini CALL
-// ═══════════════════════════════════════════════════════
-async function callGPT(base64,prompt){
-  if(!gptKeyVal)throw new Error('No GPT key configured');
-  if(!canCallKey('gpt',keyCallLog,GPT_RPM)){
-    throw new Error('429 GPT rate limit — calls in last 60s at limit');
-  }
-  logKeyCall('gpt',keyCallLog);
-  log('Using GPT-4o-mini fallback','warn');
-  const res=await fetch('https://api.openai.com/v1/chat/completions',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+gptKeyVal},
-    body:JSON.stringify({
-      model:'gpt-4o-mini',
-      messages:[{role:'user',content:[
-        {type:'text',text:prompt},
-        {type:'image_url',image_url:{url:'data:image/jpeg;base64,'+base64,detail:'high'}}
-      ]}],
-      max_tokens:600,
-      temperature:0.05
-    })
-  });
-  if(!res.ok){const t=await res.text();throw new Error('GPT '+res.status+': '+t.slice(0,150));}
-  const data=await res.json();
-  return parseAIJSON(data.choices?.[0]?.message?.content||'{}');
-}
 
 // ═══════════════════════════════════════════════════════
 // JSON PARSING
@@ -1327,7 +1262,7 @@ function updateStats(){
   const allCalls=Object.values(keyCallLog).flat().filter(t=>now60-t<60000).length;
   document.getElementById('s-rpm').textContent=allCalls;
   // Warn if burning through quota
-  const totalRpm=(geminiKeys.length*GEMINI_RPM)+(gptKeyVal?GPT_RPM:0);
+  const totalRpm=geminiKeys.length*GEMINI_RPM;
   const warnEl=document.getElementById('rpmWarn');
   if(warnEl){
     const pct=Math.round(allCalls/totalRpm*100);
@@ -1388,7 +1323,7 @@ async function pairBT(){
 // ═══════════════════════════════════════════════════════
 function handleUpload(e){
   const file=e.target.files[0];if(!file)return;
-  if(!geminiKeys.length&&!gptKeyVal){log('Save API keys first','err');return;}
+  if(!geminiKeys.length){log('Save Gemini keys first','err');return;}
   const reader=new FileReader();
   reader.onload=ev=>{
     const img=new Image();
@@ -1414,9 +1349,7 @@ function demoAnswer(ans){
   log('[DEMO] '+ans+' · Gemini primary','ok');
 }
 function demoWarn(){clearValidation();showWarn({options_count:3,reason:'Only 3 of 5 options visible'});log('[DEMO] Reposition warning','warn');}
-function demoGPT(){
-  const ans=ANS[Math.floor(Math.random()*5)];
-  const p1={status:'ok',options_count:5,answer:ans,answer_text:'GPT demo option '+ans,question_summary:'[DEMO GPT] Test question',confidence:'high',options_count:5};
+;
   clearValidation();displayAnswer(ans,p1,88,'gpt');lightPhysLED(ans);haptic(ans);
   log('[DEMO] '+ans+' · GPT-4o-mini fallback','gpt');
 }
