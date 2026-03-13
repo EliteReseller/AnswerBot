@@ -3,56 +3,84 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>AnswerBot Pro v5.1</title>
+<title>AnswerBot Pro v4</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=Bebas+Neue&display=swap');
-:root{--bg:#07080a;--surface:#0e1117;--border:#1e2530;--accent:#e8ff47;--accent2:#ff6b35;--blue:#4db8ff;--red:#ff3355;--green:#39ff85;--amber:#ffaa00;--dim:#3a4455;--text:#c8d8e8;--muted:#506070;--a:#ff4466;--b:#4488ff;--c:#ffcc00;--d:#44dd88;--e:#cc55ff;--gpt:#10a37f;}
+:root{
+  --bg:#07080a;--surface:#0e1117;--border:#1e2530;
+  --accent:#e8ff47;--accent2:#ff6b35;
+  --blue:#4db8ff;--red:#ff3355;--green:#39ff85;
+  --amber:#ffaa00;--dim:#3a4455;--text:#c8d8e8;--muted:#506070;
+  --a:#ff4466;--b:#4488ff;--c:#ffcc00;--d:#44dd88;--e:#cc55ff;
+}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;overflow-x:hidden;}
+
+/* ── LOCK SCREEN ── */
 #lockScreen{position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center;transition:opacity 0.3s;}
 #lockScreen.hidden{opacity:0;pointer-events:none;}
-#sosTapZone{position:absolute;top:0;right:0;width:60px;height:60px;z-index:10000;}
-#lockAnswer{position:absolute;bottom:28px;left:24px;font-family:'Bebas Neue';font-size:48px;line-height:1;opacity:0;transition:all 0.3s;letter-spacing:2px;}
+#lockAnswer{position:absolute;bottom:28px;left:24px;font-family:'Bebas Neue';font-size:48px;line-height:1;opacity:0;transition:all 0.25s;letter-spacing:2px;}
 #lockAnswer.ans-A{opacity:1;color:var(--a);text-shadow:0 0 20px var(--a);}
 #lockAnswer.ans-B{opacity:1;color:var(--b);text-shadow:0 0 20px var(--b);}
 #lockAnswer.ans-C{opacity:1;color:var(--c);text-shadow:0 0 20px var(--c);}
 #lockAnswer.ans-D{opacity:1;color:var(--d);text-shadow:0 0 20px var(--d);}
 #lockAnswer.ans-E{opacity:1;color:var(--e);text-shadow:0 0 20px var(--e);}
-#lockAnswer.ans-WARN{opacity:1;color:var(--red);font-size:26px;animation:warnblink 0.4s infinite;}
-#lockAnswer.stale{animation:stalepulse 2s ease-in-out infinite;}
-@keyframes stalepulse{0%,100%{opacity:1}50%{opacity:0.4}}
+#lockAnswer.ans-WARN,#lockAnswer.ans-BLUR{opacity:1;color:var(--red);font-size:26px;animation:warnblink 0.4s infinite;}
+#lockAnswer.ans-UNCERTAIN{opacity:1;color:var(--amber);font-size:28px;}
 @keyframes warnblink{0%,100%{opacity:1}50%{opacity:0.1}}
-#lockAgeBar{position:absolute;bottom:22px;left:24px;width:40px;height:2px;background:#111;border-radius:1px;}
-#lockAgeFill{height:100%;width:100%;background:var(--green);border-radius:1px;transition:width 0.8s linear,background 0.8s;}
+
+/* SOS button on lock screen — hidden corner tap zone */
+#sosTapZone{position:absolute;top:0;right:0;width:60px;height:60px;z-index:10000;}
+
+/* Live stream status on lock screen */
+#lockStatus{position:absolute;top:16px;left:16px;font-size:8px;letter-spacing:2px;color:#111;transition:color 0.3s;}
+#lockStatus.active{color:#1a2a1a;}
+#lockStatus.scanning{color:var(--accent);opacity:0.4;}
+#lockStatus.newq{color:var(--green);opacity:0.6;animation:newqpulse 0.5s ease-out;}
+@keyframes newqpulse{0%{opacity:1;font-size:10px}100%{opacity:0.4;font-size:8px}}
+
 #lockScanDot{position:absolute;top:18px;right:18px;width:7px;height:7px;border-radius:50%;background:var(--dim);transition:all 0.2s;}
 #lockScanDot.scanning{background:var(--accent);box-shadow:0 0 10px var(--accent);animation:dotpulse 0.6s infinite;}
 #lockScanDot.ok{background:var(--green);box-shadow:0 0 8px var(--green);}
-#lockScanDot.warn{background:var(--red);}
-#lockScanDot.gpt{background:var(--gpt);box-shadow:0 0 8px var(--gpt);}
+#lockScanDot.warn{background:var(--red);box-shadow:0 0 8px var(--red);}
 @keyframes dotpulse{0%,100%{opacity:1}50%{opacity:0.2}}
-#lockProvider{position:absolute;top:20px;left:20px;font-size:7px;letter-spacing:2px;color:#1a1a1a;transition:color 0.3s;}
-#lockProvider.gpt{color:#0d4a38;opacity:0.7;}
+
 #lockHistory{position:absolute;bottom:86px;left:16px;display:flex;gap:8px;}
-.lh{font-family:'Bebas Neue';font-size:20px;opacity:0.1;transition:all 0.3s;}
-.lh.a{color:var(--a)}.lh.b{color:var(--b)}.lh.c{color:var(--c)}.lh.d{color:var(--d)}.lh.e{color:var(--e)}
+.lock-hist{font-family:'Bebas Neue';font-size:20px;opacity:0.12;transition:all 0.3s;}
+.lock-hist.a{color:var(--a)}.lock-hist.b{color:var(--b)}.lock-hist.c{color:var(--c)}.lock-hist.d{color:var(--d)}.lock-hist.e{color:var(--e)}
+
+/* Live filter status bar on lock screen */
 #lockFilterBar{position:absolute;bottom:8px;right:8px;display:flex;gap:3px;opacity:0.15;}
-.lfb{width:4px;height:4px;border-radius:50%;background:var(--dim);}.lfb.p{background:var(--green);}.lfb.f{background:var(--red);}
-#sosOverlay{position:fixed;inset:0;background:#000;z-index:99998;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;opacity:0;pointer-events:none;transition:opacity 0.3s;}
+.lfb-dot{width:5px;height:5px;border-radius:50%;background:var(--dim);}
+.lfb-dot.pass{background:var(--green);}
+.lfb-dot.fail{background:var(--red);}
+
+/* SOS overlay */
+#sosOverlay{
+  position:fixed;inset:0;background:#000;z-index:99998;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:20px;opacity:0;pointer-events:none;transition:opacity 0.3s;
+}
 #sosOverlay.on{opacity:1;pointer-events:all;}
-.sos-title{font-family:'Bebas Neue';font-size:52px;color:var(--red);letter-spacing:10px;text-shadow:0 0 40px var(--red);}
-.sos-msg{font-size:10px;color:var(--muted);letter-spacing:2px;text-align:center;line-height:2.2;}
-.sos-btn{font-family:'Bebas Neue';font-size:18px;letter-spacing:3px;padding:12px 28px;border-radius:8px;border:none;cursor:pointer;margin:2px;width:250px;}
+#sosOverlay .sos-title{font-family:'Bebas Neue';font-size:48px;color:var(--red);letter-spacing:8px;text-shadow:0 0 30px var(--red);}
+#sosOverlay .sos-msg{font-size:10px;color:var(--muted);letter-spacing:2px;text-align:center;line-height:2;}
+#sosOverlay .sos-btn{font-family:'Bebas Neue';font-size:20px;letter-spacing:4px;padding:14px 30px;border-radius:8px;border:none;cursor:pointer;margin:4px;}
+
+/* Top scan progress bar */
 #scanBar{position:fixed;top:0;left:0;right:0;height:3px;z-index:200;}
-#scanFill{height:100%;width:0;background:var(--accent);}
-#overlay{position:fixed;inset:0;background:#000b;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;opacity:0;pointer-events:none;transition:opacity 0.2s;}
+#scanFill{height:100%;width:0;background:var(--accent);transition:width 0.1s linear;}
+
+/* Processing overlay */
+#overlay{position:fixed;inset:0;background:#000b;z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;opacity:0;pointer-events:none;transition:opacity 0.2s;}
 #overlay.on{opacity:1;pointer-events:all;}
-.spin-ring{width:56px;height:56px;position:relative;}
+.spin-ring{width:60px;height:60px;position:relative;}
 .spin-ring::before,.spin-ring::after{content:'';position:absolute;inset:0;border-radius:50%;border:2px solid transparent;}
 .spin-ring::before{border-top-color:var(--accent);animation:spin 0.8s linear infinite;}
 .spin-ring::after{border-bottom-color:var(--accent2);animation:spin 1.2s linear infinite reverse;inset:6px;}
 @keyframes spin{to{transform:rotate(360deg)}}
 .scan-step{font-family:'Bebas Neue';font-size:13px;letter-spacing:3px;color:var(--accent);}
-#overlayProvider{font-size:8px;letter-spacing:2px;color:var(--muted);}
+
+/* Layout */
 .wrap{max-width:430px;margin:0 auto;padding:12px;}
 .topbar{display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:12px;}
 .topbar-title{font-family:'Bebas Neue';font-size:22px;letter-spacing:6px;color:var(--accent);text-shadow:0 0 20px #e8ff4755;}
@@ -61,20 +89,28 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 .pill-dot{width:6px;height:6px;border-radius:50%;background:var(--dim);}
 .pill-dot.on{background:var(--green);box-shadow:0 0 6px var(--green);animation:glow 1.5s infinite;}
 @keyframes glow{0%,100%{opacity:1}50%{opacity:0.4}}
+
 .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;}
 .card-title{font-size:8px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
 .card-title::before{content:'';width:3px;height:12px;background:var(--accent);border-radius:2px;display:block;opacity:0.7;}
-input[type=password],input[type=text]{flex:1;background:#060810;border:1px solid var(--border);color:var(--text);font-family:'JetBrains Mono';font-size:11px;padding:8px 10px;border-radius:5px;outline:none;}
-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
+
+input[type=password],input[type=text],input[type=number],select{
+  flex:1;background:#060810;border:1px solid var(--border);color:var(--text);
+  font-family:'JetBrains Mono';font-size:11px;padding:8px 10px;border-radius:5px;outline:none;
+}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
+
 .btn{background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;padding:8px 12px;border-radius:5px;cursor:pointer;transition:all 0.15s;white-space:nowrap;}
 .btn:active{transform:scale(0.95);}
 .btn-accent{border-color:var(--accent);color:var(--accent);}
+.btn-accent:hover{background:#e8ff4715;}
 .btn-blue{border-color:var(--blue);color:var(--blue);}
 .btn-red{border-color:var(--red);color:var(--red);}
 .btn-green{border-color:var(--green);color:var(--green);}
 .btn-amber{border-color:var(--amber);color:var(--amber);}
-.btn-gpt{border-color:var(--gpt);color:var(--gpt);}
 .btn-wide{width:100%;padding:13px;font-family:'Bebas Neue';font-size:18px;letter-spacing:4px;border-radius:7px;}
+
+/* Toggle switches */
 .toggle-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);}
 .toggle-row:last-child{border-bottom:none;}
 .toggle-label{flex:1;font-size:9px;color:var(--text);letter-spacing:1px;}
@@ -85,49 +121,75 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
 .toggle input:checked+.toggle-track{background:#1a2a10;border-color:var(--green);}
 .toggle-track::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--dim);transition:all 0.2s;}
 .toggle input:checked+.toggle-track::after{transform:translateX(16px);background:var(--green);box-shadow:0 0 6px var(--green);}
+
+/* Camera */
 .cam-wrap{position:relative;width:100%;aspect-ratio:16/10;background:#000;border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:8px;}
 #video{width:100%;height:100%;object-fit:cover;display:block;}
 .guide{position:absolute;inset:0;pointer-events:none;}
 .guide::before,.guide::after,.guide .c3,.guide .c4{content:'';position:absolute;width:18px;height:18px;border-style:solid;border-color:var(--accent);opacity:0.5;}
-.guide::before{top:8px;left:8px;border-width:2px 0 0 2px;}.guide::after{top:8px;right:8px;border-width:2px 2px 0 0;}
-.guide .c3{bottom:8px;left:8px;border-width:0 0 2px 2px;}.guide .c4{bottom:8px;right:8px;border-width:0 2px 2px 0;}
+.guide::before{top:8px;left:8px;border-width:2px 0 0 2px;}
+.guide::after{top:8px;right:8px;border-width:2px 2px 0 0;}
+.guide .c3{bottom:8px;left:8px;border-width:0 0 2px 2px;}
+.guide .c4{bottom:8px;right:8px;border-width:0 2px 2px 0;}
 .cam-badge{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:#000a;border:1px solid var(--dim);border-radius:3px;font-size:8px;letter-spacing:2px;padding:3px 8px;color:var(--dim);white-space:nowrap;}
-.cam-badge.live{color:var(--green);border-color:var(--green);}.cam-badge.live-auto{color:var(--accent);border-color:var(--accent);}
-#filterStatus{position:absolute;top:6px;left:6px;right:6px;display:flex;gap:4px;align-items:center;}
-.fsp{font-size:7px;letter-spacing:1px;padding:2px 5px;border-radius:2px;background:#000a;border:1px solid var(--dim);color:var(--dim);transition:all 0.15s;white-space:nowrap;}
-.fsp.pass{border-color:var(--green);color:var(--green);}.fsp.fail{border-color:var(--red);color:var(--red);}.fsp.skip{border-color:var(--amber);color:var(--amber);}
-#changeFlash{position:absolute;inset:0;background:var(--accent);opacity:0;pointer-events:none;border-radius:6px;}
-#changeFlash.flash{animation:cflash 0.25s ease-out;}
-@keyframes cflash{0%{opacity:0.25}100%{opacity:0}}
-#qualityBar{position:absolute;bottom:0;left:0;right:0;height:2px;}
+.cam-badge.live{color:var(--green);border-color:var(--green);}
+.cam-badge.live-auto{color:var(--accent);border-color:var(--accent);}
+.cam-badge.error{color:var(--red);border-color:var(--red);}
+
+/* Live stream filter status */
+#filterStatus{
+  position:absolute;top:6px;left:6px;right:6px;
+  display:flex;gap:4px;align-items:center;
+}
+.fs-pill{
+  font-size:7px;letter-spacing:1px;padding:2px 6px;border-radius:2px;
+  background:#000a;border:1px solid var(--dim);color:var(--dim);
+  transition:all 0.15s;white-space:nowrap;
+}
+.fs-pill.pass{border-color:var(--green);color:var(--green);}
+.fs-pill.fail{border-color:var(--red);color:var(--red);}
+.fs-pill.skip{border-color:var(--amber);color:var(--amber);}
+
+/* Change detection flash */
+#changeFlash{
+  position:absolute;inset:0;background:var(--accent);opacity:0;pointer-events:none;
+  border-radius:6px;
+}
+#changeFlash.flash{animation:cflash 0.3s ease-out;}
+@keyframes cflash{0%{opacity:0.3}100%{opacity:0}}
+
+/* Quality bar */
+#qualityBar{position:absolute;bottom:0;left:0;right:0;height:2px;background:transparent;}
 #qualityFill{height:100%;width:0;border-radius:2px;transition:width 0.3s,background 0.3s;}
-#providerBadge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:3px;font-size:8px;letter-spacing:2px;border:1px solid var(--dim);color:var(--muted);margin-bottom:8px;transition:all 0.3s;}
-#providerBadge.gemini{border-color:var(--accent);color:var(--accent);}
-#providerBadge.gpt{border-color:var(--gpt);color:var(--gpt);}
-#cacheBadge{display:none;background:#001a0a;border:1px solid var(--green);border-radius:3px;padding:2px 8px;font-size:7px;letter-spacing:2px;color:var(--green);margin-bottom:6px;text-align:center;}
-#staleWarn{display:none;background:#1a1000;border:1px solid var(--amber);border-radius:5px;padding:6px 10px;margin-bottom:8px;font-size:8px;color:var(--amber);letter-spacing:1px;text-align:center;animation:staleblink 1s ease-in-out infinite;}
-@keyframes staleblink{0%,100%{opacity:1}50%{opacity:0.5}}
+
+/* Validation */
 .val-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px;}
 .vcheck{display:flex;align-items:center;gap:5px;background:#060810;border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:8px;letter-spacing:1px;transition:all 0.2s;}
-.vcheck.pass{border-color:#39ff8540;background:#39ff8508;color:var(--green);}.vcheck.fail{border-color:#ff335540;background:#ff335508;color:var(--red);}
-.vcheck-icon{font-size:10px;flex-shrink:0;}.vcheck-txt{flex:1;}.vcheck-val{font-size:9px;font-weight:800;margin-left:auto;}
+.vcheck.pass{border-color:#39ff8540;background:#39ff8508;color:var(--green);}
+.vcheck.fail{border-color:#ff335540;background:#ff335508;color:var(--red);}
+.vcheck.warn{border-color:#ffaa0040;background:#ffaa0008;color:var(--amber);}
+.vcheck-icon{font-size:10px;flex-shrink:0;}
+.vcheck-txt{flex:1;}
+.vcheck-val{font-size:9px;font-weight:800;margin-left:auto;}
 .conf-wrap{background:#060810;border:1px solid var(--border);border-radius:5px;padding:7px 10px;margin-bottom:6px;}
 .conf-lbl{font-size:8px;color:var(--muted);letter-spacing:2px;margin-bottom:5px;display:flex;justify-content:space-between;}
 .conf-bar{height:4px;background:#0e1117;border-radius:2px;overflow:hidden;}
 .conf-fill{height:100%;border-radius:2px;width:0;transition:width 0.5s,background 0.3s;}
+
+/* Answer display */
 .answer-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;text-align:center;position:relative;overflow:hidden;}
-.answer-card::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 100%,#e8ff4706,transparent 70%);pointer-events:none;}
+.answer-card::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 100%,#e8ff4708,transparent 70%);pointer-events:none;}
 .ans-pre{font-size:8px;letter-spacing:3px;color:var(--muted);margin-bottom:4px;}
-.ans-big{font-family:'Bebas Neue';font-size:88px;line-height:1;transition:all 0.25s;min-height:90px;display:flex;align-items:center;justify-content:center;color:var(--accent);}
+.ans-big{font-family:'Bebas Neue';font-size:88px;line-height:1;color:var(--accent);text-shadow:0 0 30px #e8ff4755;transition:all 0.25s;min-height:90px;display:flex;align-items:center;justify-content:center;}
 .ans-big.ans-A{color:var(--a);text-shadow:0 0 30px var(--a);}
 .ans-big.ans-B{color:var(--b);text-shadow:0 0 30px var(--b);}
 .ans-big.ans-C{color:var(--c);text-shadow:0 0 30px var(--c);}
 .ans-big.ans-D{color:var(--d);text-shadow:0 0 30px var(--d);}
 .ans-big.ans-E{color:var(--e);text-shadow:0 0 30px var(--e);}
-.ans-big.ans-WARN{color:var(--red);font-size:22px;font-family:'JetBrains Mono';}
-.ans-big.ans-UNCERTAIN{color:var(--amber);}
+.ans-big.ans-WARN,.ans-big.ans-BLUR{color:var(--red);font-size:22px;font-family:'JetBrains Mono';text-shadow:0 0 15px var(--red);}
+.ans-big.ans-UNCERTAIN{color:var(--amber);text-shadow:0 0 20px var(--amber);}
+.ans-sub{font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;min-height:14px;}
 #heldBadge{position:absolute;top:8px;right:8px;background:#1a1500;border:1px solid var(--amber);border-radius:3px;padding:2px 7px;font-size:7px;letter-spacing:2px;color:var(--amber);display:none;}
-#staleBadge{position:absolute;top:8px;left:8px;background:#1a0800;border:1px solid var(--red);border-radius:3px;padding:2px 7px;font-size:7px;letter-spacing:2px;color:var(--red);display:none;}
 .opt-chips{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin-bottom:6px;}
 .chip{width:30px;height:30px;border-radius:5px;border:1px solid var(--dim);color:var(--dim);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:16px;transition:all 0.2s;}
 .chip.act-A{background:#ff446622;border-color:var(--a);color:var(--a);box-shadow:0 0 8px var(--a);}
@@ -135,12 +197,19 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
 .chip.act-C{background:#ffcc0022;border-color:var(--c);color:var(--c);box-shadow:0 0 8px var(--c);}
 .chip.act-D{background:#44dd8822;border-color:var(--d);color:var(--d);box-shadow:0 0 8px var(--d);}
 .chip.act-E{background:#cc55ff22;border-color:var(--e);color:var(--e);box-shadow:0 0 8px var(--e);}
+
+/* History */
 .hist-strip{display:flex;gap:6px;margin-bottom:10px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;align-items:center;}
 .hist-lbl{font-size:8px;color:var(--muted);letter-spacing:2px;margin-right:4px;white-space:nowrap;}
-.hist-item{width:26px;height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:15px;border:1px solid var(--dim);color:var(--dim);transition:all 0.2s;}
-.hist-item.h-A{border-color:var(--a);color:var(--a);background:#ff446612;}.hist-item.h-B{border-color:var(--b);color:var(--b);background:#4488ff12;}
-.hist-item.h-C{border-color:var(--c);color:var(--c);background:#ffcc0012;}.hist-item.h-D{border-color:var(--d);color:var(--d);background:#44dd8812;}
-.hist-item.h-E{border-color:var(--e);color:var(--e);background:#cc55ff12;}.hist-newest{box-shadow:0 0 8px currentColor;}
+.hist-item{width:26px;height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:15px;border:1px solid var(--dim);color:var(--dim);transition:all 0.2s;flex-shrink:0;}
+.hist-item.h-A{border-color:var(--a);color:var(--a);background:#ff446612;}
+.hist-item.h-B{border-color:var(--b);color:var(--b);background:#4488ff12;}
+.hist-item.h-C{border-color:var(--c);color:var(--c);background:#ffcc0012;}
+.hist-item.h-D{border-color:var(--d);color:var(--d);background:#44dd8812;}
+.hist-item.h-E{border-color:var(--e);color:var(--e);background:#cc55ff12;}
+.hist-newest{box-shadow:0 0 8px currentColor;}
+
+/* LEDs */
 .leds-row{display:flex;gap:8px;justify-content:center;margin-bottom:10px;}
 .led-unit{text-align:center;}
 .led{width:22px;height:22px;border-radius:50%;background:#060810;border:1px solid var(--border);margin:0 auto 3px;transition:all 0.2s;}
@@ -151,8 +220,11 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
 .led.E{background:var(--e);border-color:var(--e);box-shadow:0 0 12px var(--e),0 0 24px #cc55ff44;}
 .led.WARN{background:var(--red);border-color:var(--red);box-shadow:0 0 12px var(--red);animation:wblink 0.35s infinite;}
 @keyframes wblink{0%,100%{opacity:1}50%{opacity:0.2}}
-.led-lbl{font-size:8px;color:var(--dim);letter-spacing:1px;}.led-lbl.active{color:var(--text);}
-.phys-led{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 38% 35%,#2a2a2a,#0a0a0a);border:2px solid #222;margin:0 auto 4px;transition:all 0.25s;position:relative;}
+.led-lbl{font-size:8px;color:var(--dim);letter-spacing:1px;}
+.led-lbl.active{color:var(--text);}
+
+/* Phys LED sim */
+.phys-led{width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 38% 35%,#2a2a2a,#0a0a0a);border:2px solid #222;margin:0 auto 4px;transition:all 0.25s;box-shadow:0 3px 8px #000;position:relative;}
 .phys-led::after{content:'';position:absolute;top:5px;left:7px;width:9px;height:5px;background:radial-gradient(ellipse,rgba(255,255,255,0.1),transparent);border-radius:50%;}
 .phys-led.led-A{background:radial-gradient(circle at 38% 35%,#3a0a14,#180008);border-color:#3a1020;}
 .phys-led.led-B{background:radial-gradient(circle at 38% 35%,#0a1a3a,#000818);border-color:#101830;}
@@ -160,1216 +232,1370 @@ input:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff4720;}
 .phys-led.led-D{background:radial-gradient(circle at 38% 35%,#0a3020,#001808);border-color:#102820;}
 .phys-led.led-E{background:radial-gradient(circle at 38% 35%,#2a0a3a,#100018);border-color:#201030;}
 .phys-led.led-W{background:radial-gradient(circle at 38% 35%,#3a0a14,#180008);border-color:#3a1020;}
-.phys-led.lit-A{background:radial-gradient(circle at 38% 35%,#ff99aa,#ff4466) !important;border-color:#ff4466 !important;box-shadow:0 0 16px #ff4466,0 0 32px #ff446688 !important;}
-.phys-led.lit-B{background:radial-gradient(circle at 38% 35%,#99bbff,#4488ff) !important;border-color:#4488ff !important;box-shadow:0 0 16px #4488ff,0 0 32px #4488ff88 !important;}
-.phys-led.lit-C{background:radial-gradient(circle at 38% 35%,#ffee88,#ffcc00) !important;border-color:#ffcc00 !important;box-shadow:0 0 16px #ffcc00,0 0 32px #ffcc0088 !important;}
-.phys-led.lit-D{background:radial-gradient(circle at 38% 35%,#88ffbb,#44dd88) !important;border-color:#44dd88 !important;box-shadow:0 0 16px #44dd88,0 0 32px #44dd8888 !important;}
-.phys-led.lit-E{background:radial-gradient(circle at 38% 35%,#dd99ff,#cc55ff) !important;border-color:#cc55ff !important;box-shadow:0 0 16px #cc55ff,0 0 32px #cc55ff88 !important;}
+.phys-led.led-A.lit{background:radial-gradient(circle at 38% 35%,#ff99aa,#ff4466);border-color:#ff4466;box-shadow:0 0 16px #ff4466,0 0 32px #ff446688;}
+.phys-led.led-B.lit{background:radial-gradient(circle at 38% 35%,#99bbff,#4488ff);border-color:#4488ff;box-shadow:0 0 16px #4488ff,0 0 32px #4488ff88;}
+.phys-led.led-C.lit{background:radial-gradient(circle at 38% 35%,#ffee88,#ffcc00);border-color:#ffcc00;box-shadow:0 0 16px #ffcc00,0 0 32px #ffcc0088;}
+.phys-led.led-D.lit{background:radial-gradient(circle at 38% 35%,#88ffbb,#44dd88);border-color:#44dd88;box-shadow:0 0 16px #44dd88,0 0 32px #44dd8888;}
+.phys-led.led-E.lit{background:radial-gradient(circle at 38% 35%,#dd99ff,#cc55ff);border-color:#cc55ff;box-shadow:0 0 16px #cc55ff,0 0 32px #cc55ff88;}
 .phys-led.led-W.blink{animation:wblink2 0.35s infinite;}
-@keyframes wblink2{0%,100%{background:radial-gradient(circle at 38% 35%,#ff8899,#ff3355);border-color:#ff3355;box-shadow:0 0 16px #ff3355;}50%{background:radial-gradient(circle at 38% 35%,#3a0a14,#180008);border-color:#3a1020;box-shadow:none;}}
+@keyframes wblink2{0%,100%{background:radial-gradient(circle at 38% 35%,#ff8899,#ff3355);border-color:#ff3355;box-shadow:0 0 16px #ff3355;}50%{background:radial-gradient(circle at 38% 35%,#3a0a14,#180008);border-color:#3a1020;box-shadow:0 3px 8px #000;}}
 .phys-lbl{font-size:9px;color:#506070;letter-spacing:1px;font-weight:700;text-align:center;}
+
+/* Key status */
 .key-slot{display:flex;gap:6px;margin-bottom:6px;align-items:center;}
-.key-num{font-size:8px;color:var(--muted);width:50px;flex-shrink:0;letter-spacing:1px;}
+.key-num{font-size:8px;color:var(--muted);width:36px;flex-shrink:0;letter-spacing:1px;}
 .key-dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex-shrink:0;transition:all 0.3s;}
-.key-dot.ok{background:var(--green);box-shadow:0 0 5px var(--green);}.key-dot.active{background:var(--accent);box-shadow:0 0 5px var(--accent);animation:glow 1s infinite;}.key-dot.limited{background:var(--red);}
-#liveStats{display:none;gap:4px;padding:7px 8px;background:var(--surface);border:1px solid var(--accent);border-radius:6px;margin-bottom:10px;}
-#liveStats.show{display:flex;}
-.lst-item{text-align:center;flex:1;}.lst-val{font-family:'Bebas Neue';font-size:15px;color:var(--accent);}.lst-lbl{font-size:6px;color:var(--muted);letter-spacing:1px;}
-.log{background:#000;border:1px solid var(--border);border-radius:5px;height:80px;overflow-y:auto;padding:6px 8px;font-size:9px;line-height:1.7;margin-bottom:10px;}
-.log .ok{color:var(--green)}.log .err{color:var(--red)}.log .warn{color:var(--amber)}.log .info{color:var(--blue)}.log .dim{color:var(--dim)}.log .gpt{color:var(--gpt)}
-::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px;}
+.key-dot.ok{background:var(--green);box-shadow:0 0 5px var(--green);}
+.key-dot.active{background:var(--accent);box-shadow:0 0 5px var(--accent);animation:glow 1s infinite;}
+.key-dot.limited{background:var(--red);box-shadow:0 0 5px var(--red);}
+
+/* Log */
+.log{background:#000;border:1px solid var(--border);border-radius:5px;height:72px;overflow-y:auto;padding:6px 8px;font-size:9px;line-height:1.7;margin-bottom:10px;}
+.log .ok{color:var(--green)}.log .err{color:var(--red)}.log .warn{color:var(--amber)}.log .info{color:var(--blue)}.log .dim{color:var(--dim)}
+
+/* Live stream stats bar */
+#liveStats{
+  display:flex;gap:6px;padding:7px 10px;background:var(--surface);
+  border:1px solid var(--accent);border-radius:6px;margin-bottom:10px;
+  align-items:center;display:none;
+}
+.lst-item{text-align:center;flex:1;}
+.lst-val{font-family:'Bebas Neue';font-size:18px;color:var(--accent);}
+.lst-lbl{font-size:7px;color:var(--muted);letter-spacing:1px;}
+
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px;}
 </style>
 </head>
 <body>
 
+<!-- LOCK SCREEN -->
 <div id="lockScreen" class="hidden">
   <div id="sosTapZone" ontouchstart="sosTap()" onclick="sosTap()"></div>
-  <div id="lockProvider">GEMINI</div>
+  <div id="lockStatus">LIVE</div>
   <div id="lockScanDot"></div>
   <div id="lockAnswer"></div>
-  <div id="lockAgeBar"><div id="lockAgeFill"></div></div>
   <div id="lockHistory">
-    <div class="lh" id="lh3"></div><div class="lh" id="lh2"></div>
-    <div class="lh" id="lh1"></div><div class="lh" id="lh0"></div>
+    <div class="lock-hist" id="lh3"></div>
+    <div class="lock-hist" id="lh2"></div>
+    <div class="lock-hist" id="lh1"></div>
+    <div class="lock-hist" id="lh0"></div>
   </div>
   <div id="lockFilterBar">
-    <div class="lfb" id="lfb-m"></div><div class="lfb" id="lfb-b"></div>
-    <div class="lfb" id="lfb-c"></div><div class="lfb" id="lfb-q"></div>
+    <div class="lfb-dot" id="lfb-motion"></div>
+    <div class="lfb-dot" id="lfb-blur"></div>
+    <div class="lfb-dot" id="lfb-bright"></div>
+    <div class="lfb-dot" id="lfb-change"></div>
   </div>
 </div>
 
+<!-- SOS OVERLAY -->
 <div id="sosOverlay">
   <div class="sos-title">SOS</div>
-  <div class="sos-msg" id="sosMsg">PANIC MODE</div>
-  <button class="sos-btn" style="background:var(--green);color:#000" onclick="sosRecover()">&#9654; RESTART EVERYTHING</button>
-  <button class="sos-btn" style="background:var(--accent);color:#000" onclick="sosContinue()">&#10003; KEEP LAST ANSWER</button>
-  
-  <button class="sos-btn" style="background:#111;color:var(--red);border:1px solid var(--red)" onclick="sosClose()">&#10005; CLOSE</button>
-  <div style="font-size:8px;color:#222;letter-spacing:1px;margin-top:8px">Triple-tap top-right corner to trigger SOS</div>
+  <div class="sos-msg" id="sosMsg">PANIC MODE ACTIVE<br>ALL SYSTEMS RESTARTING</div>
+  <button class="sos-btn" style="background:var(--green);color:#000" onclick="sosRecover()">▶ RESTART APP</button>
+  <button class="sos-btn" style="background:var(--accent);color:#000" onclick="sosContinue()">✓ KEEP LAST ANSWER</button>
+  <button class="sos-btn" style="background:#111;color:var(--red);border:1px solid var(--red)" onclick="sosClose()">✕ CLOSE</button>
+  <div style="font-size:8px;color:var(--dim);letter-spacing:1px;margin-top:10px">Triple-tap top-right corner to trigger SOS</div>
 </div>
 
+<!-- SCAN BAR -->
 <div id="scanBar"><div id="scanFill"></div></div>
+
+<!-- PROCESSING OVERLAY -->
 <div id="overlay">
   <div class="spin-ring"></div>
   <div class="scan-step" id="scanStep">ANALYSING</div>
-  <div id="overlayProvider">GEMINI 2.5 FLASH</div>
 </div>
 
 <div class="wrap">
+
   <div class="topbar">
     <div>
-      <div class="topbar-title">ANSWERBOT <span style="color:var(--accent2)">v5</span></div>
-      <div class="topbar-sub">STALE-PROOF &middot; GEMINI-ONLY &middot; RATE-SMART</div>
+      <div class="topbar-title">ANSWERBOT <span style="color:var(--accent2)">v4</span></div>
+      <div class="topbar-sub">LIVE STREAM · AUTO-SNAP · BULLETPROOF</div>
     </div>
-    <div class="pill"><div class="pill-dot" id="statusDot"></div><span id="statusPill">IDLE</span></div>
+    <div class="pill">
+      <div class="pill-dot" id="statusDot"></div>
+      <span id="statusPill">IDLE</span>
+    </div>
   </div>
 
+  <!-- API KEYS -->
   <div class="card">
-    <div class="card-title">Gemini Keys <span style="color:var(--accent);font-size:9px;margin-left:4px">PRIMARY &bull; 2-KEY ROTATION</span></div>
-    <div style="font-size:8px;color:var(--muted);margin-bottom:8px;line-height:1.8">Free at <b style="color:var(--blue)">aistudio.google.com</b> &bull; <b style="color:var(--accent)">gemini-2.5-flash</b></div>
-    <div class="key-slot"><div class="key-num">G-KEY 1</div><input type="password" id="gki0" placeholder="AIza..." style="flex:1;font-size:10px;padding:7px 9px"><div class="key-dot" id="gkd0"></div></div>
-    <div class="key-slot" style="margin-top:6px"><div class="key-num">G-KEY 2</div><input type="password" id="gki1" placeholder="AIza..." style="flex:1;font-size:10px;padding:7px 9px"><div class="key-dot" id="gkd1"></div></div>
-    <div style="display:flex;gap:6px;margin-top:8px">
-      <button class="btn btn-accent" style="flex:1" onclick="saveGeminiKeys()">SAVE GEMINI KEYS</button>
-      <button class="btn btn-blue" style="font-size:8px" onclick="testGeminiKeys()">TEST ALL</button>
+    <div class="card-title">API Keys <span style="color:var(--accent);font-size:9px;margin-left:4px">2-KEY ROTATION</span></div>
+    <div style="font-size:8px;color:var(--muted);margin-bottom:10px;line-height:1.8">
+      Add keys from different Google accounts · <b style="color:var(--blue)">aistudio.google.com</b><br>
+      Rate limited? Switches instantly. Using <b style="color:var(--accent)">gemini-2.5-flash</b>
     </div>
-    <div style="display:flex;gap:5px;margin-top:8px;align-items:center">
-      <div style="font-size:8px;color:var(--muted)">Status:</div>
-      <div id="geminiBar" style="display:flex;gap:4px;flex:1"></div>
-      <div style="font-size:8px;color:var(--muted)">Active: <span id="geminiActiveNum" style="color:var(--accent)">&#8212;</span></div>
+    <div class="key-slot"><div class="key-num">KEY 1</div><input type="password" id="ki0" placeholder="AIza…" style="flex:1;font-size:10px;padding:7px 9px;"><div class="key-dot" id="kd0"></div></div>
+    <div class="key-slot" style="margin-top:6px;"><div class="key-num">KEY 2</div><input type="password" id="ki1" placeholder="AIza…" style="flex:1;font-size:10px;padding:7px 9px;"><div class="key-dot" id="kd1"></div></div>
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      <button class="btn btn-accent" style="flex:1" onclick="saveKeys()">SAVE ALL</button>
+      <button class="btn btn-blue" style="font-size:8px" onclick="testAllKeys()">TEST ALL</button>
+    </div>
+    <div style="display:flex;gap:5px;margin-top:8px;align-items:center;">
+      <div style="font-size:8px;color:var(--muted);">Status:</div>
+      <div id="keyStatusBar" style="display:flex;gap:4px;flex:1;"></div>
+      <div style="font-size:8px;color:var(--muted);">Active: <span id="activeKeyNum" style="color:var(--accent)">—</span></div>
     </div>
   </div>
 
-  <div style="font-size:8px;color:var(--dim);padding:4px 0 8px;letter-spacing:1px">
-    Provider: <span id="providerLbl" style="color:var(--accent)">GEMINI</span> &nbsp;&bull;&nbsp;
-    Stale blocked: <span id="staleCnt" style="color:var(--amber)">0</span>
-  </div>
-
-  <div class="card" id="camCard">
+  <!-- CAMERA SETUP -->
+  <div class="card" id="camPermCard">
     <div class="card-title">Camera Setup</div>
-    <div id="httpsWarn" style="display:none;background:#1a0808;border:1px solid #ff335540;border-radius:6px;padding:10px;margin-bottom:10px">
-      <div style="font-size:9px;color:var(--red)">&#9888; NEEDS HTTPS &mdash; Host on <b style="color:var(--blue)">GitHub Pages</b> (free, 2 mins)</div>
+    <div id="httpsWarn" style="display:none;background:#1a0808;border:1px solid #ff335540;border-radius:6px;padding:10px;margin-bottom:10px;">
+      <div style="font-size:10px;color:var(--red);font-weight:700;margin-bottom:4px;">⚠ NEEDS HTTPS</div>
+      <div style="font-size:9px;color:#c05050;line-height:1.7;">Host on <b style="color:var(--blue)">GitHub Pages</b> for camera access · Free HTTPS in 2 mins</div>
     </div>
-    <button class="btn btn-accent btn-wide" style="margin-bottom:8px" onclick="requestCam()">&#128247; ENABLE CAMERA</button>
-    <div id="permGranted" style="display:none;margin-bottom:8px">
-      <div style="font-size:9px;color:var(--green);margin-bottom:8px">&#10003; Camera permission granted</div>
-      <button class="btn btn-blue btn-wide" onclick="startCamera()">&#9654; START LIVE STREAM</button>
+    <button class="btn btn-accent btn-wide" style="margin-bottom:8px" onclick="requestCam()">📷 ENABLE CAMERA</button>
+    <div id="permGranted" style="display:none;margin-bottom:8px;">
+      <div style="font-size:9px;color:var(--green);margin-bottom:8px;">✓ Camera permission granted</div>
+      <button class="btn btn-blue btn-wide" onclick="startCamera()">▶ START LIVE STREAM</button>
     </div>
-    <div id="permDenied" style="display:none;background:#1a0808;border:1px solid #ff335540;border-radius:6px;padding:10px;margin-bottom:8px">
-      <div style="font-size:9px;color:var(--red)">Camera blocked &mdash; tap &#128274; in address bar &rarr; Allow &rarr; Refresh</div>
+    <div id="permDenied" style="display:none;background:#1a0808;border:1px solid #ff335540;border-radius:6px;padding:10px;margin-bottom:8px;">
+      <div style="font-size:9px;color:var(--red);">Camera blocked — tap 🔒 in address bar → Allow → Refresh</div>
       <button class="btn btn-accent" style="margin-top:8px;width:100%" onclick="requestCam()">Try Again</button>
     </div>
-    <label><input type="file" id="photoUpload" accept="image/*" capture="environment" onchange="handleUpload(event)" style="display:none">
-      <div class="btn btn-green btn-wide" style="text-align:center;cursor:pointer">&#128193; TAKE / UPLOAD PHOTO</div>
+    <label>
+      <input type="file" id="photoUpload" accept="image/*" capture="environment" onchange="handleUpload(event)" style="display:none">
+      <div class="btn btn-green btn-wide" style="text-align:center;cursor:pointer;">📁 TAKE / UPLOAD PHOTO</div>
     </label>
   </div>
 
-  <div class="cam-wrap" id="camWrap" style="display:none">
+  <!-- LIVE CAMERA -->
+  <div class="cam-wrap" id="camWrap" style="display:none;">
     <video id="video" autoplay playsinline muted></video>
-    <canvas id="canvas" style="display:none"></canvas>
+    <canvas id="canvas" style="display:none;"></canvas>
     <div class="guide"><div class="c3"></div><div class="c4"></div></div>
     <div id="filterStatus">
-      <div class="fsp" id="fs-m">MOTION</div>
-      <div class="fsp" id="fs-b">BLUR</div>
-      <div class="fsp" id="fs-c">CHANGE</div>
-      <div class="fsp" id="fs-q">CACHE</div>
-      <div class="fsp" id="fs-cd" style="margin-left:auto">READY</div>
+      <div class="fs-pill" id="fs-motion">MOTION</div>
+      <div class="fs-pill" id="fs-blur">BLUR</div>
+      <div class="fs-pill" id="fs-bright">BRIGHT</div>
+      <div class="fs-pill" id="fs-change">CHANGE</div>
+      <div class="fs-pill" id="fs-cooldown" style="margin-left:auto;">READY</div>
     </div>
     <div id="changeFlash"></div>
     <div id="qualityBar"><div id="qualityFill"></div></div>
-    <div class="cam-badge" id="camBadge">STARTING&#8230;</div>
+    <div class="cam-badge" id="camBadge">STARTING…</div>
   </div>
 
+  <!-- LIVE STATS (shown when live stream active) -->
   <div id="liveStats">
-    <div class="lst-item"><div class="lst-val" id="s-fr">0</div><div class="lst-lbl">FRAMES</div></div>
-    <div class="lst-item"><div class="lst-val" id="s-ps">0</div><div class="lst-lbl">PASSED</div></div>
-    <div class="lst-item"><div class="lst-val" id="s-ap">0</div><div class="lst-lbl">API CALLS</div></div>
-    <div class="lst-item"><div class="lst-val" id="s-an">0</div><div class="lst-lbl">ANSWERS</div></div>
-    <div class="lst-item"><div class="lst-val" id="s-ca">0</div><div class="lst-lbl">CACHED</div></div>
-    <div class="lst-item"><div class="lst-val" id="s-st">0</div><div class="lst-lbl">STALE&#9888;</div></div>
-    <div class="lst-item"><div class="lst-val" id="s-rpm">0</div><div class="lst-lbl">CALLS/MIN</div></div>
+    <div class="lst-item"><div class="lst-val" id="stat-frames">0</div><div class="lst-lbl">FRAMES</div></div>
+    <div class="lst-item"><div class="lst-val" id="stat-passed">0</div><div class="lst-lbl">PASSED</div></div>
+    <div class="lst-item"><div class="lst-val" id="stat-sent">0</div><div class="lst-lbl">API CALLS</div></div>
+    <div class="lst-item"><div class="lst-val" id="stat-answers">0</div><div class="lst-lbl">ANSWERS</div></div>
+    <div class="lst-item"><div class="lst-val" id="stat-ratio">—</div><div class="lst-lbl">EFFICIENCY</div></div>
   </div>
 
-  <div id="rpmWarn" style="display:none;background:#1a0800;border:1px solid var(--amber);border-radius:5px;padding:6px 10px;margin-bottom:8px;font-size:8px;color:var(--amber);letter-spacing:1px;text-align:center">
-  &#9888; RATE LIMIT WARNING &mdash; slowing down to protect keys &mdash; <span id="rpmWarnDetail"></span>
-</div>
-<div style="display:flex;gap:8px;margin-bottom:10px">
-    <button class="btn btn-accent btn-wide" id="liveBtn" onclick="toggleLive()">&#9711; START LIVE</button>
-    <button class="btn btn-blue" onclick="triggerManual()" style="white-space:nowrap;padding:13px 12px;font-family:'Bebas Neue';font-size:16px">SNAP</button>
-    <button class="btn btn-amber" onclick="toggleLock()" style="white-space:nowrap;padding:13px 12px;font-family:'Bebas Neue';font-size:16px">LOCK</button>
+  <!-- CONTROLS -->
+  <div style="display:flex;gap:8px;margin-bottom:10px;">
+    <button class="btn btn-accent btn-wide" id="liveBtn" onclick="toggleLiveStream()">◉ START LIVE</button>
+    <button class="btn btn-red" onclick="triggerManualScan()" style="white-space:nowrap;padding:13px 12px;font-family:'Bebas Neue';font-size:16px;">SNAP</button>
+    <button class="btn btn-amber" onclick="toggleLock()" style="white-space:nowrap;padding:13px 12px;font-family:'Bebas Neue';font-size:16px;">LOCK</button>
   </div>
 
-  <div class="card">
-    <div class="card-title">Settings</div>
+  <!-- LIVE STREAM SETTINGS -->
+  <div class="card" id="liveSettingsCard">
+    <div class="card-title">Live Stream Settings</div>
+
     <div class="toggle-row">
-      <div class="toggle-label">&#128737; Stale Answer Protection<span class="toggle-sub">Discard answer if question changed during API call &mdash; the core anti-wrong-answer shield</span></div>
-      <label class="toggle"><input type="checkbox" id="tog-stale" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
+      <div class="toggle-label">Auto-Snap (Live Stream)
+        <span class="toggle-sub">Automatically captures when question detected</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-autosnap" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
+
     <div class="toggle-row">
-      <div class="toggle-label">Frame Queue<span class="toggle-sub">While AI thinks, queue next question &mdash; never miss one</span></div>
-      <label class="toggle"><input type="checkbox" id="tog-queue" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
-    </div>
-    <div class="toggle-row">
-      <div class="toggle-label">Motion Filter<span class="toggle-sub">Skip frames when camera is moving</span></div>
+      <div class="toggle-label">Motion Filter
+        <span class="toggle-sub">Skip blurry frames from camera movement</span>
+      </div>
       <label class="toggle"><input type="checkbox" id="tog-motion" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
+
     <div class="toggle-row">
-      <div class="toggle-label">Blur Filter<span class="toggle-sub">Only send sharp frames to AI</span></div>
+      <div class="toggle-label">Blur Filter
+        <span class="toggle-sub">Only send sharp frames to Gemini</span>
+      </div>
       <label class="toggle"><input type="checkbox" id="tog-blur" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
+
     <div class="toggle-row">
-      <div class="toggle-label">Change Detection<span class="toggle-sub">Skip if same question since last scan</span></div>
+      <div class="toggle-label">Change Detection
+        <span class="toggle-sub">Skip if question hasn't changed since last scan</span>
+      </div>
       <label class="toggle"><input type="checkbox" id="tog-change" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
+
     <div class="toggle-row">
-      <div class="toggle-label">&#9889; Question Cache<span class="toggle-sub">Seen before? Instant answer, zero API call</span></div>
-      <label class="toggle"><input type="checkbox" id="tog-cache" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
+      <div class="toggle-label">Wrong Answer Protection
+        <span class="toggle-sub">? if AI disagrees with itself</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-protect" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
+
     <div class="toggle-row">
-      <div class="toggle-label">Adaptive Cooldown<span class="toggle-sub">Auto-tighten interval when confident, back off when struggling</span></div>
-      <label class="toggle"><input type="checkbox" id="tog-adaptive" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
+      <div class="toggle-label">⚡ Speed Mode (1 AI pass)
+        <span class="toggle-sub">~1.5s vs ~4s — skip verification</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-speed" onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
+
     <div class="toggle-row">
-      <div class="toggle-label">&#9889; Speed Mode (1 pass)<span class="toggle-sub">~1s vs ~3s &mdash; skips verification pass</span></div>
-      <label class="toggle"><input type="checkbox" id="tog-speed" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
-    </div>
-    <div class="toggle-row">
-      <div class="toggle-label">Answer Hold<span class="toggle-sub">Never go blank &mdash; keep last good answer</span></div>
+      <div class="toggle-label">Answer Hold
+        <span class="toggle-sub">Never go blank — keep last good answer</span>
+      </div>
       <label class="toggle"><input type="checkbox" id="tog-hold" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
+
     <div class="toggle-row">
-      <div class="toggle-label">Haptic (A=1 B=2 C=3 D=4 E=5)<span class="toggle-sub">Feel the answer in your hand</span></div>
+      <div class="toggle-label">Haptic Buzz (A=1 B=2 C=3 D=4 E=5)
+        <span class="toggle-sub">Feel the answer in your hand</span>
+      </div>
       <label class="toggle"><input type="checkbox" id="tog-haptic" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
-    <div class="toggle-row" style="border-bottom:none">
-      <div class="toggle-label">History<span class="toggle-sub">Show last 5 answers</span></div>
+
+    <div class="toggle-row" style="border-bottom:none;">
+      <div class="toggle-label">Answer History
+        <span class="toggle-sub">Show last 5 answers</span>
+      </div>
       <label class="toggle"><input type="checkbox" id="tog-history" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
-    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-      <div style="font-size:8px;color:var(--muted);margin-bottom:6px">Capture interval</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <span style="font-size:8px;color:var(--dim)">Fast</span>
-        <input type="range" id="captureMs" min="500" max="5000" step="250" value="1000" style="flex:1;accent-color:var(--accent)" oninput="updateLabels()">
-        <span style="font-size:8px;color:var(--dim)">Slow</span>
-        <span style="font-size:9px;color:var(--accent);min-width:40px" id="captureLbl">1000ms</span>
+
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+      <div style="font-size:8px;color:var(--muted);margin-bottom:8px;">Frame capture interval</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:8px;color:var(--dim);">Fast</span>
+        <input type="range" id="captureInterval" min="300" max="2000" step="100" value="600"
+          style="flex:1;accent-color:var(--accent);" oninput="updateIntervalLabel()">
+        <span style="font-size:8px;color:var(--dim);">Slow</span>
+        <span style="font-size:9px;color:var(--accent);min-width:36px;" id="intervalLbl">600ms</span>
       </div>
-      <div style="font-size:8px;color:var(--muted);margin-bottom:6px">API cooldown</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-        <span style="font-size:8px;color:var(--dim)">Fast</span>
-        <input type="range" id="cooldownS" min="4" max="30" step="1" value="8" style="flex:1;accent-color:var(--accent)" oninput="updateLabels()">
-        <span style="font-size:8px;color:var(--dim)">Safe</span>
-        <span style="font-size:9px;color:var(--accent);min-width:30px" id="cooldownLbl">8s</span>
+      <div style="font-size:8px;color:var(--muted);margin-top:10px;margin-bottom:8px;">API cooldown between calls</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:8px;color:var(--dim);">Fast</span>
+        <input type="range" id="cooldownSecs" min="2" max="15" step="1" value="4"
+          style="flex:1;accent-color:var(--accent);" oninput="updateCooldownLabel()">
+        <span style="font-size:8px;color:var(--dim);">Safe</span>
+        <span style="font-size:9px;color:var(--accent);min-width:36px;" id="cooldownLbl">4s</span>
       </div>
-      <div style="font-size:8px;color:var(--muted);margin-bottom:6px">Change sensitivity</div>
-      <div style="display:flex;gap:5px;margin-bottom:6px">
-        <button id="sens-low"  onclick="setSensPreset('low')"  style="flex:1;padding:6px 4px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'JetBrains Mono';font-size:8px;cursor:pointer">LOW<br><span style="font-size:7px;opacity:0.6">careful</span></button>
-        <button id="sens-med"  onclick="setSensPreset('med')"  style="flex:1;padding:6px 4px;border-radius:5px;border:1px solid var(--accent);background:#e8ff4710;color:var(--accent);font-family:'JetBrains Mono';font-size:8px;cursor:pointer">MEDIUM<br><span style="font-size:7px;opacity:0.7">★ preset</span></button>
-        <button id="sens-high" onclick="setSensPreset('high')" style="flex:1;padding:6px 4px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'JetBrains Mono';font-size:8px;cursor:pointer">HIGH<br><span style="font-size:7px;opacity:0.6">trigger happy</span></button>
+      <div style="font-size:8px;color:var(--muted);margin-top:10px;margin-bottom:6px;">Change sensitivity</div>
+      <div style="display:flex;gap:5px;margin-bottom:6px;">
+        <button id="sens-low"  onclick="setSensPreset('low')"  style="flex:1;padding:6px 4px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:8px;cursor:pointer;text-align:center;">LOW<br><span style="font-size:7px;opacity:0.6;">careful</span></button>
+        <button id="sens-med"  onclick="setSensPreset('med')"  style="flex:1;padding:6px 4px;border-radius:5px;border:1px solid var(--accent);background:#e8ff4710;color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:8px;cursor:pointer;text-align:center;">MEDIUM<br><span style="font-size:7px;opacity:0.7;">★ preset</span></button>
+        <button id="sens-high" onclick="setSensPreset('high')" style="flex:1;padding:6px 4px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:8px;cursor:pointer;text-align:center;">HIGH<br><span style="font-size:7px;opacity:0.6;">trigger happy</span></button>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:8px;color:var(--dim)">Low</span>
-        <input type="range" id="changeSens" min="5" max="40" step="5" value="15" style="flex:1;accent-color:var(--accent)" oninput="updateLabels()">
-        <span style="font-size:8px;color:var(--dim)">High</span>
-        <span style="font-size:9px;color:var(--accent);min-width:30px" id="sensLbl">15%</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:8px;color:var(--dim);">Low</span>
+        <input type="range" id="changeSens" min="5" max="40" step="5" value="15"
+          style="flex:1;accent-color:var(--accent);" oninput="updateSensLabel()">
+        <span style="font-size:8px;color:var(--dim);">High</span>
+        <span style="font-size:9px;color:var(--accent);min-width:36px;" id="sensLbl">15%</span>
+      </div>
+      <div style="font-size:8px;color:var(--muted);margin-top:10px;margin-bottom:6px;">Auto-retry on fail</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="btn" style="padding:2px 8px;" onclick="changeRetry(-1)">−</button>
+        <div style="font-size:10px;color:var(--accent);min-width:16px;text-align:center;" id="retryMax">2</div>
+        <button class="btn" style="padding:2px 8px;" onclick="changeRetry(1)">+</button>
+        <div style="font-size:8px;color:var(--muted);">retries before giving up</div>
       </div>
     </div>
   </div>
 
+  <!-- VALIDATION -->
   <div class="card">
-    <div class="card-title">Validation</div>
-    <div style="margin-bottom:8px;text-align:center">
-      <div id="providerBadge" class="gemini">&#9672; GEMINI</div>
-      <div id="cacheBadge">&#9889; ANSWERED FROM CACHE</div>
-    </div>
+    <div class="card-title">Scan Validation</div>
     <div class="val-grid">
-      <div class="vcheck" id="vc-stale"><span class="vcheck-icon">&#128737;</span><span class="vcheck-txt">Fresh</span><span class="vcheck-val" id="vc-stale-v">&#8212;</span></div>
-      <div class="vcheck" id="vc-count"><span class="vcheck-icon">&#128290;</span><span class="vcheck-txt">5 opts</span><span class="vcheck-val" id="vc-count-v">&#8212;</span></div>
-      <div class="vcheck" id="vc-conf"><span class="vcheck-icon">&#127919;</span><span class="vcheck-txt">Confidence</span><span class="vcheck-val" id="vc-conf-v">&#8212;</span></div>
-      <div class="vcheck" id="vc-agree"><span class="vcheck-icon">&#10003;&#10003;</span><span class="vcheck-txt">Dual-check</span><span class="vcheck-val" id="vc-agree-v">&#8212;</span></div>
+      <div class="vcheck" id="vc-motion"><span class="vcheck-icon">📷</span><span class="vcheck-txt">Still</span><span class="vcheck-val" id="vc-motion-val">—</span></div>
+      <div class="vcheck" id="vc-blur"><span class="vcheck-icon">🔎</span><span class="vcheck-txt">Sharp</span><span class="vcheck-val" id="vc-blur-val">—</span></div>
+      <div class="vcheck" id="vc-change"><span class="vcheck-icon">🔄</span><span class="vcheck-txt">New Q</span><span class="vcheck-val" id="vc-change-val">—</span></div>
+      <div class="vcheck" id="vc-count"><span class="vcheck-icon">🔢</span><span class="vcheck-txt">5 options</span><span class="vcheck-val" id="vc-count-val">—</span></div>
+      <div class="vcheck" id="vc-conf"><span class="vcheck-icon">🎯</span><span class="vcheck-txt">Confidence</span><span class="vcheck-val" id="vc-conf-val">—</span></div>
+      <div class="vcheck" id="vc-agree"><span class="vcheck-icon">✓✓</span><span class="vcheck-txt">Dual check</span><span class="vcheck-val" id="vc-agree-val">—</span></div>
     </div>
     <div class="conf-wrap">
-      <div class="conf-lbl"><span>CONFIDENCE</span><span id="confPct">&#8212;</span></div>
+      <div class="conf-lbl"><span>CONFIDENCE</span><span id="confPct">—</span></div>
       <div class="conf-bar"><div class="conf-fill" id="confFill"></div></div>
     </div>
   </div>
 
-  <div id="staleWarn">&#9888; STALE ANSWER DISCARDED &mdash; RESCANNING NOW</div>
-
+  <!-- ANSWER -->
   <div class="answer-card">
     <div id="heldBadge">HELD</div>
-    <div id="staleBadge">STALE</div>
-    <div class="ans-pre">&#9672; CORRECT ANSWER</div>
+    <div class="ans-pre">◈ CORRECT ANSWER</div>
     <div class="opt-chips" id="optChips"></div>
-    <div class="ans-big" id="ansBig">&#8212;</div>
+    <div class="ans-big" id="ansBig">—</div>
     <div class="ans-sub" id="ansSub"></div>
   </div>
 
-  <div class="hist-strip" id="histStrip" style="display:none">
+  <!-- HISTORY -->
+  <div class="hist-strip" id="histStrip" style="display:none;">
     <div class="hist-lbl">HISTORY</div>
-    <div class="hist-item" id="hi4">&#8212;</div><div class="hist-item" id="hi3">&#8212;</div>
-    <div class="hist-item" id="hi2">&#8212;</div><div class="hist-item" id="hi1">&#8212;</div>
-    <div class="hist-item hist-newest" id="hi0">&#8212;</div>
+    <div class="hist-item" id="hi4">—</div>
+    <div class="hist-item" id="hi3">—</div>
+    <div class="hist-item" id="hi2">—</div>
+    <div class="hist-item" id="hi1">—</div>
+    <div class="hist-item hist-newest" id="hi0">—</div>
   </div>
 
-  <div style="font-size:8px;letter-spacing:3px;color:var(--muted);text-align:center;margin-bottom:6px">&#9672; LED OUTPUTS</div>
+  <!-- LED INDICATORS -->
+  <div style="font-size:8px;letter-spacing:3px;color:var(--muted);text-align:center;margin-bottom:6px;">◈ LED OUTPUTS</div>
   <div class="leds-row">
     <div class="led-unit"><div class="led" id="la"></div><div class="led-lbl" id="lla">A</div></div>
     <div class="led-unit"><div class="led" id="lb"></div><div class="led-lbl" id="llb">B</div></div>
     <div class="led-unit"><div class="led" id="lc"></div><div class="led-lbl" id="llc">C</div></div>
     <div class="led-unit"><div class="led" id="ld"></div><div class="led-lbl" id="lld">D</div></div>
     <div class="led-unit"><div class="led" id="le"></div><div class="led-lbl" id="lle">E</div></div>
-    <div class="led-unit"><div class="led" id="lwarn"></div><div class="led-lbl" style="color:var(--red)">&#9888;</div></div>
+    <div class="led-unit"><div class="led" id="lwarn"></div><div class="led-lbl" style="color:var(--red);">⚠</div></div>
   </div>
 
-  <div class="card" style="border-color:#e8ff4740;background:#0d1208">
-    <div class="card-title" style="color:var(--accent)">&#129514; Test / Demo</div>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px">
-      <button class="btn" style="border-color:var(--a);color:var(--a);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('A')">A</button>
-      <button class="btn" style="border-color:var(--b);color:var(--b);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('B')">B</button>
-      <button class="btn" style="border-color:var(--c);color:var(--c);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('C')">C</button>
-      <button class="btn" style="border-color:var(--d);color:var(--d);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('D')">D</button>
-      <button class="btn" style="border-color:var(--e);color:var(--e);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px" onclick="demoAnswer('E')">E</button>
+  <!-- DEMO PANEL -->
+  <div class="card" style="border-color:#e8ff4740;background:#0d1208;">
+    <div class="card-title" style="color:var(--accent);">🧪 Test / Demo</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px;">
+      <button class="btn" style="border-color:var(--a);color:var(--a);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px;" onclick="demoAnswer('A')">A</button>
+      <button class="btn" style="border-color:var(--b);color:var(--b);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px;" onclick="demoAnswer('B')">B</button>
+      <button class="btn" style="border-color:var(--c);color:var(--c);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px;" onclick="demoAnswer('C')">C</button>
+      <button class="btn" style="border-color:var(--d);color:var(--d);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px;" onclick="demoAnswer('D')">D</button>
+      <button class="btn" style="border-color:var(--e);color:var(--e);padding:12px 0;font-family:'Bebas Neue';font-size:22px;border-radius:7px;" onclick="demoAnswer('E')">E</button>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
-      <button class="btn btn-red" onclick="demoWarn()">&#9888; WARN</button>
-      <button class="btn" onclick="demoRandom()">&#127922; RANDOM 2</button>
-      <button class="btn" onclick="demoRandom()">&#127922; RANDOM</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+      <button class="btn btn-red" onclick="demoWarn()">⚠ REPOSITION</button>
+      <button class="btn" style="border-color:var(--muted);" onclick="demoRandom()">🎲 RANDOM</button>
     </div>
   </div>
 
+  <!-- PHYS LED SIM -->
   <div class="card">
     <div class="card-title">Physical LED Simulator</div>
-    <div style="background:#050708;border:2px solid #1a2030;border-radius:14px;padding:18px 14px 14px;position:relative;margin-bottom:8px">
-      <div style="position:absolute;top:6px;left:50%;transform:translateX(-50%);font-size:7px;letter-spacing:3px;color:#1a2030;white-space:nowrap">ANSWERBOT DEVICE</div>
-      <div style="display:flex;justify-content:space-around;align-items:flex-end;margin-top:6px;margin-bottom:14px">
-        <div><div class="phys-led led-A" id="pled-a"></div><div class="phys-lbl" style="color:#ff4466">A</div></div>
-        <div><div class="phys-led led-B" id="pled-b"></div><div class="phys-lbl" style="color:#4488ff">B</div></div>
-        <div><div class="phys-led led-C" id="pled-c"></div><div class="phys-lbl" style="color:#ffcc00">C</div></div>
-        <div><div class="phys-led led-D" id="pled-d"></div><div class="phys-lbl" style="color:#44dd88">D</div></div>
-        <div><div class="phys-led led-E" id="pled-e"></div><div class="phys-lbl" style="color:#cc55ff">E</div></div>
+    <div style="background:#050708;border:2px solid #1a2030;border-radius:14px;padding:18px 14px 14px;position:relative;margin-bottom:8px;">
+      <div style="position:absolute;top:6px;left:50%;transform:translateX(-50%);font-size:7px;letter-spacing:3px;color:#1a2030;white-space:nowrap;">ANSWERBOT DEVICE</div>
+      <div style="display:flex;justify-content:space-around;align-items:flex-end;margin-top:6px;margin-bottom:14px;">
+        <div><div class="phys-led led-A" id="pled-a"></div><div class="phys-lbl" style="color:#ff4466;">A</div></div>
+        <div><div class="phys-led led-B" id="pled-b"></div><div class="phys-lbl" style="color:#4488ff;">B</div></div>
+        <div><div class="phys-led led-C" id="pled-c"></div><div class="phys-lbl" style="color:#ffcc00;">C</div></div>
+        <div><div class="phys-led led-D" id="pled-d"></div><div class="phys-lbl" style="color:#44dd88;">D</div></div>
+        <div><div class="phys-led led-E" id="pled-e"></div><div class="phys-lbl" style="color:#cc55ff;">E</div></div>
       </div>
-      <div style="height:1px;background:#111;margin:0 6px 14px"></div>
-      <div style="display:flex;justify-content:space-around;align-items:center">
-        <div><div class="phys-led led-W" id="pled-warn" style="width:22px;height:22px"></div><div class="phys-lbl" style="color:#ff3355">WARN</div></div>
-        <div onclick="triggerManual()" style="width:50px;height:50px;border-radius:50%;background:linear-gradient(145deg,#0f1a0f,#060e06);border:3px solid #1a2a1a;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 5px 15px #000;font-size:20px;color:var(--green);transition:all 0.1s" ontouchstart="this.style.transform='scale(0.93)'" ontouchend="this.style.transform=''">&#9711;</div>
-        <div style="text-align:center">
-          <div style="width:30px;height:30px;border-radius:5px;background:#060810;border:1px solid #1a2530;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#506070;margin:0 auto 4px;transition:all 0.2s" id="confDot">&#8212;</div>
+      <div style="height:1px;background:#111;margin:0 6px 14px;"></div>
+      <div style="display:flex;justify-content:space-around;align-items:center;">
+        <div><div class="phys-led led-W" id="pled-warn" style="width:22px;height:22px;"></div><div class="phys-lbl" style="color:#ff3355;">WARN</div></div>
+        <div onclick="triggerManualScan()" style="width:50px;height:50px;border-radius:50%;background:linear-gradient(145deg,#0f1a0f,#060e06);border:3px solid #1a2a1a;display:flex;align-items:center;justify-content:center;cursor:pointer;margin:0 auto 4px;box-shadow:0 5px 15px #000;font-size:20px;color:var(--green);text-shadow:0 0 8px var(--green);transition:all 0.1s;"
+          onmousedown="this.style.transform='scale(0.93)'" onmouseup="this.style.transform=''"
+          ontouchstart="this.style.transform='scale(0.93)'" ontouchend="this.style.transform=''">◉</div>
+        <div style="text-align:center;">
+          <div style="width:30px;height:30px;border-radius:5px;background:#060810;border:1px solid #1a2530;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#506070;margin:0 auto 4px;transition:all 0.2s;" id="confDot">—</div>
           <div class="phys-lbl">CONF</div>
         </div>
       </div>
     </div>
-    <div style="font-size:8px;color:var(--dim);line-height:1.7"><b style="color:var(--muted)">Pins:</b> A=13 B=12 C=14 D=27 E=26 WARN=25 &bull; 220&#937;&rarr;GND</div>
+    <div style="font-size:8px;color:var(--dim);line-height:1.7;"><b style="color:var(--muted);">Pins:</b> A=13 B=12 C=14 D=27 E=26 WARN=25 · 220Ω→GND</div>
   </div>
 
+  <!-- BT -->
   <div class="card">
     <div class="card-title">Wireless Trigger</div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <div style="flex:1;font-size:9px;color:var(--muted)" id="btLbl">Space / Enter / Volume keys trigger snap</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div style="flex:1;font-size:9px;color:var(--muted);" id="btLbl">Space / Enter / Volume keys trigger manual snap</div>
       <button class="btn btn-blue" onclick="pairBT()">PAIR BT</button>
     </div>
   </div>
 
-  <div style="font-size:8px;letter-spacing:3px;color:var(--muted);margin-bottom:4px">System Log</div>
+  <!-- LOG -->
+  <div style="font-size:8px;letter-spacing:3px;color:var(--muted);margin-bottom:4px;">System Log</div>
   <div class="log" id="logBox"></div>
 
-  <div style="display:flex;gap:8px;margin-bottom:24px">
-    <button class="btn btn-amber btn-wide" onclick="toggleLock()">&#11035; LOCK</button>
-    <button class="btn btn-red btn-wide" onclick="triggerSOS()">&#128170; SOS</button>
-  </div>
+  <button class="btn btn-amber btn-wide" onclick="toggleLock()" style="margin-bottom:10px;">⬛ LOCK SCREEN</button>
+  <button class="btn btn-red btn-wide" onclick="triggerSOS()" style="margin-bottom:24px;">🆘 SOS PANIC MODE</button>
+
 </div>
+
 <script>
-
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // STATE
-// ═══════════════════════════════════════════════════════
-let geminiKeys=[], geminiIdx=0;
+// ══════════════════════════════════════════════════════════
+let apiKeys      = [];
+let activeKeyIdx = 0;
+let camActive    = false;
+let isLocked     = false;
+let maxRetries   = 2;
+let scanning     = false;
+let btDev        = null;
+let lastAnswer   = null;
+let answerHistory = [];
 
-// Per-key rate tracker: key → array of timestamps of recent calls
-let keyCallLog={};     // 'g0','g1'... → [timestamps]
-let gptCallLog=[];
-const GEMINI_RPM=9;    // stay under 10 RPM limit (buffer of 1)
-function canCallKey(keyId,log,rpm){
-  const now=Date.now(), window=60000;
-  const calls=(log[keyId]||[]).filter(t=>now-t<window);
-  log[keyId]=calls;
-  return calls.length<rpm;
-}
-function logKeyCall(keyId,log){
-  if(!log[keyId])log[keyId]=[];
-  log[keyId].push(Date.now());
-}
-function callsRemaining(keyId,log,rpm){
-  const now=Date.now();
-  const calls=(log[keyId]||[]).filter(t=>now-t<60000);
-  return Math.max(0,rpm-calls.length);
-}
-let camActive=false, isLocked=false, liveActive=false;
-let scanning=false, liveTimer=null;
-let lastAnswer=null, answerHistory=[], answerTime=0, ageTimer=null;
-
-// Stale answer system
-let inFlightId=0;          // increments each send — response only accepted if still matches
-let sentFrameHash=0;       // hash of frame we sent to AI
-let currentFrameHash=0;    // hash of most recently captured live frame
-let lastSentIdata=null;    // ImageData of sent frame for pixel-level stale check
-let prevFrameIdata=null;   // for motion detection
-
-// Frame queue — holds best frame captured while AI is busy
-let queuedCanvas=null, queuedHash=0;
-
-// Question cache: hash→{answer,conf,time}
-let qCache={};
-
-// Stats
-let sF=0,sP=0,sA=0,sAn=0,sCa=0,sSt=0;
-
-// Adaptive cooldown
-let cooldownMs=8000, recentConfs=[];
+// Live stream state
+let liveActive      = false;
+let liveTimer       = null;
+let lastFrameData   = null;   // ImageData of last sent frame (for change detection)
+let lastApiCallTime = 0;
+let statFrames = 0, statPassed = 0, statSent = 0, statAnswers = 0;
+let prevFrameData   = null;   // for motion detection (compare consecutive frames)
 
 // SOS
-let sosTaps=0, sosTapT=null;
+let sosTapCount = 0;
+let sosTapTimer = null;
 
-const ANS=['A','B','C','D','E'];
-const tog=id=>document.getElementById('tog-'+id)?.checked??true;
-const delay=ms=>new Promise(r=>setTimeout(r,ms));
+const ANSWERS = ['A','B','C','D','E'];
+const tog = id => document.getElementById('tog-'+id)?.checked ?? true;
 
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // BOOT
-// ═══════════════════════════════════════════════════════
-window.addEventListener('load',()=>{
-  loadGeminiKeys(); loadToggles(); updateLabels(); checkCamSupport();
+// ══════════════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  loadKeys();
+  loadToggles();
+  checkCamSupport();
+  updateIntervalLabel();
+  updateCooldownLabel();
+  updateSensLabel();
 
-  document.addEventListener('keydown',e=>{
-    if(e.code==='Space'||e.code==='Enter'){e.preventDefault();triggerManual();}
-    if(e.code==='VolumeUp'||e.code==='VolumeDown'){e.preventDefault();triggerManual();}
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); triggerManualScan(); }
+    if (e.code === 'VolumeUp' || e.code === 'VolumeDown') { e.preventDefault(); triggerManualScan(); }
   });
-  if('mediaSession' in navigator){
-    navigator.mediaSession.setActionHandler('nexttrack',triggerManual);
-    navigator.mediaSession.setActionHandler('previoustrack',triggerManual);
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('nexttrack', triggerManualScan);
+    navigator.mediaSession.setActionHandler('previoustrack', triggerManualScan);
   }
-  document.addEventListener('visibilitychange',()=>{
-    if(!document.hidden){
-      log('App visible — reacquiring wake lock','info');
-      wakeLock();
-      if(camActive&&liveActive) setTimeout(triggerManual,600);
-    }
-  });
-  try{ if(screen.orientation?.lock) screen.orientation.lock('portrait').catch(()=>{}); }catch(e){}
+
   wakeLock();
-  registerSW();
-  // Restore saved sensitivity preset
-  const sp=localStorage.getItem('ab_sp')||'med'; setSensPreset(sp,true);
-  log('AnswerBot Pro v5.1 — Stale-proof · Gemini · Bulletproof','info');
+  log('AnswerBot Pro v4 ready · Live stream mode', 'info');
 });
 
-// Sensitivity presets
-const SENS_PRESETS={
-  low: {val:8,  label:'LOW',  color:'var(--green)',  bg:'#39ff8510'},
-  med: {val:15, label:'MEDIUM',color:'var(--accent)', bg:'#e8ff4710'},
-  high:{val:28, label:'HIGH', color:'var(--red)',    bg:'#ff335510'}
-};
-function setSensPreset(level, silent=false){
-  const p=SENS_PRESETS[level]; if(!p) return;
-  document.getElementById('changeSens').value=p.val;
-  document.getElementById('sensLbl').textContent=p.val+'%';
-  ['low','med','high'].forEach(l=>{
-    const b=document.getElementById('sens-'+l); if(!b) return;
-    const lp=SENS_PRESETS[l];
-    b.style.borderColor=l===level?lp.color:'var(--border)';
-    b.style.background=l===level?lp.bg:'transparent';
-    b.style.color=l===level?lp.color:'var(--muted)';
+function loadToggles() {
+  const saved = JSON.parse(localStorage.getItem('ab_toggles') || '{}');
+  Object.keys(saved).forEach(k => {
+    const el = document.getElementById('tog-'+k);
+    if (el) el.checked = saved[k];
   });
-  if(!silent){ localStorage.setItem('ab_sp',level); saveToggles(); }
+  const iv = localStorage.getItem('ab_interval');
+  if (iv) { document.getElementById('captureInterval').value = iv; updateIntervalLabel(); }
+  const cd = localStorage.getItem('ab_cooldown');
+  if (cd) { document.getElementById('cooldownSecs').value = cd; updateCooldownLabel(); }
+  const cs = localStorage.getItem('ab_changesens');
+  if (cs) { document.getElementById('changeSens').value = cs; updateSensLabel(); }
+  const sp = localStorage.getItem('ab_sp') || 'med'; setSensPreset(sp, true);
 }
 
-function loadToggles(){
-  const s=JSON.parse(localStorage.getItem('ab_t5')||'{}');
-  ['stale','queue','motion','blur','change','cache','adaptive','speed','hold','haptic','history'].forEach(k=>{
-    const el=document.getElementById('tog-'+k); if(el&&s[k]!==undefined) el.checked=s[k];
-  });
-  const ci=localStorage.getItem('ab_ci'); if(ci) document.getElementById('captureMs').value=ci;
-  const cd=localStorage.getItem('ab_cd'); if(cd) document.getElementById('cooldownS').value=cd;
-  const cs=localStorage.getItem('ab_cs'); if(cs) document.getElementById('changeSens').value=cs;
-}
-function saveToggles(){
-  const obj={};
-  ['stale','queue','motion','blur','change','cache','adaptive','speed','hold','haptic','history'].forEach(k=>{obj[k]=document.getElementById('tog-'+k)?.checked??false;});
-  localStorage.setItem('ab_t5',JSON.stringify(obj));
-  localStorage.setItem('ab_ci',document.getElementById('captureMs').value);
-  localStorage.setItem('ab_cd',document.getElementById('cooldownS').value);
-  localStorage.setItem('ab_cs',document.getElementById('changeSens').value);
-  cooldownMs=parseInt(document.getElementById('cooldownS').value)*1000;
-}
-function updateLabels(){
-  document.getElementById('captureLbl').textContent=document.getElementById('captureMs').value+'ms';
-  document.getElementById('cooldownLbl').textContent=document.getElementById('cooldownS').value+'s';
-  document.getElementById('sensLbl').textContent=document.getElementById('changeSens').value+'%';
-  cooldownMs=parseInt(document.getElementById('cooldownS').value)*1000;
+function saveToggles() {
+  const keys = ['autosnap','motion','blur','change','protect','speed','hold','haptic','history'];
+  const obj = {};
+  keys.forEach(k => { obj[k] = document.getElementById('tog-'+k)?.checked ?? false; });
+  localStorage.setItem('ab_toggles', JSON.stringify(obj));
+  localStorage.setItem('ab_interval', document.getElementById('captureInterval').value);
+  localStorage.setItem('ab_cooldown', document.getElementById('cooldownSecs').value);
+  localStorage.setItem('ab_changesens', document.getElementById('changeSens').value);
 }
 
-// ═══════════════════════════════════════════════════════
-// SERVICE WORKER
-// ═══════════════════════════════════════════════════════
-function registerSW(){
-  if(!('serviceWorker' in navigator)) return;
-  const code=`self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>clients.claim());self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));`;
-  const url=URL.createObjectURL(new Blob([code],{type:'application/javascript'}));
-  navigator.serviceWorker.register(url).then(()=>log('Service worker active — crash recovery ON','ok')).catch(()=>{});
-}
+function updateIntervalLabel() { document.getElementById('intervalLbl').textContent = document.getElementById('captureInterval').value + 'ms'; }
+function updateCooldownLabel() { document.getElementById('cooldownLbl').textContent = document.getElementById('cooldownSecs').value + 's'; }
+function updateSensLabel()     { document.getElementById('sensLbl').textContent     = document.getElementById('changeSens').value + '%'; }
+function changeRetry(d) { maxRetries = Math.max(0,Math.min(5,maxRetries+d)); document.getElementById('retryMax').textContent = maxRetries; }
 
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // WAKE LOCK
-// ═══════════════════════════════════════════════════════
-async function wakeLock(){
-  try{ if('wakeLock' in navigator){ const wl=await navigator.wakeLock.request('screen'); wl.addEventListener('release',()=>setTimeout(wakeLock,1000)); }}catch(e){}
+// ══════════════════════════════════════════════════════════
+let wakeLockSentinel = null;
+async function wakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
+      wakeLockSentinel.addEventListener('release', () => {
+        log('Wake lock released — attempting reacquire', 'warn');
+        setTimeout(wakeLock, 1000);
+      });
+    }
+  } catch(e) {}
 }
 
-// ═══════════════════════════════════════════════════════
-// SOS
-// ═══════════════════════════════════════════════════════
-function sosTap(){
-  sosTaps++; clearTimeout(sosTapT);
-  if(sosTaps>=3){sosTaps=0;triggerSOS();return;}
-  sosTapT=setTimeout(()=>{sosTaps=0;},1000);
+// ══════════════════════════════════════════════════════════
+// SOS PANIC MODE
+// ══════════════════════════════════════════════════════════
+function sosTap() {
+  sosTapCount++;
+  clearTimeout(sosTapTimer);
+  if (sosTapCount >= 3) { sosTapCount = 0; triggerSOS(); return; }
+  sosTapTimer = setTimeout(() => { sosTapCount = 0; }, 1000);
 }
-function triggerSOS(){
-  const m=[];
-  if(!geminiKeys.length) m.push('⚠ No Gemini keys saved');
-  if(geminiKeys.every(k=>k.limited)) m.push('⚠ All Gemini keys rate-limited');
-  if(!camActive) m.push('⚠ Camera not active');
-  if(lastAnswer) m.push('✓ Last answer: '+lastAnswer);
-  document.getElementById('sosMsg').innerHTML=m.length?m.join('<br>'):'ALL SYSTEMS NORMAL';
+
+function triggerSOS() {
   document.getElementById('sosOverlay').classList.add('on');
-}
-function sosClose(){document.getElementById('sosOverlay').classList.remove('on');}
-function sosForceGPT(){log('GPT removed — Gemini only','warn');sosClose();}
-function sosContinue(){sosClose();if(lastAnswer)displayAnswer(lastAnswer,{answer_text:'Held answer',question_summary:'',confidence:'medium',options_count:5},80,'held');}
-async function sosRecover(){
-  sosClose(); log('SOS: full restart…','warn');
-  stopLive(); scanning=false; inFlightId++; queuedCanvas=null; updateProviderUI();
-  await wakeLock();
-  if(camActive){await delay(600);startLive();}
-  log('SOS: recovery complete','ok');
+  const msgs = [];
+  if (!apiKeys.length) msgs.push('⚠ No API keys saved');
+  if (!camActive) msgs.push('⚠ Camera not active');
+  if (apiKeys.every(k => k.limited)) msgs.push('⚠ All keys rate limited');
+  if (lastAnswer) msgs.push('✓ Last answer: ' + lastAnswer);
+  document.getElementById('sosMsg').innerHTML = msgs.length ? msgs.join('<br>') : 'APP RUNNING NORMALLY<br>Use buttons below if needed';
 }
 
-// ═══════════════════════════════════════════════════════
-// GEMINI KEYS
-// ═══════════════════════════════════════════════════════
-function saveGeminiKeys(){
-  geminiKeys=[];
-  for(let i=0;i<2;i++){const v=document.getElementById('gki'+i)?.value.trim();if(v)geminiKeys.push({key:v,limited:false,limitedUntil:0,fails:0});}
-  localStorage.setItem('ab_gkeys',JSON.stringify(geminiKeys.map(k=>k.key)));
-  geminiIdx=0; updateGeminiBar(); updateProviderUI();
-  log(geminiKeys.length+' Gemini key(s) saved','ok');
-  setPill(geminiKeys.length?'KEYS x'+geminiKeys.length:'NO KEYS',!!geminiKeys.length);
+function sosClose()    { document.getElementById('sosOverlay').classList.remove('on'); }
+function sosContinue() { sosClose(); if (lastAnswer) showAnswer(lastAnswer, {answer_text:'Held from last scan',question_summary:'',confidence:'medium',options_count:5,options_complete:true,question_complete:true,options_visible:['A','B','C','D','E']}, 80); }
+async function sosRecover() {
+  sosClose();
+  log('SOS: restarting systems…', 'warn');
+  stopLiveStream();
+  scanning = false;
+  await wakeLock();
+  if (camActive) {
+    await delay(500);
+    startLiveStream();
+  }
+  log('SOS: recovery complete', 'ok');
 }
-function loadGeminiKeys(){
-  const s=JSON.parse(localStorage.getItem('ab_gkeys')||'[]');
-  const old=localStorage.getItem('ab_key');
-  const all=[...new Set([...s,old||''].filter(Boolean))].slice(0,2);
-  geminiKeys=all.map(k=>({key:k,limited:false,limitedUntil:0,fails:0}));
-  geminiIdx=0;
-  all.forEach((v,i)=>{const inp=document.getElementById('gki'+i);if(inp)inp.value=v;});
-  updateGeminiBar();
-  if(geminiKeys.length)log(geminiKeys.length+' Gemini key(s) loaded','ok');
-  setPill(geminiKeys.length?'KEYS x'+geminiKeys.length:'NO KEYS',!!geminiKeys.length);
+
+// ══════════════════════════════════════════════════════════
+// MULTI-KEY MANAGEMENT
+// ══════════════════════════════════════════════════════════
+function saveKeys() {
+  apiKeys = [];
+  for (let i = 0; i < 2; i++) {
+    const v = document.getElementById('ki'+i)?.value.trim();
+    if (v) apiKeys.push({key:v, fails:0, limited:false, limitedUntil:0});
+  }
+  localStorage.setItem('ab_keys', JSON.stringify(apiKeys.map(k=>k.key)));
+  activeKeyIdx = 0;
+  updateKeyStatusBar();
+  log(apiKeys.length + ' key(s) saved', 'ok');
+  setPill(apiKeys.length ? 'KEYS ×' + apiKeys.length : 'NO KEYS', !!apiKeys.length);
 }
-function getGeminiKey(){
-  if(!geminiKeys.length) return null;
-  const now=Date.now();
-  for(let i=0;i<geminiKeys.length;i++){
-    const idx=(geminiIdx+i)%geminiKeys.length;
-    const k=geminiKeys[idx];
-    if(k.limited&&now>k.limitedUntil){k.limited=false;updateGeminiBar();}
-    if(!k.limited){geminiIdx=idx;return k;}
+
+function loadKeys() {
+  const saved = JSON.parse(localStorage.getItem('ab_keys') || '[]');
+  const old = localStorage.getItem('ab_key');
+  const all = [...new Set([...saved, old||''].filter(Boolean))].slice(0, 2);
+  apiKeys = all.map(k => ({key:k, fails:0, limited:false, limitedUntil:0}));
+  activeKeyIdx = 0;
+  all.forEach((v, i) => { const el = document.getElementById('ki'+i); if(el) el.value = v; });
+  updateKeyStatusBar();
+  if (apiKeys.length) log(apiKeys.length + ' key(s) loaded', 'ok');
+  setPill(apiKeys.length ? 'KEYS ×' + apiKeys.length : 'NO KEYS', !!apiKeys.length);
+}
+
+function getActiveKey() {
+  if (!apiKeys.length) return null;
+  const now = Date.now();
+  for (let i = 0; i < apiKeys.length; i++) {
+    const idx = (activeKeyIdx + i) % apiKeys.length;
+    const k = apiKeys[idx];
+    if (k.limited && now > k.limitedUntil) { k.limited = false; updateKeyStatusBar(); }
+    if (!k.limited) { activeKeyIdx = idx; return k; }
   }
   return null;
 }
-function markGeminiFailed(reason){
-  if(!geminiKeys[geminiIdx]) return;
-  const k=geminiKeys[geminiIdx];
-  const isLim=/429|RESOURCE_EXHAUSTED|quota|rate/i.test(reason);
-  if(isLim){
-    k.limited=true; k.limitedUntil=Date.now()+65000;
-    log('Gemini key '+(geminiIdx+1)+' rate-limited','warn');
-    for(let i=1;i<geminiKeys.length;i++){const n=(geminiIdx+i)%geminiKeys.length;if(!geminiKeys[n].limited){geminiIdx=n;log('Switched to Gemini key '+(n+1),'ok');break;}}
-    if(geminiKeys.every(k=>k.limited)) log('All Gemini keys rate-limited — wait ~60s','err');
-  } else {k.fails++;}
-  updateGeminiBar();
+
+function markKeyFailed(reason) {
+  if (!apiKeys[activeKeyIdx]) return;
+  const k = apiKeys[activeKeyIdx];
+  const isLimit = /429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(reason);
+  if (isLimit) {
+    k.limited = true;
+    k.limitedUntil = Date.now() + 65000;
+    log('Key ' + (activeKeyIdx+1) + ' rate limited — switching', 'warn');
+    for (let i = 1; i < apiKeys.length; i++) {
+      const next = (activeKeyIdx+i) % apiKeys.length;
+      if (!apiKeys[next].limited) { activeKeyIdx = next; log('Switched to key ' + (next+1), 'ok'); break; }
+    }
+  } else { k.fails++; }
+  updateKeyStatusBar();
 }
-function checkGeminiRecovery(){});
-    log('Gemini recovered — switching back from GPT','ok');
-    updateProviderUI();
-  }
-}
-function updateGeminiBar(){
-  const bar=document.getElementById('geminiBar'); if(!bar) return;
-  bar.innerHTML=''; const now=Date.now();
-  geminiKeys.forEach((k,i)=>{
-    const isAct=i===geminiIdx&&!k.limited, isLim=k.limited&&now<k.limitedUntil;
-    bar.innerHTML+=`<div style="font-size:11px;color:${isLim?'var(--red)':isAct?'var(--green)':'var(--accent)'}" title="G-Key ${i+1}">${isLim?'⏳':isAct?'●':'○'}</div>`;
-    const dot=document.getElementById('gkd'+i);
-    if(dot) dot.className='key-dot'+(isLim?' limited':isAct?' active':k.key?' ok':'');
+
+function updateKeyStatusBar() {
+  const bar = document.getElementById('keyStatusBar');
+  if (!bar) return;
+  bar.innerHTML = '';
+  const now = Date.now();
+  apiKeys.forEach((k,i) => {
+    const isActive  = i === activeKeyIdx && !k.limited;
+    const isLimited = k.limited && now < k.limitedUntil;
+    const color = isLimited ? 'var(--red)' : isActive ? 'var(--green)' : 'var(--accent)';
+    bar.innerHTML += `<div style="font-size:11px;color:${color};cursor:default;" title="Key ${i+1}">
+      ${isLimited ? '⏳' : isActive ? '●' : '○'}</div>`;
+    const dot = document.getElementById('kd'+i);
+    if (dot) {
+      dot.className = 'key-dot' + (isLimited ? ' limited' : isActive ? ' active' : k.key ? ' ok' : '');
+    }
   });
-  document.getElementById('geminiActiveNum').textContent=geminiKeys.length?(geminiIdx+1)+'/'+geminiKeys.length:'—';
+  document.getElementById('activeKeyNum').textContent = apiKeys.length ? (activeKeyIdx+1)+'/'+apiKeys.length : '—';
 }
-async function testGeminiKeys(){
-  if(!geminiKeys.length){log('No Gemini keys','err');return;}
-  const tiny='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-  for(let i=0;i<geminiKeys.length;i++){
-    try{
-      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKeys[i].key}`,
-        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:'Say OK'},{inline_data:{mime_type:'image/png',data:tiny}}]}],generationConfig:{maxOutputTokens:4}})});
-      const dot=document.getElementById('gkd'+i); if(dot) dot.className='key-dot '+(r.ok?'ok':'limited');
-      log('Gemini key '+(i+1)+': '+(r.ok?'VALID':'FAIL '+r.status),r.ok?'ok':'err');
-    }catch(e){log('Gemini key '+(i+1)+': ERROR','err');}
+
+async function testAllKeys() {
+  if (!apiKeys.length) { log('No keys to test', 'err'); return; }
+  const tiny = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  for (let i = 0; i < apiKeys.length; i++) {
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKeys[i].key}`,
+        { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({contents:[{parts:[{text:'Say OK'},{inline_data:{mime_type:'image/png',data:tiny}}]}],generationConfig:{maxOutputTokens:4}})});
+      const dot = document.getElementById('kd'+i);
+      if (dot) dot.className = 'key-dot ' + (res.ok ? 'ok' : 'limited');
+      log('Key '+(i+1)+': '+(res.ok?'✓ VALID':'✗ '+res.status), res.ok?'ok':'err');
+    } catch(e) { log('Key '+(i+1)+': ✗ ERROR', 'err'); }
     await delay(400);
   }
 }
 
-function updateProviderUI(){
-  document.getElementById('providerLbl').textContent='GEMINI (PRIMARY)';
-  document.getElementById('providerLbl').style.color='var(--accent)';
-  document.getElementById('providerBadge').className='gemini';
-  document.getElementById('providerBadge').textContent='◈ GEMINI';
-  document.getElementById('lockProvider').textContent='GEMINI';
-  document.getElementById('lockProvider').className='';
-  document.getElementById('overlayProvider').textContent='GEMINI 2.5 FLASH';
-}
-
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // CAMERA
-// ═══════════════════════════════════════════════════════
-async function checkCamSupport(){
-  if(!(location.protocol==='https:'||location.hostname==='localhost')) document.getElementById('httpsWarn').style.display='block';
-  if(navigator.permissions){try{const p=await navigator.permissions.query({name:'camera'});handlePerm(p.state);p.onchange=()=>handlePerm(p.state);return;}catch(e){}}
+// ══════════════════════════════════════════════════════════
+async function checkCamSupport() {
+  const secure = location.protocol==='https:' || location.hostname==='localhost';
+  if (!secure) document.getElementById('httpsWarn').style.display = 'block';
+  if (navigator.permissions) {
+    try {
+      const p = await navigator.permissions.query({name:'camera'});
+      handlePerm(p.state);
+      p.onchange = () => handlePerm(p.state);
+      return;
+    } catch(e) {}
+  }
   handlePerm('prompt');
 }
-function handlePerm(s){
-  document.getElementById('permGranted').style.display=s==='granted'?'block':'none';
-  document.getElementById('permDenied').style.display=s==='denied'?'block':'none';
+
+function handlePerm(s) {
+  document.getElementById('permGranted').style.display = s==='granted' ? 'block' : 'none';
+  document.getElementById('permDenied').style.display  = s==='denied'  ? 'block' : 'none';
 }
-async function requestCam(){
-  try{const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});s.getTracks().forEach(t=>t.stop());handlePerm('granted');await startCamera();}
-  catch(e){if(e.name==='NotAllowedError')handlePerm('denied');else{log('Camera: '+e.message,'err');document.getElementById('httpsWarn').style.display='block';}}
+
+async function requestCam() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    stream.getTracks().forEach(t=>t.stop());
+    handlePerm('granted');
+    await startCamera();
+  } catch(e) {
+    if (e.name==='NotAllowedError') handlePerm('denied');
+    else { log('Camera: '+e.message,'err'); document.getElementById('httpsWarn').style.display='block'; }
+  }
 }
-async function startCamera(){
-  log('Starting camera...','info');
+
+async function startCamera() {
+  log('Starting camera…', 'info');
   let stream;
-  try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{exact:'environment'},width:{ideal:1920,min:1280},height:{ideal:1080,min:720},frameRate:{ideal:30,max:30}}});}
-  catch(e){try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}});}catch(e2){log('Camera failed: '+e2.message,'err');return;}}
-  const v=document.getElementById('video');
-  v.srcObject=stream;
-  await new Promise(r=>{v.onloadedmetadata=r;}); await v.play();
-  const track=stream.getVideoTracks()[0];
-  if(track){
-    const caps=track.getCapabilities?track.getCapabilities():{};
-    const s={};
-    if(caps.torch!==undefined)s.torch=false;
-    if(caps.exposureCompensation)s.exposureCompensation=Math.max(caps.exposureCompensation.min||-2,-1.0);
-    if(caps.focusMode?.includes('continuous'))s.focusMode='continuous';
-    if(caps.fillLightMode)s.fillLightMode='off';
-    if(Object.keys(s).length)try{await track.applyConstraints({advanced:[s]});log('Camera optimised','ok');}catch(e){}
-    const a=track.getSettings?track.getSettings():{};
-    log(`Cam: ${a.width||'?'}x${a.height||'?'} torch=${a.torch??'n/a'}`,'dim');
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode:{exact:'environment'}, width:{ideal:1920,min:1280}, height:{ideal:1080,min:720}, frameRate:{ideal:30,max:30} }
+    });
+  } catch(e) {
+    try { stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}}); }
+    catch(e2) { log('Camera failed: '+e2.message,'err'); return; }
   }
-  camActive=true;
-  document.getElementById('camCard').style.display='none';
-  document.getElementById('camWrap').style.display='block';
-  setBadge('LIVE','live'); setPill('CAM LIVE',true);
-  log('Camera ready — starting live stream','ok');
-  startLive();
+
+  const v = document.getElementById('video');
+  v.srcObject = stream;
+  await new Promise(r => { v.onloadedmetadata = r; });
+  await v.play();
+
+  // Apply quality constraints
+  const track = stream.getVideoTracks()[0];
+  if (track) {
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+    const settings = {};
+    if (caps.torch !== undefined) settings.torch = false;
+    if (caps.exposureCompensation) settings.exposureCompensation = Math.max(caps.exposureCompensation.min||-2, -1.0);
+    if (caps.focusMode?.includes('continuous')) settings.focusMode = 'continuous';
+    if (caps.fillLightMode) settings.fillLightMode = 'off';
+    if (Object.keys(settings).length) {
+      try { await track.applyConstraints({advanced:[settings]}); log('Camera quality optimised ✓','ok'); }
+      catch(e) { log('Some camera constraints unsupported','warn'); }
+    }
+    const applied = track.getSettings ? track.getSettings() : {};
+    log(`Camera: ${applied.width||'?'}×${applied.height||'?'} torch=${applied.torch??'n/a'}`, 'dim');
+  }
+
+  camActive = true;
+  document.getElementById('camPermCard').style.display = 'none';
+  document.getElementById('camWrap').style.display = 'block';
+  setBadge('LIVE', 'live');
+  setPill('CAM LIVE', true);
+  log('Camera ready', 'ok');
+
+  if (tog('autosnap')) {
+    await delay(800);
+    startLiveStream();
+  }
 }
 
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // LIVE STREAM ENGINE
-// ═══════════════════════════════════════════════════════
-function toggleLive(){liveActive?stopLive():startLive();}
-function startLive(){
-  if(!camActive){log('Start camera first','warn');return;}
-  if(liveActive)return;
-  liveActive=true; sF=sP=sA=sAn=sCa=sSt=0;
-  document.getElementById('liveBtn').textContent='◻ STOP LIVE';
-  document.getElementById('liveBtn').style.borderColor='var(--red)';
-  document.getElementById('liveBtn').style.color='var(--red)';
-  document.getElementById('liveStats').className='show';
-  setBadge('LIVE AUTO','live-auto');
-  log('Live stream started — auto-scanning','ok');
-  schedLive();
-}
-function stopLive(){
-  liveActive=false; clearTimeout(liveTimer);
-  document.getElementById('liveBtn').textContent='◉ START LIVE';
-  document.getElementById('liveBtn').style.borderColor='var(--accent)';
-  document.getElementById('liveBtn').style.color='var(--accent)';
-  setBadge('LIVE','live');
-  log('Live stream stopped','warn');
-}
-function schedLive(){
-  if(!liveActive)return;
-  liveTimer=setTimeout(processFrame,parseInt(document.getElementById('captureMs').value)||600);
+// ══════════════════════════════════════════════════════════
+function toggleLiveStream() {
+  if (liveActive) stopLiveStream();
+  else startLiveStream();
 }
 
-async function processFrame(){
-  if(!liveActive||!camActive){schedLive();return;}
-  sF++; updateStats();
+function startLiveStream() {
+  if (!camActive) { log('Start camera first', 'warn'); return; }
+  if (liveActive) return;
+  liveActive = true;
+  statFrames = statPassed = statSent = statAnswers = 0;
+  document.getElementById('liveBtn').textContent = '⏹ STOP LIVE';
+  document.getElementById('liveBtn').style.borderColor = 'var(--red)';
+  document.getElementById('liveBtn').style.color = 'var(--red)';
+  document.getElementById('liveStats').style.display = 'flex';
+  setBadge('LIVE AUTO', 'live-auto');
+  setLockStatus('active');
+  log('Live stream started — auto-snapping every ' + document.getElementById('captureInterval').value + 'ms', 'ok');
+  scheduleNextFrame();
+}
 
-  const canvas=captureFrame();
-  const ctx=canvas.getContext('2d');
-  const idata=ctx.getImageData(0,0,canvas.width,canvas.height);
-  currentFrameHash=quickHash(idata);
+function stopLiveStream() {
+  liveActive = false;
+  clearTimeout(liveTimer);
+  document.getElementById('liveBtn').textContent = '◉ START LIVE';
+  document.getElementById('liveBtn').style.borderColor = 'var(--accent)';
+  document.getElementById('liveBtn').style.color = 'var(--accent)';
+  setBadge('LIVE', 'live');
+  setLockStatus('');
+  log('Live stream stopped', 'warn');
+}
 
-  let mOk=true,bOk=true,cOk=true;
+function scheduleNextFrame() {
+  if (!liveActive) return;
+  const interval = parseInt(document.getElementById('captureInterval').value) || 600;
+  liveTimer = setTimeout(processLiveFrame, interval);
+}
 
-  // Motion
-  if(tog('motion')&&prevFrameIdata){
-    const d=frameDiff(prevFrameIdata,idata); mOk=d<8;
-    setFsp('fs-m',mOk?'pass':'fail',mOk?'STILL':'MOVING'); setLfb('lfb-m',mOk);
-  } else setFsp('fs-m','pass','STILL');
-  prevFrameIdata=idata;
+async function processLiveFrame() {
+  if (!liveActive || !camActive) return;
+  statFrames++;
+  updateStats();
 
-  // Blur + brightness
-  if(tog('blur')){
-    const bs=measureBlur(canvas); bOk=bs>45;
-    document.getElementById('qualityFill').style.width=Math.min(100,bs/5)+'%';
-    document.getElementById('qualityFill').style.background=bOk?'var(--green)':'var(--red)';
-    setFsp('fs-b',bOk?'pass':'fail',bOk?'SHARP':'BLUR'); setLfb('lfb-b',bOk);
-    const br=measureBrightness(canvas);
-    if(br<20||br>240){bOk=false;setFsp('fs-b','fail',br<20?'DARK':'BRIGHT');}
-  } else setFsp('fs-b','pass','SHARP');
+  const canvas = captureFrame();
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  const currentData = ctx.getImageData(0, 0, w, h);
 
-  // Change detection
-  if(tog('change')&&lastSentIdata){
-    const d=frameDiff(lastSentIdata,idata),thr=parseInt(document.getElementById('changeSens').value)||15;
-    cOk=d>thr; setFsp('fs-c',cOk?'pass':'skip',cOk?'NEW Q':'SAME'); setLfb('lfb-c',cOk);
-  } else {setFsp('fs-c','pass','NEW Q');cOk=true;}
+  let motionOk = true, blurOk = true, changeOk = true;
 
-  // Cooldown
-  const elap=Date.now()-lastApiTime_,cdOk=elap>=cooldownMs;
-  setFsp('fs-cd',cdOk?'pass':'skip',cdOk?'READY':Math.ceil((cooldownMs-elap)/1000)+'s');
-
-  if(mOk&&bOk&&cOk&&cdOk){
-    sP++; updateStats();
-    const h=currentFrameHash;
-
-    // Cache check
-    if(tog('cache')&&qCache[h]&&Date.now()-qCache[h].time<600000){
-      sCa++; updateStats();
-      setFsp('fs-q','pass','HIT'); setLfb('lfb-q',true);
-      document.getElementById('cacheBadge').style.display='block';
-      log('Cache hit → '+qCache[h].answer,'ok');
-      displayAnswer(qCache[h].answer,{answer_text:'Cached',question_summary:'',confidence:'high',options_count:5},qCache[h].conf,'gemini');
-      lightPhysLED(qCache[h].answer); haptic(qCache[h].answer);
-      flashChange(); schedLive(); return;
-    }
-    document.getElementById('cacheBadge').style.display='none';
-    setFsp('fs-q','fail','MISS'); setLfb('lfb-q',false);
-    flashChange();
-
-    if(scanning&&tog('queue')){
-      queuedCanvas=canvas; queuedHash=h;
-      log('Frame queued while AI busy','dim');
-    } else {
-      await sendToAI(canvas,h);
-    }
+  // ── Motion filter ──
+  if (tog('motion') && prevFrameData) {
+    const diff = frameDiff(prevFrameData, currentData);
+    motionOk = diff < 8; // less than 8% pixel change = camera is still
+    setFsPill('fs-motion', motionOk ? 'pass' : 'fail', motionOk ? 'STILL' : 'MOVING');
+    setLfbDot('lfb-motion', motionOk);
+  } else {
+    setFsPill('fs-motion', 'pass', 'STILL');
   }
-  schedLive();
+  prevFrameData = currentData;
+
+  // ── Blur filter ──
+  if (tog('blur')) {
+    const blurScore = measureBlur(canvas);
+    blurOk = blurScore > 45;
+    const pct = Math.min(100, blurScore / 5);
+    document.getElementById('qualityFill').style.width = pct + '%';
+    document.getElementById('qualityFill').style.background = blurOk ? 'var(--green)' : 'var(--red)';
+    setFsPill('fs-blur', blurOk ? 'pass' : 'fail', blurOk ? 'SHARP' : 'BLUR');
+    setLfbDot('lfb-blur', blurOk);
+  } else {
+    setFsPill('fs-blur', 'pass', 'SHARP');
+  }
+
+  // Brightness check
+  const brightness = measureBrightness(canvas);
+  if (brightness < 20 || brightness > 240) { blurOk = false; setFsPill('fs-blur', 'fail', brightness < 20 ? 'DARK' : 'BRIGHT'); }
+
+  // ── Change detection ──
+  if (tog('change') && lastFrameData) {
+    const changePct = frameDiff(lastFrameData, currentData);
+    const threshold = parseInt(document.getElementById('changeSens').value) || 15;
+    changeOk = changePct > threshold;
+    setFsPill('fs-change', changeOk ? 'pass' : 'skip', changeOk ? 'NEW Q' : 'SAME');
+    setLfbDot('lfb-change', changeOk);
+  } else {
+    setFsPill('fs-change', 'pass', 'NEW Q');
+    changeOk = true;
+  }
+
+  // ── Cooldown check ──
+  const cooldown = (parseInt(document.getElementById('cooldownSecs').value) || 4) * 1000;
+  const timeSinceLast = Date.now() - lastApiCallTime;
+  const cooldownOk = timeSinceLast >= cooldown;
+  setFsPill('fs-cooldown', cooldownOk ? 'pass' : 'skip',
+    cooldownOk ? 'READY' : Math.ceil((cooldown - timeSinceLast)/1000) + 's');
+
+  // ── Decision ──
+  if (motionOk && blurOk && changeOk && cooldownOk) {
+    statPassed++;
+    updateStats();
+    // Flash the frame to show we're sending
+    const cf = document.getElementById('changeFlash');
+    cf.className = ''; void cf.offsetWidth; cf.className = 'flash';
+    setLockStatus('scanning');
+    await sendToGemini(canvas);
+  }
+
+  scheduleNextFrame();
 }
 
-let lastApiTime_=0;
+// ── Frame comparison (returns % pixels changed) ──
+function frameDiff(a, b) {
+  if (!a || !b || a.data.length !== b.data.length) return 100;
+  const d1 = a.data, d2 = b.data;
+  let diff = 0;
+  // Sample every 16th pixel for speed
+  for (let i = 0; i < d1.length; i += 64) {
+    const dr = Math.abs(d1[i]-d2[i]);
+    const dg = Math.abs(d1[i+1]-d2[i+1]);
+    const db = Math.abs(d1[i+2]-d2[i+2]);
+    if ((dr+dg+db) > 30) diff++;
+  }
+  return (diff / (d1.length / 64)) * 100;
+}
 
-// ═══════════════════════════════════════════════════════
-// FRAME FINGERPRINT
-// ═══════════════════════════════════════════════════════
-function quickHash(idata){
-  const d=idata.data,len=d.length,step=Math.floor(len/256);
-  let h=0;
-  for(let i=0;i<len;i+=step) h=((h<<5)-h+d[i]+d[i+1]*2+d[i+2]*3)|0;
-  return h;
-}
-function frameDiff(a,b){
-  if(!a||!b||a.data.length!==b.data.length)return 100;
-  const d1=a.data,d2=b.data; let diff=0;
-  for(let i=0;i<d1.length;i+=64) if(Math.abs(d1[i]-d2[i])+Math.abs(d1[i+1]-d2[i+1])+Math.abs(d1[i+2]-d2[i+2])>30)diff++;
-  return(diff/(d1.length/64))*100;
-}
-function captureFrame(){
-  const v=document.getElementById('video'),c=document.getElementById('canvas');
-  c.width=v.videoWidth||1280; c.height=v.videoHeight||720;
-  const ctx=c.getContext('2d'); ctx.drawImage(v,0,0);
-  try{const o=document.createElement('canvas');o.width=c.width;o.height=c.height;const oc=o.getContext('2d');oc.filter='contrast(1.2) brightness(0.94) saturate(1.1)';oc.drawImage(c,0,0);ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(o,0,0);}catch(e){}
+// ══════════════════════════════════════════════════════════
+// CAPTURE & ENHANCE FRAME
+// ══════════════════════════════════════════════════════════
+function captureFrame() {
+  const v = document.getElementById('video');
+  const c = document.getElementById('canvas');
+  c.width  = v.videoWidth  || 1280;
+  c.height = v.videoHeight || 720;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(v, 0, 0);
+
+  // Post-process: contrast boost + brightness correction
+  try {
+    const o = document.createElement('canvas');
+    o.width = c.width; o.height = c.height;
+    const octx = o.getContext('2d');
+    octx.filter = 'contrast(1.2) brightness(0.94) saturate(1.1)';
+    octx.drawImage(c, 0, 0);
+    ctx.clearRect(0,0,c.width,c.height);
+    ctx.drawImage(o, 0, 0);
+  } catch(e) {}
   return c;
 }
-function measureBlur(canvas){
-  const w=Math.min(canvas.width,320),h=Math.min(canvas.height,240);
-  const o=document.createElement('canvas');o.width=w;o.height=h;o.getContext('2d').drawImage(canvas,0,0,w,h);
-  const d=o.getContext('2d').getImageData(0,0,w,h).data;
-  const g=new Float32Array(w*h);
-  for(let i=0;i<w*h;i++)g[i]=0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2];
+
+// ══════════════════════════════════════════════════════════
+// BLUR & BRIGHTNESS CHECKS
+// ══════════════════════════════════════════════════════════
+function measureBlur(canvas) {
+  const w = Math.min(canvas.width, 320), h = Math.min(canvas.height, 240);
+  const o = document.createElement('canvas');
+  o.width = w; o.height = h;
+  o.getContext('2d').drawImage(canvas, 0, 0, w, h);
+  const d = o.getContext('2d').getImageData(0,0,w,h).data;
+  const g = new Float32Array(w*h);
+  for (let i=0;i<w*h;i++) g[i]=0.299*d[i*4]+0.587*d[i*4+1]+0.114*d[i*4+2];
   let s=0,s2=0,n=0;
-  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const l=Math.abs(-g[(y-1)*w+x]-g[(y+1)*w+x]-g[y*w+x-1]-g[y*w+x+1]+4*g[y*w+x]);s+=l;s2+=l*l;n++;}
-  const m=s/n;return(s2/n)-m*m;
-}
-function measureBrightness(canvas){
-  const w=80,h=60,o=document.createElement('canvas');o.width=w;o.height=h;o.getContext('2d').drawImage(canvas,0,0,w,h);
-  const d=o.getContext('2d').getImageData(0,0,w,h).data;let sum=0;
-  for(let i=0;i<d.length;i+=4)sum+=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];return sum/(w*h);
-}
-
-// ═══════════════════════════════════════════════════════
-// MANUAL SNAP
-// ═══════════════════════════════════════════════════════
-async function triggerManual(){
-  if(scanning)return;
-  if(!geminiKeys.length){log('No Gemini keys saved','err');return;}
-  if(!camActive){log('Camera not active','warn');return;}
-  const canvas=captureFrame();
-  const idata=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height);
-  await sendToAI(canvas,quickHash(idata));
+  for (let y=1;y<h-1;y++) for (let x=1;x<w-1;x++) {
+    const l=Math.abs(-g[(y-1)*w+x]-g[(y+1)*w+x]-g[y*w+x-1]-g[y*w+x+1]+4*g[y*w+x]);
+    s+=l;s2+=l*l;n++;
+  }
+  const mean=s/n;
+  return (s2/n)-mean*mean;
 }
 
-// ═══════════════════════════════════════════════════════
-// SEND TO AI (Gemini)
-// ═══════════════════════════════════════════════════════
-async function sendToAI(canvas,hash,retry=0){
-  if(scanning)return;
-  scanning=true;
-  const myId=++inFlightId;   // THIS request's unique ID
-  lastApiTime_=Date.now(); sA++; updateStats();
+function measureBrightness(canvas) {
+  const w=80,h=60;
+  const o=document.createElement('canvas');
+  o.width=w;o.height=h;
+  o.getContext('2d').drawImage(canvas,0,0,w,h);
+  const d=o.getContext('2d').getImageData(0,0,w,h).data;
+  let sum=0;
+  for(let i=0;i<d.length;i+=4) sum+=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+  return sum/(w*h);
+}
 
-  // Save frame data for stale check
-  lastSentIdata=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height);
-  sentFrameHash=hash;
+// ══════════════════════════════════════════════════════════
+// MANUAL SCAN (BT button / tap)
+// ══════════════════════════════════════════════════════════
+async function triggerManualScan() {
+  if (scanning) return;
+  if (!apiKeys.length) { log('No API keys saved', 'err'); return; }
+  if (!camActive) { log('Camera not active', 'warn'); return; }
+  log('Manual scan triggered', 'info');
+  const canvas = captureFrame();
+  await sendToGemini(canvas);
+}
 
-  const imgB64=canvas.toDataURL('image/jpeg',0.88).split(',')[1];
+// ══════════════════════════════════════════════════════════
+// SEND TO GEMINI
+// ══════════════════════════════════════════════════════════
+async function sendToGemini(canvas, retryCount = 0) {
+  if (scanning) return;
+  scanning = true;
+  lastApiCallTime = Date.now();
+  statSent++;
+  updateStats();
+
+  // Save current frame as "last sent" for change detection
+  const ctx = canvas.getContext('2d');
+  lastFrameData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  const imgB64 = canvas.toDataURL('image/jpeg', 0.88).split(',')[1];
+
   clearValidation();
+  showOverlay(true, 'PASS 1 · READING');
   setLockDot('scanning');
+  setLockStatus('scanning');
 
-  // Check if Gemini recovered before calling
-  checkGeminiRecovery();
-  showOverlay(true,'PASS 1 · GEMINI');
-
-  try{
-    const p1=await callGemini(imgB64,buildP1());
-
-    // ─── STALE CHECK #1 — did question change while we waited? ───
-    if(tog('stale')){
-      // Check A: in-flight ID (another scan started = question changed)
-      if(myId!==inFlightId){
-        log('Stale: new scan started while waiting — discarding','warn');
-        sSt++; document.getElementById('staleCnt').textContent=sSt; updateStats();
-        scanning=false; showOverlay(false);
-        if(queuedCanvas&&tog('queue')){const qc=queuedCanvas,qh=queuedHash;queuedCanvas=null;await sendToAI(qc,qh);}
-        return;
-      }
-      // Check B: pixel-level frame hash comparison
-      const hashDiff=Math.abs(currentFrameHash-sentFrameHash);
-      if(hashDiff>80000){
-        log('Stale: frame changed during API call (hash diff='+hashDiff+') — discarding','warn');
-        sSt++; document.getElementById('staleCnt').textContent=sSt; updateStats();
-        document.getElementById('staleWarn').style.display='block';
-        scanning=false; showOverlay(false); setLockDot('warn');
-        if(queuedCanvas&&tog('queue')){const qc=queuedCanvas,qh=queuedHash;queuedCanvas=null;await sendToAI(qc,qh);}
-        return;
-      }
-    }
+  try {
+    // ── PASS 1 ──
+    const p1 = await geminiCall(imgB64, buildPass1Prompt());
+    log('P1→ status:'+p1.status+' count:'+p1.options_count+' ans:'+p1.answer+' conf:'+p1.confidence, 'dim');
 
     updateValidation(p1);
-    if(p1.status!=='ok'||p1.options_count!==5){
-      if(retry<2){scanning=false;showOverlay(false);await delay(2000+(retry*1000));await sendToAI(captureFrame(),currentFrameHash,retry+1);return;}
-      showWarn(p1); scanning=false; showOverlay(false); setLockDot('warn'); return;
-    }
 
-    // Pass 2
-    let p2={agree:true,final_answer:p1.answer,your_answer:p1.answer};
-    if(!tog('speed')){
-      showOverlay(true,'PASS 2 · GEMINI');
-      p2=await callGemini(imgB64,buildP2(p1));
-
-      // ─── STALE CHECK #2 — after pass 2 ───
-      if(tog('stale')&&myId!==inFlightId){
-        log('Stale after Pass 2 — discarding','warn');
-        sSt++; document.getElementById('staleCnt').textContent=sSt; updateStats();
-        scanning=false; showOverlay(false);
-        if(queuedCanvas&&tog('queue')){const qc=queuedCanvas,qh=queuedHash;queuedCanvas=null;await sendToAI(qc,qh);}
+    if (p1.status !== 'ok' || p1.options_count !== 5) {
+      const visible = p1.options_count || 0;
+      if (retryCount < maxRetries) {
+        log('Reposition — retrying ('+(retryCount+1)+'/'+maxRetries+')', 'warn');
+        scanning = false; showOverlay(false);
+        await delay(600);
+        const newCanvas = captureFrame();
+        await sendToGemini(newCanvas, retryCount+1);
         return;
       }
+      showWarn(p1);
+      scanning = false; showOverlay(false); setLockDot('warn'); setLockStatus('active');
+      return;
     }
 
-    updateVCheck('vc-agree',p2.agree!==false,p2.agree?'YES':'NO');
-    const conf=scoreConf(p1,p2);
-    const ans=p2.final_answer||p1.answer;
-
-    // Cache it
-    if(tog('cache')&&hash) qCache[hash]={answer:ans,conf,time:Date.now()};
-
-    // Adaptive cooldown
-    if(tog('adaptive')){
-      recentConfs.push(conf); if(recentConfs.length>5)recentConfs.shift();
-      const avg=recentConfs.reduce((a,b)=>a+b,0)/recentConfs.length;
-      const base=parseInt(document.getElementById('cooldownS').value)*1000;
-      cooldownMs=avg>80?Math.max(6000,base-1000):avg<50?Math.min(20000,base+3000):base;
+    // ── PASS 2 (unless speed mode) ──
+    let p2 = {agree:true, final_answer:p1.answer, your_answer:p1.answer};
+    if (!tog('speed')) {
+      showOverlay(true, 'PASS 2 · VERIFYING');
+      p2 = await geminiCall(imgB64, buildPass2Prompt(p1));
+      log('P2→ agree:'+p2.agree+' ans:'+p2.final_answer, 'dim');
     }
 
-    document.getElementById('staleWarn').style.display='none';
-    displayAnswer(ans,p1,conf,'gemini');
-    lightPhysLED(ans); haptic(ans); sAn++; updateStats(); setLockDot('ok');
-    log('✓ GEMINI → '+ans+' | conf='+conf+'% | "'+(p1.question_summary||'')+'"','ok');
+    updateVCheck('vc-agree', p2.agree!==false, p2.agree ? 'YES' : 'NO');
 
-  }catch(e){
-    markGeminiFailed(e.message); log('Gemini error: '+e.message,'err');
+    // Protection
+    if (tog('protect') && p2.agree===false && !tog('speed')) {
+      if (retryCount < maxRetries) {
+        log('AI disagrees — retrying', 'warn');
+        scanning = false; showOverlay(false);
+        await delay(400);
+        await sendToGemini(canvas, retryCount+1);
+        return;
+      }
+      showUncertain(p1.answer, p2.your_answer);
+      scanning = false; showOverlay(false); setLockDot('warn'); setLockStatus('active');
+      return;
+    }
+
+    const conf = scoreConfidence(p1, p2);
+    const finalAns = p2.final_answer || p1.answer;
+
+    showAnswer(finalAns, p1, conf);
+    lightPhysLED(finalAns);
+    haptic(finalAns);
+    statAnswers++;
+    updateStats();
+    setLockDot('ok');
+    setLockStatus('active');
+    log('✓ ANSWER = ' + finalAns + ' | conf=' + conf + '% | "' + (p1.question_summary||'') + '"', 'ok');
+
+  } catch(e) {
+    markKeyFailed(e.message);
+    log('API error: '+e.message, 'err');
     setLockDot('warn');
-    if(retry<2){scanning=false;showOverlay(false);await delay(2000+(retry*1000));await sendToAI(canvas,hash,retry+1);return;}
+    // If we have more keys, retry automatically
+    if (getActiveKey() && retryCount < maxRetries) {
+      log('Retrying with next key…', 'info');
+      scanning = false; showOverlay(false);
+      await delay(300);
+      await sendToGemini(canvas, retryCount+1);
+      return;
+    }
   }
 
-  scanning=false; showOverlay(false);
-  // Process queued frame — MUST respect cooldown
-  if(queuedCanvas&&tog('queue')){
-    const qc=queuedCanvas,qh=queuedHash;queuedCanvas=null;queuedHash=0;
-    const timeSinceLast=Date.now()-lastApiTime_;
-    const queueWait=Math.max(500,cooldownMs-timeSinceLast);
-    log('Queued frame — waiting '+queueWait+'ms before sending','dim');
-    await delay(queueWait);
-    await sendToAI(qc,qh);
+  scanning = false;
+  showOverlay(false);
+}
+
+// ══════════════════════════════════════════════════════════
+// GEMINI API CALL
+// ══════════════════════════════════════════════════════════
+async function geminiCall(base64, prompt) {
+  const keyObj = getActiveKey();
+  if (!keyObj) {
+    const soonest = Math.min(...apiKeys.map(k=>k.limitedUntil||0));
+    const wait = Math.ceil((soonest - Date.now())/1000);
+    throw new Error('All keys rate limited. Next available in ' + wait + 's');
+  }
+  log('Using key ' + (activeKeyIdx+1), 'dim');
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${keyObj.key}`,
+    { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:base64}}]}],
+        generationConfig:{temperature:0.05,maxOutputTokens:1024}
+      })
+    }
+  );
+  if (!res.ok) { const t=await res.text(); throw new Error(t.slice(0,300)+' status='+res.status); }
+  const data = await res.json();
+  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  const clean = raw.replace(/```json|```/g,'').trim();
+  try { return JSON.parse(clean); }
+  catch(e) {
+    try { return JSON.parse(repairJSON(clean)); }
+    catch(e2) { return extractFallback(clean) || {status:'reposition',options_count:0}; }
   }
 }
 
-// ═══════════════════════════════════════════════════════
-// GEMINI CALL
-// ═══════════════════════════════════════════════════════
-async function callGemini(base64,prompt){
-  // Find a key that has quota remaining
-  let k=null;
-  for(let attempt=0;attempt<geminiKeys.length;attempt++){
-    const candidate=getGeminiKey();
-    if(!candidate) break;
-    const keyId='g'+geminiIdx;
-    if(canCallKey(keyId,keyCallLog,GEMINI_RPM)){k=candidate;break;}
-    // This key is at its per-minute limit — mark it soft-limited and try next
-    log('Key '+(geminiIdx+1)+' at RPM limit — trying next','warn');
-    geminiKeys[geminiIdx].limited=true;
-    geminiKeys[geminiIdx].limitedUntil=Date.now()+15000; // 15s soft limit
-    updateGeminiBar();
-  }
-  if(!k)throw new Error('429 all Gemini keys at rate limit');
-  const keyId='g'+geminiIdx;
-  logKeyCall(keyId,keyCallLog);
-  const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${k.key}`,
-    {method:'POST',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:base64}}]}],generationConfig:{temperature:0.05,maxOutputTokens:1024}})});
-  if(!res.ok){const t=await res.text();markGeminiFailed(t+' status='+res.status);throw new Error(t.slice(0,200)+' status='+res.status);}
-  const data=await res.json();
-  return parseAIJSON(data.candidates?.[0]?.content?.parts?.[0]?.text||'{}');
+// ══════════════════════════════════════════════════════════
+// PROMPTS
+// ══════════════════════════════════════════════════════════
+function buildPass1Prompt() {
+  return `You are analysing a photo of a multiple choice question. It may be from Kahoot, Quizlet, Google Forms, an exam paper, pub quiz slide, whiteboard, or any other format.
+
+Count ALL distinct answer options visible (letters A-E, numbers, coloured tiles, bullets, etc).
+
+Only if EXACTLY 5 options are clearly visible AND the question text is complete:
+- Determine the correct answer using your full knowledge
+- Verify the question ends properly (not cut off mid-sentence)
+- Verify all 5 options have readable text
+
+RESPOND ONLY WITH JSON — no markdown, no explanation:
+
+If ready:
+{"status":"ok","options_count":5,"answer":"A","answer_text":"exact text of correct option","question_summary":"the question","question_complete":true,"options_complete":true,"confidence":"high","options_visible":["A","B","C","D","E"],"format":"kahoot|exam|slides|other"}
+
+If not ready:
+{"status":"reposition","options_count":0,"question_complete":true,"options_complete":false,"reason":"what is missing"}`;
 }
 
+function buildPass2Prompt(p1) {
+  return `Independently verify this multiple choice answer. Look at the image fresh.
 
-// ═══════════════════════════════════════════════════════
-// JSON PARSING
-// ═══════════════════════════════════════════════════════
-function parseAIJSON(raw){
-  const s=raw.replace(/```json|```/g,'').trim();
-  try{return JSON.parse(s);}catch(e){
-    try{return JSON.parse(repairJSON(s));}catch(e2){return fallbackExtract(s)||{status:'reposition',options_count:0};}
-  }
+Previous analysis: question="${p1.question_summary}" proposed answer="${p1.answer}" text="${p1.answer_text}"
+
+Do you agree? What is YOUR independent answer?
+
+RESPOND ONLY WITH JSON:
+{"agree":true,"final_answer":"A","your_answer":"A","reason":"brief reason"}`;
 }
-function repairJSON(s){
-  const st=s.indexOf('{');if(st>0)s=s.slice(st);
-  let o=0;for(const c of s){if(c==='{')o++;else if(c==='}')o--;}
+
+// ══════════════════════════════════════════════════════════
+// JSON REPAIR
+// ══════════════════════════════════════════════════════════
+function repairJSON(s) {
+  s = s.trim().replace(/```json|```/g,'').trim();
+  const st = s.indexOf('{'); if (st>0) s=s.slice(st);
+  let o=0; for(const c of s){if(c==='{')o++;else if(c==='}')o--;}
   if(o>0){s=s.replace(/,\s*"[^"]*$/,'').replace(/:\s*"[^"]*$/,'').replace(/,\s*$/,'');s+='}'.repeat(o);}
   return s;
 }
-function fallbackExtract(raw){
-  const g=k=>{const m=raw.match(new RegExp('"'+k+'"\\s*:\\s*"([^"]*)"'));return m?m[1]:null;};
-  const gn=k=>{const m=raw.match(new RegExp('"'+k+'"\\s*:\\s*(\\d+)'));return m?parseInt(m[1]):null;};
-  const st=g('status')||(raw.includes('"ok"')?'ok':'reposition');
-  const ans=g('answer');
-  if(!ans&&st!=='ok')return null;
-  return{status:st,answer:ans,options_count:gn('options_count')||0,answer_text:g('answer_text')||'',
+
+function extractFallback(raw) {
+  const g = k => { const m=raw.match(new RegExp('"'+k+'"\\s*:\\s*"([^"]*)"')); return m?m[1]:null; };
+  const gn = k => { const m=raw.match(new RegExp('"'+k+'"\\s*:\\s*(\\d+)')); return m?parseInt(m[1]):null; };
+  const status = g('status') || (raw.includes('"ok"')?'ok':'reposition');
+  const answer = g('answer');
+  if (!answer && status!=='ok') return null;
+  return {status,answer,options_count:gn('options_count')||0,answer_text:g('answer_text')||'',
     question_summary:g('question_summary')||'',confidence:g('confidence')||'medium',
     options_visible:['A','B','C','D','E'],question_complete:true,options_complete:true,
-    agree:raw.includes('"agree": true'),final_answer:g('final_answer')||ans,your_answer:g('your_answer')||ans};
+    agree:raw.includes('"agree": true'),final_answer:g('final_answer')||answer,your_answer:g('your_answer')||answer};
 }
 
-// ═══════════════════════════════════════════════════════
-// PROMPTS
-// ═══════════════════════════════════════════════════════
-function buildP1(){
-  return `Analyse this multiple choice question image (Kahoot, exam, quiz, slides, whiteboard etc).
-
-Count ALL visible answer options (A-E, numbers, coloured tiles, bullets).
-
-ONLY if EXACTLY 5 options are clearly visible AND question text is complete:
-- Determine the correct answer using full knowledge
-- Verify question ends properly (not cut off)
-- Verify all 5 options have readable text
-
-RESPOND ONLY WITH VALID JSON — no markdown, no explanation:
-
-If ready: {"status":"ok","options_count":5,"answer":"A","answer_text":"exact text of correct option","question_summary":"the question","question_complete":true,"options_complete":true,"confidence":"high","options_visible":["A","B","C","D","E"],"format":"kahoot|exam|slides|other"}
-
-If not ready: {"status":"reposition","options_count":0,"question_complete":true,"options_complete":false,"reason":"what is missing"}`;
-}
-function buildP2(p1){
-  return `Independently verify this answer. Look at the image fresh — ignore what I say.
-
-Question: "${p1.question_summary||''}"
-Proposed: "${p1.answer}" — "${p1.answer_text||''}"
-
-Give YOUR independent answer.
-
-RESPOND ONLY WITH VALID JSON:
-{"agree":true,"final_answer":"A","your_answer":"A","reason":"one sentence"}`;
-}
-
-// ═══════════════════════════════════════════════════════
-// CONFIDENCE
-// ═══════════════════════════════════════════════════════
-function scoreConf(p1,p2){
+// ══════════════════════════════════════════════════════════
+// CONFIDENCE SCORING
+// ══════════════════════════════════════════════════════════
+function scoreConfidence(p1, p2) {
   let s=0;
-  if(p1.options_count===5)s+=20;
-  if(p1.confidence==='high')s+=30;if(p1.confidence==='medium')s+=15;
-  if(p1.question_complete!==false)s+=15;if(p1.options_complete!==false)s+=10;
-  if(p2.agree===true)s+=20;if(p2.your_answer===p1.answer)s+=5;
+  if(p1.options_count===5)          s+=20;
+  if(p1.confidence==='high')        s+=30;
+  if(p1.confidence==='medium')      s+=15;
+  if(p1.question_complete!==false)  s+=15;
+  if(p1.options_complete!==false)   s+=10;
+  if(p2.agree===true)               s+=20;
+  if(p2.your_answer===p1.answer)    s+=5;
   return Math.min(s,100);
 }
 
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // HAPTIC
-// ═══════════════════════════════════════════════════════
-function haptic(ans){
-  if(!tog('haptic')||!navigator.vibrate)return;
-  const p={A:[80],B:[80,80,80],C:[80,80,80,80,80],D:[80,80,80,80,80,80,80],E:[80,80,80,80,80,80,80,80,80],WARN:[200,100,200]};
+// ══════════════════════════════════════════════════════════
+function haptic(ans) {
+  if (!tog('haptic') || !navigator.vibrate) return;
+  const p = {A:[80],B:[80,80,80],C:[80,80,80,80,80],D:[80,80,80,80,80,80,80],E:[80,80,80,80,80,80,80,80,80],WARN:[200,100,200]};
   navigator.vibrate(p[ans]||[100]);
 }
 
-// ═══════════════════════════════════════════════════════
-// DISPLAY ANSWER
-// ═══════════════════════════════════════════════════════
-function displayAnswer(ans,data,conf,provider){
+// ══════════════════════════════════════════════════════════
+// SHOW RESULTS
+// ══════════════════════════════════════════════════════════
+function showAnswer(ans, data, conf) {
   showOverlay(false);
-  if(tog('hold')){lastAnswer=ans;document.getElementById('heldBadge').style.display='none';}
-  document.getElementById('staleBadge').style.display='none';
-  document.getElementById('staleWarn').style.display='none';
-  answerTime=Date.now(); startAgeTimer();
+  if (tog('hold')) { lastAnswer = ans; document.getElementById('heldBadge').style.display='none'; }
 
-  const ab=document.getElementById('ansBig');
-  ab.textContent=ans; ab.className='ans-big ans-'+ans;
-  document.getElementById('ansSub').textContent=(data.answer_text||'')+(conf?'  ·  '+conf+'%':'')+(provider==='gpt'?' · GPT':'');
-  document.getElementById('optChips').innerHTML=ANS.map(l=>`<div class="chip ${l===ans?'act-'+ans:''}">${l}</div>`).join('');
+  const ab = document.getElementById('ansBig');
+  ab.textContent = ans; ab.className = 'ans-big ans-'+ans;
+  document.getElementById('ansSub').textContent = (data.answer_text||'') + (conf ? '  ·  '+conf+'%' : '');
+  document.getElementById('optChips').innerHTML = ANSWERS.map(l =>
+    `<div class="chip ${l===ans?'act-'+ans:''}">${l}</div>`).join('');
 
   clearLEDs();
-  ['a','b','c','d','e'].forEach((x,i)=>{
-    document.getElementById('l'+x).className='led'+(ANS[i]===ans?' '+ans:'');
-    document.getElementById('ll'+x).className='led-lbl'+(ANS[i]===ans?' active':'');
+  ['a','b','c','d','e'].forEach((x,i) => {
+    document.getElementById('l'+x).className = 'led' + (ANSWERS[i]===ans?' '+ans:'');
+    document.getElementById('ll'+x).className = 'led-lbl' + (ANSWERS[i]===ans?' active':'');
   });
 
-  const la=document.getElementById('lockAnswer');
-  la.textContent=ans; la.className='ans-'+ans; la.classList.remove('stale');
+  const la = document.getElementById('lockAnswer');
+  la.textContent = ans; la.className = 'ans-'+ans;
 
   setConfBar(conf);
-  document.getElementById('confPct').textContent=conf+'%';
-  setPill('ANSWER: '+ans,true);
-  updateVCheck('vc-stale',true,'FRESH');
-  updateVCheck('vc-count',data.options_count===5,data.options_count+'/5');
-  updateVCheck('vc-conf',data.confidence==='high',data.confidence==='high'?'HIGH':data.confidence==='medium'?'MED':'LOW');
+  document.getElementById('confPct').textContent = conf+'%';
+  setPill('ANSWER: '+ans, true);
   addHistory(ans);
-  updateProviderUI();
 }
 
-// ─── Answer Age Timer ───
-function startAgeTimer(){
-  clearInterval(ageTimer);
-  const fill=document.getElementById('lockAgeFill');
-  const la=document.getElementById('lockAnswer');
-  ageTimer=setInterval(()=>{
-    const age=Date.now()-answerTime,max=10000;
-    const pct=Math.max(0,100-(age/max*100));
-    fill.style.width=pct+'%';
-    fill.style.background=pct>60?'var(--green)':pct>30?'var(--amber)':'var(--red)';
-    if(age>6000&&!la.classList.contains('stale')&&la.textContent.length===1)la.classList.add('stale');
-    if(age>max)clearInterval(ageTimer);
-  },500);
-}
-
-function showWarn(r){
+function showWarn(result) {
   showOverlay(false);
-  const msg=r.question_complete===false?'QUESTION CUT OFF':r.options_complete===false?'OPTIONS MISSING':'REPOSITION';
-  const ab=document.getElementById('ansBig');
-  ab.textContent=msg; ab.className='ans-big ans-WARN';
-  document.getElementById('ansSub').textContent=r.reason||'Adjust angle — need all 5 options clearly visible';
-  document.getElementById('optChips').innerHTML='';
-  if(tog('hold')&&lastAnswer)document.getElementById('heldBadge').style.display='block';
-  document.getElementById('lockAnswer').textContent='!'; document.getElementById('lockAnswer').className='ans-WARN';
-  clearLEDs(); document.getElementById('lwarn').className='led WARN';
-  lightPhysLED('WARN'); setPill('REPOSITION',false);
+  const msg = result.question_complete===false ? 'QUESTION CUT OFF' :
+              result.options_complete===false   ? 'OPTIONS MISSING'  : 'REPOSITION';
+  const ab = document.getElementById('ansBig');
+  ab.textContent = msg; ab.className = 'ans-big ans-WARN';
+  document.getElementById('ansSub').textContent = result.reason || 'Adjust angle — need all 5 options visible';
+  document.getElementById('optChips').innerHTML = '';
+  if (tog('hold') && lastAnswer) document.getElementById('heldBadge').style.display='block';
+  const la = document.getElementById('lockAnswer');
+  la.textContent = '⚠'; la.className = 'ans-WARN';
+  clearLEDs();
+  document.getElementById('lwarn').className = 'led WARN';
+  lightPhysLED('WARN');
+  setPill('REPOSITION', false);
 }
 
-// ═══════════════════════════════════════════════════════
+function showUncertain(a1, a2) {
+  showOverlay(false);
+  const ab = document.getElementById('ansBig');
+  if (tog('hold') && lastAnswer) {
+    ab.textContent = lastAnswer; ab.className = 'ans-big ans-'+lastAnswer;
+    document.getElementById('heldBadge').style.display='block';
+    document.getElementById('ansSub').textContent = 'AI uncertain ('+a1+' vs '+a2+') — showing held answer';
+  } else {
+    ab.textContent = '?'; ab.className = 'ans-big ans-UNCERTAIN';
+    document.getElementById('ansSub').textContent = 'AI disagrees: '+a1+' vs '+a2;
+  }
+  document.getElementById('lockAnswer').textContent = tog('hold')&&lastAnswer ? lastAnswer : '?';
+  document.getElementById('lockAnswer').className = tog('hold')&&lastAnswer ? 'ans-'+lastAnswer : 'ans-UNCERTAIN';
+  setPill('UNCERTAIN', false);
+}
+
+// ══════════════════════════════════════════════════════════
 // VALIDATION UI
-// ═══════════════════════════════════════════════════════
-function updateValidation(r){
-  updateVCheck('vc-count',r.options_count===5,r.options_count+'/5');
-  updateVCheck('vc-conf',r.confidence==='high',r.confidence==='high'?'HIGH':r.confidence==='medium'?'MED':r.confidence||'?');
-}
-function updateVCheck(id,pass,val){
-  const el=document.getElementById(id);if(!el)return;
-  el.className='vcheck '+(pass?'pass':'fail');
-  const v=el.querySelector('.vcheck-val');if(v)v.textContent=val;
-}
-function clearValidation(){
-  ['vc-stale','vc-count','vc-conf','vc-agree'].forEach(id=>{
-    const el=document.getElementById(id);if(!el)return;
-    el.className='vcheck';const v=el.querySelector('.vcheck-val');if(v)v.textContent='—';
-  });
-}
-function setConfBar(pct){
-  const f=document.getElementById('confFill');
-  f.style.width=pct+'%'; f.style.background=pct>=70?'var(--green)':pct>=40?'var(--amber)':'var(--red)';
-  document.getElementById('confPct').textContent=pct+'%';
+// ══════════════════════════════════════════════════════════
+function updateValidation(r) {
+  updateVCheck('vc-count',  r.options_count===5,           r.options_count+'/5');
+  updateVCheck('vc-conf',   r.confidence==='high',         r.confidence==='high'?'HIGH':r.confidence==='medium'?'MED':r.confidence||'?');
 }
 
-// ═══════════════════════════════════════════════════════
+function updateVCheck(id, pass, val, cls) {
+  const el = document.getElementById(id); if(!el) return;
+  el.className = 'vcheck ' + (cls || (pass?'pass':'fail'));
+  const vv = el.querySelector('.vcheck-val'); if(vv) vv.textContent = val;
+}
+
+function clearValidation() {
+  ['vc-motion','vc-blur','vc-change','vc-count','vc-conf','vc-agree'].forEach(id => {
+    const el=document.getElementById(id); if(!el) return;
+    el.className='vcheck';
+    const vv=el.querySelector('.vcheck-val'); if(vv) vv.textContent='—';
+  });
+}
+
+function setConfBar(pct) {
+  const f = document.getElementById('confFill');
+  f.style.width = pct+'%';
+  f.style.background = pct>=70?'var(--green)':pct>=40?'var(--amber)':'var(--red)';
+  document.getElementById('confPct').textContent = pct+'%';
+}
+
+// ══════════════════════════════════════════════════════════
 // HISTORY
-// ═══════════════════════════════════════════════════════
-function addHistory(ans){
-  if(!ANS.includes(ans))return;
-  if(!tog('history')){document.getElementById('histStrip').style.display='none';return;}
-  answerHistory.unshift(ans);if(answerHistory.length>5)answerHistory.pop();
+// ══════════════════════════════════════════════════════════
+function addHistory(ans) {
+  if (!ANSWERS.includes(ans)) return;
+  if (!tog('history')) { document.getElementById('histStrip').style.display='none'; return; }
+  answerHistory.unshift(ans);
+  if (answerHistory.length>5) answerHistory.pop();
   document.getElementById('histStrip').style.display='flex';
-  for(let i=0;i<=4;i++){
-    const el=document.getElementById('hi'+i),v=answerHistory[i]||'—';
-    el.textContent=v;el.className='hist-item'+(answerHistory[i]?' h-'+v:'')+(i===0?' hist-newest':'');
+  for (let i=0;i<=4;i++) {
+    const el=document.getElementById('hi'+i);
+    const v=answerHistory[i]||'—';
+    el.textContent=v;
+    el.className='hist-item'+(answerHistory[i]?' h-'+v:'')+(i===0?' hist-newest':'');
   }
-  const h4=[...answerHistory].slice(0,4).reverse();
+  // Lock screen history
+  const hist4=[...answerHistory].slice(0,4).reverse();
   for(let i=0;i<4;i++){
-    const el=document.getElementById('lh'+i),v=h4[i]||'';
-    el.textContent=v;el.className='lh'+(v?' '+v.toLowerCase():'');el.style.opacity=v?(0.08+i*0.04).toFixed(2):'0';
+    const el=document.getElementById('lh'+i);
+    const v=hist4[i]||'';
+    el.textContent=v;
+    el.className='lock-hist'+(v?' '+v.toLowerCase():'');
+    el.style.opacity=v?(0.08+i*0.04).toString():'0';
   }
 }
 
-// ═══════════════════════════════════════════════════════
-// STATS
-// ═══════════════════════════════════════════════════════
-function updateStats(){
-  document.getElementById('s-fr').textContent=sF;
-  document.getElementById('s-ps').textContent=sP;
-  document.getElementById('s-ap').textContent=sA;
-  document.getElementById('s-an').textContent=sAn;
-  document.getElementById('s-ca').textContent=sCa;
-  document.getElementById('s-st').textContent=sSt;
-  // Calls in last 60s across all keys
-  const now60=Date.now();
-  const allCalls=Object.values(keyCallLog).flat().filter(t=>now60-t<60000).length;
-  document.getElementById('s-rpm').textContent=allCalls;
-  // Warn if burning through quota
-  const totalRpm=geminiKeys.length*GEMINI_RPM;
-  const warnEl=document.getElementById('rpmWarn');
-  if(warnEl){
-    const pct=Math.round(allCalls/totalRpm*100);
-    if(pct>70){warnEl.style.display='block';document.getElementById('rpmWarnDetail').textContent=allCalls+'/'+totalRpm+' calls used ('+pct+'%)';}
-    else{warnEl.style.display='none';}
-  }
+// ══════════════════════════════════════════════════════════
+// LIVE STATS
+// ══════════════════════════════════════════════════════════
+function updateStats() {
+  document.getElementById('stat-frames').textContent = statFrames;
+  document.getElementById('stat-passed').textContent = statPassed;
+  document.getElementById('stat-sent').textContent   = statSent;
+  document.getElementById('stat-answers').textContent = statAnswers;
+  document.getElementById('stat-ratio').textContent  = statSent>0 ? Math.round(statAnswers/statSent*100)+'%' : '—';
 }
 
-// ═══════════════════════════════════════════════════════
-// PHYS LED SIMULATOR
-// ═══════════════════════════════════════════════════════
-function lightPhysLED(ans){
-  ['a','b','c','d','e'].forEach(x=>{
-    const el=document.getElementById('pled-'+x);
-    if(el) el.className='phys-led led-'+x.toUpperCase();
-  });
-  const w=document.getElementById('pled-warn');if(w)w.className='phys-led led-W';
+// ══════════════════════════════════════════════════════════
+// PHYS LED
+// ══════════════════════════════════════════════════════════
+function lightPhysLED(ans) {
+  const base={a:'led-A',b:'led-B',c:'led-C',d:'led-D',e:'led-E',warn:'led-W'};
+  Object.keys(base).forEach(x=>{const el=document.getElementById('pled-'+x);if(el)el.className='phys-led '+base[x];});
   const cd=document.getElementById('confDot');
   if(ans==='WARN'){
-    if(w)w.className='phys-led led-W blink';
+    const w=document.getElementById('pled-warn');if(w)w.className='phys-led led-W blink';
     cd.textContent='!';cd.style.color='#ff3355';cd.style.borderColor='#ff3355';
   } else {
     const el=document.getElementById('pled-'+ans.toLowerCase());
-    if(el)el.className='phys-led led-'+ans+' lit-'+ans;
+    if(el)el.className='phys-led led-'+ans+' lit';
     cd.textContent='OK';cd.style.color='#39ff85';cd.style.borderColor='#39ff85';
   }
 }
 
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // LOCK SCREEN
-// ═══════════════════════════════════════════════════════
-function toggleLock(){
-  isLocked=!isLocked;
-  const ls=document.getElementById('lockScreen');
-  ls.classList.toggle('hidden',!isLocked);
-  if(isLocked){
-    ls.onclick=e=>{if(e.target.id!=='sosTapZone')triggerManual();};
-    log('LOCKED — tap anywhere to snap · Triple-tap top-right for SOS','warn');
-  } else {ls.onclick=null;log('Unlocked','dim');}
+// ══════════════════════════════════════════════════════════
+function toggleLock() {
+  isLocked = !isLocked;
+  const ls = document.getElementById('lockScreen');
+  ls.classList.toggle('hidden', !isLocked);
+  if (isLocked) {
+    ls.onclick = e => { if(e.target.id!=='sosTapZone') triggerManualScan(); };
+    log('LOCKED — tap to snap · Triple-tap top-right for SOS', 'warn');
+  } else {
+    ls.onclick = null;
+    log('Unlocked', 'dim');
+  }
 }
-function setLockDot(s){document.getElementById('lockScanDot').className=s;}
 
-// ═══════════════════════════════════════════════════════
+function setLockDot(state) { document.getElementById('lockScanDot').className = state; }
+function setLockStatus(s)   { document.getElementById('lockStatus').className = 'active' + (s?' '+s:''); }
+
+function setFsPill(id, cls, txt) {
+  const el=document.getElementById(id); if(!el) return;
+  el.className='fs-pill '+cls; el.textContent=txt;
+}
+
+function setLfbDot(id, pass) {
+  const el=document.getElementById(id); if(!el) return;
+  el.className='lfb-dot '+(pass?'pass':'fail');
+}
+
+// ══════════════════════════════════════════════════════════
 // BT
-// ═══════════════════════════════════════════════════════
-async function pairBT(){
-  try{
-    const d=await navigator.bluetooth.requestDevice({acceptAllDevices:true});
-    d.addEventListener('gattserverdisconnected',()=>{document.getElementById('btLbl').textContent='BT disconnected';});
-    document.getElementById('btLbl').textContent='PAIRED: '+(d.name||d.id.slice(0,10))+' · press to snap';
+// ══════════════════════════════════════════════════════════
+async function pairBT() {
+  try {
+    btDev = await navigator.bluetooth.requestDevice({acceptAllDevices:true});
+    btDev.addEventListener('gattserverdisconnected', () => { document.getElementById('btLbl').textContent='BT disconnected'; });
+    document.getElementById('btLbl').textContent='PAIRED: '+(btDev.name||btDev.id.slice(0,10))+' · press to snap';
     document.getElementById('btLbl').style.color='var(--green)';
-    log('BT paired: '+(d.name||'unknown'),'ok');
-  }catch(e){if(e.name!=='NotFoundError')log('BT: '+e.message,'err');}
+    log('BT paired: '+(btDev.name||'unknown'),'ok');
+  } catch(e) { if(e.name!=='NotFoundError') log('BT: '+e.message,'err'); }
 }
 
-// ═══════════════════════════════════════════════════════
-// UPLOAD
-// ═══════════════════════════════════════════════════════
-function handleUpload(e){
-  const file=e.target.files[0];if(!file)return;
-  if(!geminiKeys.length){log('Save Gemini keys first','err');return;}
+// ══════════════════════════════════════════════════════════
+// UPLOAD FALLBACK
+// ══════════════════════════════════════════════════════════
+function handleUpload(e) {
+  const file=e.target.files[0]; if(!file) return;
+  if(!apiKeys.length){log('Save API keys first','err');return;}
   const reader=new FileReader();
   reader.onload=ev=>{
     const img=new Image();
     img.onload=async()=>{
-      const c=document.getElementById('canvas');c.width=img.width;c.height=img.height;c.getContext('2d').drawImage(img,0,0);
-      log('Photo loaded ('+img.width+'x'+img.height+') — scanning...','ok');
-      const idata=c.getContext('2d').getImageData(0,0,img.width,img.height);
-      await sendToAI(c,quickHash(idata));
+      const c=document.getElementById('canvas');
+      c.width=img.width;c.height=img.height;
+      c.getContext('2d').drawImage(img,0,0);
+      log('Photo loaded ('+img.width+'×'+img.height+') — scanning…','ok');
+      await sendToGemini(c);
     };
     img.src=ev.target.result;
   };
   reader.readAsDataURL(file);
 }
 
-// ═══════════════════════════════════════════════════════
-// DEMO
-// ═══════════════════════════════════════════════════════
-function demoAnswer(ans){
-  const p1={status:'ok',options_count:5,answer:ans,answer_text:'Demo option '+ans,question_summary:'[DEMO] Test question',confidence:'high',question_complete:true,options_complete:true};
-  clearValidation();
-  displayAnswer(ans,p1,100,'gemini');
-  lightPhysLED(ans);haptic(ans);
-  log('[DEMO] '+ans+' · Gemini primary','ok');
-}
-function demoWarn(){clearValidation();showWarn({options_count:3,reason:'Only 3 of 5 options visible'});log('[DEMO] Reposition warning','warn');}
-;
-  clearValidation();displayAnswer(ans,p1,88,'gpt');lightPhysLED(ans);haptic(ans);
-  log('[DEMO] '+ans+' · GPT-4o-mini fallback','gpt');
-}
-function demoRandom(){demoAnswer(ANS[Math.floor(Math.random()*5)]);}
-
-// ═══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
 // UI HELPERS
-// ═══════════════════════════════════════════════════════
-function showOverlay(on,step){document.getElementById('overlay').classList.toggle('on',on);if(step)document.getElementById('scanStep').textContent=step;}
-function clearLEDs(){['a','b','c','d','e'].forEach(x=>{document.getElementById('l'+x).className='led';document.getElementById('ll'+x).className='led-lbl';});document.getElementById('lwarn').className='led';}
+// ══════════════════════════════════════════════════════════
+function showOverlay(on,step){
+  document.getElementById('overlay').classList.toggle('on',on);
+  if(step) document.getElementById('scanStep').textContent=step;
+}
+function clearLEDs(){
+  ['a','b','c','d','e'].forEach(x=>{document.getElementById('l'+x).className='led';document.getElementById('ll'+x).className='led-lbl';});
+  document.getElementById('lwarn').className='led';
+}
 function setBadge(t,c){const b=document.getElementById('camBadge');if(b){b.textContent=t;b.className='cam-badge '+(c||'');}}
 function setPill(t,on){document.getElementById('statusPill').textContent=t;document.getElementById('statusDot').className='pill-dot'+(on?' on':'');}
-function setFsp(id,cls,txt){const el=document.getElementById(id);if(!el)return;el.className='fsp '+cls;el.textContent=txt;}
-function setLfb(id,pass){const el=document.getElementById(id);if(!el)return;el.className='lfb '+(pass?'p':'f');}
-function flashChange(){const cf=document.getElementById('changeFlash');cf.className='';void cf.offsetWidth;cf.className='flash';}
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+
+// ══════════════════════════════════════════════════════════
+// DEMO
+// ══════════════════════════════════════════════════════════
+function demoAnswer(ans) {
+  const p1={status:'ok',options_count:5,answer:ans,answer_text:'Demo option '+ans,question_summary:'[DEMO] Test question',confidence:'high',question_complete:true,options_complete:true,options_visible:['A','B','C','D','E']};
+  clearValidation();
+  updateValidation(p1);
+  updateVCheck('vc-motion',true,'STILL');updateVCheck('vc-blur',true,'SHARP');updateVCheck('vc-change',true,'NEW Q');updateVCheck('vc-agree',true,'YES');
+  showAnswer(ans,p1,100);
+  lightPhysLED(ans);haptic(ans);
+  log('[DEMO] '+ans+' · all checks passed','ok');
+}
+function demoWarn(){
+  clearValidation();
+  updateValidation({status:'reposition',options_count:3,confidence:'low'});
+  showWarn({options_count:3,reason:'Only 3 of 5 options visible'});
+  log('[DEMO] Reposition warning','warn');
+}
+function demoRandom(){
+  demoAnswer(ANSWERS[Math.floor(Math.random()*5)]);
+}
+
+// ══════════════════════════════════════════════════════════
+// LOG
+// ══════════════════════════════════════════════════════════
 function log(msg,type='dim'){
-  const b=document.getElementById('logBox'),d=document.createElement('div');
-  d.className=type;d.textContent='['+new Date().toTimeString().slice(0,8)+'] '+msg;
+  const b=document.getElementById('logBox');
+  const d=document.createElement('div');
+  d.className=type;
+  d.textContent='['+new Date().toTimeString().slice(0,8)+'] '+msg;
   b.appendChild(d);b.scrollTop=b.scrollHeight;
-  if(b.children.length>150)b.removeChild(b.firstChild);
+  if(b.children.length>150) b.removeChild(b.firstChild);
+}
+
+// ═══════════════════════════════════════════════════════
+// SENSITIVITY PRESETS
+// ═══════════════════════════════════════════════════════
+const SENS_PRESETS = {
+  low:  { val: 8,  color: 'var(--green)',  bg: '#39ff8510' },
+  med:  { val: 15, color: 'var(--accent)', bg: '#e8ff4710' },
+  high: { val: 28, color: 'var(--red)',    bg: '#ff335510' }
+};
+function setSensPreset(level, silent) {
+  const p = SENS_PRESETS[level]; if (!p) return;
+  document.getElementById('changeSens').value = p.val;
+  updateSensLabel();
+  ['low','med','high'].forEach(l => {
+    const b = document.getElementById('sens-'+l); if (!b) return;
+    const lp = SENS_PRESETS[l];
+    b.style.borderColor = l === level ? lp.color : 'var(--border)';
+    b.style.background  = l === level ? lp.bg    : 'transparent';
+    b.style.color       = l === level ? lp.color : 'var(--muted)';
+  });
+  if (!silent) { localStorage.setItem('ab_sp', level); saveSettings(); }
 }
 </script>
 </body>
