@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>AnswerBot Pro v4.2</title>
+<title>AnswerBot Pro v5</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=Bebas+Neue&display=swap');
 :root{
@@ -15,39 +15,6 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;overflow-x:hidden;}
-
-
-/* ── GHOST MODE ── */
-#lockScreen.ghost-mode { background: #000; }
-#lockScreen.ghost-mode #lockAnswer { display: none; }
-#lockScreen.ghost-mode #lockHistory { display: none; }
-#lockScreen.ghost-mode #lockScanDot { display: none; }
-#ghostDot {
-  position: absolute; bottom: 16px; right: 16px;
-  width: 10px; height: 10px; border-radius: 50%;
-  background: transparent; transition: all 0.3s;
-  display: none;
-}
-#lockScreen.ghost-mode #ghostDot { display: block; }
-#ghostDot.ans-A { background: #ff4466; box-shadow: 0 0 8px #ff4466; }
-#ghostDot.ans-B { background: #4488ff; box-shadow: 0 0 8px #4488ff; }
-#ghostDot.ans-C { background: #ffcc00; box-shadow: 0 0 8px #ffcc00; }
-#ghostDot.ans-D { background: #44dd88; box-shadow: 0 0 8px #44dd88; }
-#ghostDot.ans-E { background: #cc55ff; box-shadow: 0 0 8px #cc55ff; }
-#ghostDot.scanning { background: #e8ff47; box-shadow: 0 0 6px #e8ff47; animation: dotpulse 0.6s infinite; }
-#ghostModeBtn {
-  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-  font-size: 7px; letter-spacing: 2px; color: #111; padding: 3px 8px;
-  border: none; background: transparent; cursor: pointer; font-family: 'JetBrains Mono', monospace;
-}
-/* Voice indicator */
-#voiceIndicator {
-  position: fixed; top: 12px; right: 12px; z-index: 9000;
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--dim); transition: all 0.2s; display: none;
-}
-#voiceIndicator.listening { display: block; background: var(--red); box-shadow: 0 0 10px var(--red); animation: dotpulse 1s infinite; }
-#voiceIndicator.heard { display: block; background: var(--green); box-shadow: 0 0 10px var(--green); }
 
 /* ── LOCK SCREEN ── */
 #lockScreen{position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center;transition:opacity 0.3s;}
@@ -314,8 +281,6 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
     <div class="lock-hist" id="lh1"></div>
     <div class="lock-hist" id="lh0"></div>
   </div>
-  <div id="ghostDot"></div>
-  <button id="ghostModeBtn" onclick="toggleGhostMode()">GHOST</button>
   <div id="lockFilterBar">
     <div class="lfb-dot" id="lfb-motion"></div>
     <div class="lfb-dot" id="lfb-blur"></div>
@@ -325,7 +290,6 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
 </div>
 
 <!-- SOS OVERLAY -->
-<div id="voiceIndicator"></div>
 <div id="sosOverlay">
   <div class="sos-title">SOS</div>
   <div class="sos-msg" id="sosMsg">PANIC MODE ACTIVE<br>ALL SYSTEMS RESTARTING</div>
@@ -354,6 +318,10 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
     <div class="pill">
       <div class="pill-dot" id="statusDot"></div>
       <span id="statusPill">IDLE</span>
+    </div>
+    <div class="pill" id="clickerPill" style="margin-left:6px;border-color:var(--dim);">
+      <div class="pill-dot" id="clickerDot"></div>
+      <span id="clickerLbl" style="color:var(--muted);font-size:8px;letter-spacing:2px;">CLICKER</span>
     </div>
   </div>
 
@@ -427,7 +395,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
 
   <!-- CONTROLS -->
   <div style="display:flex;gap:8px;margin-bottom:10px;">
-    <button class="btn btn-accent btn-wide" id="liveBtn" onclick="toggleLiveStream()">◉ START LIVE</button>
+
     <button class="btn btn-red" onclick="triggerManualScan()" style="white-space:nowrap;padding:13px 12px;font-family:'Bebas Neue';font-size:16px;">SNAP</button>
     <button class="btn btn-amber" onclick="toggleLock()" style="white-space:nowrap;padding:13px 12px;font-family:'Bebas Neue';font-size:16px;">LOCK</button>
   </div>
@@ -630,6 +598,54 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
   </div>
 
   <!-- BT -->
+
+  <!-- CLICKER CONTROLS -->
+  <div class="card" style="border-color:#e8ff4740;">
+    <div class="card-title" style="color:var(--accent)">🖱 Clicker Controls</div>
+    <div style="font-size:8px;color:var(--muted);margin-bottom:10px;line-height:2;">
+      Scroll wheel device detected · <b style="color:var(--accent)">Momentum debounced</b><br>
+      One physical click = one action · page scroll disabled
+    </div>
+    <!-- Action mapping display -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+      <div style="background:#060810;border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;">
+        <div style="font-size:20px;margin-bottom:4px;">↑</div>
+        <div style="font-size:9px;color:var(--accent);letter-spacing:1px;" id="upActionLbl">SNAP</div>
+        <div style="font-size:7px;color:var(--dim);margin-top:2px;">scroll up</div>
+      </div>
+      <div style="background:#060810;border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center;">
+        <div style="font-size:20px;margin-bottom:4px;">↓</div>
+        <div style="font-size:9px;color:var(--blue);letter-spacing:1px;" id="downActionLbl">REPEAT</div>
+        <div style="font-size:7px;color:var(--dim);margin-top:2px;">scroll down</div>
+      </div>
+    </div>
+    <!-- Mode selector -->
+    <div style="font-size:8px;color:var(--muted);margin-bottom:6px;letter-spacing:2px;">UP BUTTON ACTION</div>
+    <div style="display:flex;gap:5px;margin-bottom:10px;" id="upModeBtns">
+      <button class="btn btn-accent" id="mode-snap" onclick="setUpMode('snap')" style="flex:1;font-size:8px;">📸 SNAP</button>
+      <button class="btn" id="mode-auto" onclick="setUpMode('auto')" style="flex:1;font-size:8px;">⚡ AUTO</button>
+      <button class="btn" id="mode-lock" onclick="setUpMode('lock')" style="flex:1;font-size:8px;">🔒 LOCK</button>
+    </div>
+    <div style="font-size:8px;color:var(--muted);margin-bottom:6px;letter-spacing:2px;">DOWN BUTTON ACTION</div>
+    <div style="display:flex;gap:5px;margin-bottom:10px;" id="downModeBtns">
+      <button class="btn btn-blue" id="dmode-repeat" onclick="setDownMode('repeat')" style="flex:1;font-size:8px;">🔁 REPEAT</button>
+      <button class="btn" id="dmode-snap" onclick="setDownMode('snap')" style="flex:1;font-size:8px;">📸 SNAP</button>
+      <button class="btn" id="dmode-lock" onclick="setDownMode('lock')" style="flex:1;font-size:8px;">🔒 LOCK</button>
+    </div>
+    <!-- Sensitivity -->
+    <div style="font-size:8px;color:var(--muted);margin-bottom:4px;">Clicker debounce sensitivity</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:8px;color:var(--dim);">Sensitive</span>
+      <input type="range" id="wheelThreshold" min="20" max="200" step="10" value="80"
+        style="flex:1;accent-color:var(--accent);" oninput="updateWheelThreshold()">
+      <span style="font-size:8px;color:var(--dim);">Slow</span>
+      <span style="font-size:9px;color:var(--accent);min-width:36px;" id="wheelThreshLbl">80px</span>
+    </div>
+    <div style="font-size:7px;color:var(--dim);margin-top:4px;">
+      Increase if one click triggers multiple scans · decrease if clicks not registering
+    </div>
+  </div>
+
   <div class="card">
     <div class="card-title">Wireless Trigger</div>
     <div style="display:flex;gap:8px;align-items:center;">
@@ -642,10 +658,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
   <div style="font-size:8px;letter-spacing:3px;color:var(--muted);margin-bottom:4px;">System Log</div>
   <div class="log" id="logBox"></div>
 
-  <div style="display:flex;gap:8px;margin-bottom:10px;">
-    <button class="btn btn-amber btn-wide" onclick="toggleLock()">⬛ LOCK</button>
-    <button class="btn btn-wide" id="ghostBtn" onclick="toggleGhostMode()" style="border-color:var(--dim);color:var(--dim);">👻 GHOST</button>
-  </div>
+  <button class="btn btn-amber btn-wide" onclick="toggleLock()" style="margin-bottom:10px;">⬛ LOCK SCREEN</button>
   <button class="btn btn-red btn-wide" onclick="triggerSOS()" style="margin-bottom:24px;">🆘 SOS PANIC MODE</button>
 
 </div>
@@ -700,13 +713,9 @@ window.addEventListener('load', () => {
   }
 
   wakeLock();
+  initClickerWheel();
   requestDND();
-  initDB().then(() => log('Persistent cache ready','ok'));
-  setTimeout(preWarmAPI, 3000);
-  initVoice();
-  startSessionWatcher();
-  requestFullscreen();
-  log('AnswerBot Pro v4.2 ready · Live stream mode', 'info');
+  log('AnswerBot Pro v5 ready · Live stream mode', 'info');
 });
 
 function loadToggles() {
@@ -956,73 +965,29 @@ async function startCamera() {
   setPill('CAM LIVE', true);
   log('Camera ready', 'ok');
 
-  if (tog('autosnap')) {
-    await delay(800);
-    startLiveStream();
-  }
+  // clicker-only mode — no auto-start
 }
 
 // ══════════════════════════════════════════════════════════
 // LIVE STREAM ENGINE
 // ══════════════════════════════════════════════════════════
-function toggleLiveStream() {
-  if (liveActive) stopLiveStream();
-  else startLiveStream();
-}
-
-function startLiveStream() {
-  if (!camActive) { log('Start camera first', 'warn'); return; }
-  if (liveActive) return;
-  liveActive = true;
-  statFrames = statPassed = statSent = statAnswers = 0;
-  document.getElementById('liveBtn').textContent = '⏹ STOP LIVE';
-  document.getElementById('liveBtn').style.borderColor = 'var(--red)';
-  document.getElementById('liveBtn').style.color = 'var(--red)';
-  document.getElementById('liveStats').style.display = 'flex';
-  setBadge('LIVE AUTO', 'live-auto');
-  setLockStatus('active');
-  log('Live stream started — auto-snapping every ' + document.getElementById('captureInterval').value + 'ms', 'ok');
-  startContinuousCapture();
-  scheduleNextFrame();
-}
+function toggleLiveStream() { log('Live mode removed — use clicker', 'warn'); }
+function startLiveStream() { log('Use clicker to snap', 'info'); }
+function stopLiveStream() {}
+function scheduleNextFrame() {}
+async function processLiveFrame() {}
 
 function stopLiveStream() {
   liveActive = false;
   clearTimeout(liveTimer);
-  document.getElementById('liveBtn').textContent = '◉ START LIVE';
-  document.getElementById('liveBtn').style.borderColor = 'var(--accent)';
-  document.getElementById('liveBtn').style.color = 'var(--accent)';
+  
+  
+  
   setBadge('LIVE', 'live');
   setLockStatus('');
-  stopContinuousCapture();
   log('Live stream stopped', 'warn');
 }
 
-// Continuous capture: always running, never stops for API call
-let captureCanvas = null; // latest captured frame, updated continuously
-let captureCtx = null;
-let captureRafId = null;
-
-function startContinuousCapture() {
-  const offscreen = document.createElement('canvas');
-  captureCanvas = offscreen;
-  function loop() {
-    if (!liveActive || !camActive) { captureRafId = null; return; }
-    const v = document.getElementById('video');
-    if (v.videoWidth) {
-      offscreen.width = v.videoWidth;
-      offscreen.height = v.videoHeight;
-      if (!captureCtx) captureCtx = offscreen.getContext('2d');
-      captureCtx.drawImage(v, 0, 0);
-    }
-    captureRafId = requestAnimationFrame(loop);
-  }
-  loop();
-}
-function stopContinuousCapture() {
-  if (captureRafId) cancelAnimationFrame(captureRafId);
-  captureRafId = null; captureCanvas = null; captureCtx = null;
-}
 function scheduleNextFrame() {
   if (!liveActive) return;
   const interval = parseInt(document.getElementById('captureInterval').value) || 600;
@@ -1034,8 +999,7 @@ async function processLiveFrame() {
   statFrames++;
   updateStats();
 
-  // Use continuous capture canvas if available, else fallback
-  const canvas = (captureCanvas && captureCanvas.width) ? captureCanvas : captureFrame();
+  const canvas = captureFrame();
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height;
   const currentData = ctx.getImageData(0, 0, w, h);
@@ -1262,9 +1226,8 @@ async function sendToGemini(canvas, retryCount = 0) {
     updateStats();
     setLockDot('ok');
     setLockStatus('active');
-    log('✓ ANSWER = ' + finalAns + ' | conf=' + conf + '% | "' + (p1.question_summary||'') + '"', 'ok');
-    // Answer lock reset — wipe reference so next question triggers immediately
     lastFrameData = null;
+    log('✓ ANSWER = ' + finalAns + ' | conf=' + conf + '% | "' + (p1.question_summary||'') + '"', 'ok');
 
   } catch(e) {
     markKeyFailed(e.message);
@@ -1400,6 +1363,7 @@ function haptic(ans) {
 // ══════════════════════════════════════════════════════════
 function showAnswer(ans, data, conf) {
   showOverlay(false);
+  lastAnswerForRepeat = ans;
   if (tog('hold')) { lastAnswer = ans; document.getElementById('heldBadge').style.display='none'; }
 
   const ab = document.getElementById('ansBig');
@@ -1674,43 +1638,208 @@ function setSensPreset(level, silent) {
 }
 
 // ══════════════════════════════════════════════════════════
-// GHOST MODE
+// CLICKER WHEEL ENGINE
+// Core insight: one physical click sends a burst of wheel
+// events with momentum. We accumulate deltaY, fire action
+// when it crosses threshold, then lock out until wheel stops.
 // ══════════════════════════════════════════════════════════
-let ghostMode = false;
-function toggleGhostMode() {
-  ghostMode = !ghostMode;
-  const ls = document.getElementById('lockScreen');
-  const btn = document.getElementById('ghostBtn');
-  const gbtn = document.getElementById('ghostModeBtn');
-  if (ghostMode) {
-    ls.classList.add('ghost-mode');
-    if (btn) { btn.style.borderColor='var(--accent)'; btn.style.color='var(--accent)'; }
-    if (gbtn) gbtn.textContent = 'NORMAL';
-    log('Ghost mode ON — tiny dot only', 'ok');
-  } else {
-    ls.classList.remove('ghost-mode');
-    if (btn) { btn.style.borderColor='var(--dim)'; btn.style.color='var(--dim)'; }
-    if (gbtn) gbtn.textContent = 'GHOST';
-    log('Ghost mode OFF', 'dim');
+let wheelAccumUp   = 0;   // accumulated negative deltaY (scroll up)
+let wheelAccumDown = 0;   // accumulated positive deltaY (scroll down)
+let wheelLockout   = false;
+let wheelLockTimer = null;
+let wheelIdleTimer = null;
+let upMode   = 'snap';    // snap | auto | lock
+let downMode = 'repeat';  // repeat | snap | lock
+let autoModeActive = false;
+let autoTimer = null;
+let lastAnswerForRepeat = null;
+
+function initClickerWheel() {
+  // Prevent ALL scroll on the page — clicker owns the wheel
+  window.addEventListener('wheel', handleWheel, { passive: false });
+  window.addEventListener('scroll', e => window.scrollTo(0, 0), { passive: false });
+  document.body.style.overflow = 'hidden';
+  document.documentElement.style.overflow = 'hidden';
+
+  // Load saved modes
+  upMode   = localStorage.getItem('ab_upmode')   || 'snap';
+  downMode = localStorage.getItem('ab_downmode') || 'repeat';
+  const thresh = localStorage.getItem('ab_wheelthresh');
+  if (thresh) document.getElementById('wheelThreshold').value = thresh;
+  updateWheelThreshold();
+  setUpMode(upMode, true);
+  setDownMode(downMode, true);
+
+  // Update clicker pill
+  const _cd = document.getElementById('clickerDot');
+  const _cl = document.getElementById('clickerLbl');
+  if(_cd){_cd.style.background='var(--green)';_cd.style.boxShadow='0 0 6px var(--green)';}
+  if(_cl){_cl.style.color='var(--green)';_cl.textContent='CLICKER LIVE';}
+  log('Clicker wheel mode active — scroll disabled', 'ok');
+}
+
+function handleWheel(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const threshold = parseInt(document.getElementById('wheelThreshold').value) || 80;
+
+  if (wheelLockout) {
+    // Still in lockout — reset idle timer only
+    resetWheelIdle();
+    return;
+  }
+
+  const delta = e.deltaY;
+
+  if (delta > 0) {
+    wheelAccumDown += delta;
+    wheelAccumUp = 0;
+  } else if (delta < 0) {
+    wheelAccumUp += Math.abs(delta);
+    wheelAccumDown = 0;
+  }
+
+  // Check if we've crossed the threshold
+  if (wheelAccumDown >= threshold) {
+    wheelAccumDown = 0;
+    wheelAccumUp   = 0;
+    fireLockout();
+    fireClickerAction('down');
+  } else if (wheelAccumUp >= threshold) {
+    wheelAccumUp   = 0;
+    wheelAccumDown = 0;
+    fireLockout();
+    fireClickerAction('up');
+  }
+
+  resetWheelIdle();
+}
+
+function fireLockout() {
+  // Lock out for 600ms to absorb momentum tail
+  wheelLockout = true;
+  clearTimeout(wheelLockTimer);
+  wheelLockTimer = setTimeout(() => {
+    wheelLockout = false;
+    wheelAccumUp = 0;
+    wheelAccumDown = 0;
+  }, 600);
+}
+
+function resetWheelIdle() {
+  clearTimeout(wheelIdleTimer);
+  wheelIdleTimer = setTimeout(() => {
+    wheelAccumUp = 0;
+    wheelAccumDown = 0;
+  }, 300);
+}
+
+function fireClickerAction(direction) {
+  // Flash the clicker pill to confirm receipt
+  const pill = document.getElementById('clickerPill');
+  if(pill){ pill.style.borderColor = direction==='up'?'var(--accent)':'var(--blue)'; setTimeout(()=>{ pill.style.borderColor='var(--dim)'; },300); }
+
+  const action = direction === 'up' ? upMode : downMode;
+  log('Clicker ' + direction.toUpperCase() + ' → ' + action.toUpperCase(), 'info');
+
+  switch(action) {
+    case 'snap':
+      triggerManualScan();
+      break;
+    case 'repeat':
+      repeatLastAnswer();
+      break;
+    case 'lock':
+      toggleLock();
+      break;
+    case 'auto':
+      toggleAutoMode();
+      break;
   }
 }
-function setGhostDot(cls) {
-  const d = document.getElementById('ghostDot');
-  if (d) d.className = cls || '';
+
+// ── Repeat last answer ──
+function repeatLastAnswer() {
+  if (lastAnswer) {
+    log('Repeat: ' + lastAnswer, 'ok');
+    // Re-show answer on lock screen with a flash
+    const la = document.getElementById('lockAnswer');
+    if (la) {
+      la.style.opacity = '0';
+      setTimeout(() => {
+        la.textContent = lastAnswer;
+        la.className = 'ans-' + lastAnswer;
+        la.style.opacity = '1';
+      }, 100);
+    }
+    haptic(lastAnswer);
+  } else {
+    log('No answer to repeat yet', 'warn');
+  }
 }
 
-// ══════════════════════════════════════════════════════════
-// AUTO FULLSCREEN
-// ══════════════════════════════════════════════════════════
-function requestFullscreen() {
-  const el = document.documentElement;
-  if (el.requestFullscreen) el.requestFullscreen().catch(()=>{});
-  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+// ── Auto mode (snaps on cooldown timer) ──
+function toggleAutoMode() {
+  autoModeActive = !autoModeActive;
+  if (autoModeActive) {
+    log('Auto mode ON — snapping every ' + document.getElementById('cooldownSecs').value + 's', 'ok');
+    document.getElementById('mode-auto').style.borderColor = 'var(--green)';
+    document.getElementById('mode-auto').style.color = 'var(--green)';
+    scheduleAutoSnap();
+  } else {
+    log('Auto mode OFF', 'warn');
+    clearTimeout(autoTimer);
+    document.getElementById('mode-auto').style.borderColor = 'var(--border)';
+    document.getElementById('mode-auto').style.color = 'var(--muted)';
+  }
 }
 
-// ══════════════════════════════════════════════════════════
-// AUTO DO NOT DISTURB
-// ══════════════════════════════════════════════════════════
+function scheduleAutoSnap() {
+  if (!autoModeActive) return;
+  const secs = (parseInt(document.getElementById('cooldownSecs').value) || 6) * 1000;
+  autoTimer = setTimeout(() => {
+    triggerManualScan();
+    scheduleAutoSnap();
+  }, secs);
+}
+
+// ── Mode selectors ──
+function setUpMode(mode, silent) {
+  upMode = mode;
+  if (!silent) localStorage.setItem('ab_upmode', mode);
+  ['snap','auto','lock'].forEach(m => {
+    const b = document.getElementById('mode-' + m);
+    if (!b) return;
+    b.style.borderColor = m === mode ? 'var(--accent)' : 'var(--border)';
+    b.style.color       = m === mode ? 'var(--accent)' : 'var(--muted)';
+  });
+  const labels = { snap:'📸 SNAP', auto:'⚡ AUTO LOOP', lock:'🔒 LOCK' };
+  const el = document.getElementById('upActionLbl');
+  if (el) el.textContent = labels[mode] || mode.toUpperCase();
+}
+
+function setDownMode(mode, silent) {
+  downMode = mode;
+  if (!silent) localStorage.setItem('ab_downmode', mode);
+  ['repeat','snap','lock'].forEach(m => {
+    const b = document.getElementById('dmode-' + m);
+    if (!b) return;
+    b.style.borderColor = m === mode ? 'var(--blue)' : 'var(--border)';
+    b.style.color       = m === mode ? 'var(--blue)' : 'var(--muted)';
+  });
+  const labels = { repeat:'🔁 REPEAT', snap:'📸 SNAP', lock:'🔒 LOCK' };
+  const el = document.getElementById('downActionLbl');
+  if (el) el.textContent = labels[mode] || mode.toUpperCase();
+}
+
+function updateWheelThreshold() {
+  const v = document.getElementById('wheelThreshold').value;
+  document.getElementById('wheelThreshLbl').textContent = v + 'px';
+  localStorage.setItem('ab_wheelthresh', v);
+}
+
+// ── DND ──
 async function requestDND() {
   try {
     if ('Notification' in window && Notification.permission !== 'granted') {
@@ -1719,201 +1848,7 @@ async function requestDND() {
   } catch(e) {}
 }
 
-// ══════════════════════════════════════════════════════════
-// PERSISTENT CACHE (IndexedDB)
-// ══════════════════════════════════════════════════════════
-let db = null;
-function initDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open('answerbotDB', 1);
-    req.onupgradeneeded = e => {
-      e.target.result.createObjectStore('cache', { keyPath: 'hash' });
-    };
-    req.onsuccess = e => { db = e.target.result; resolve(); };
-    req.onerror = () => resolve(); // fail silently
-  });
-}
-async function dbGet(hash) {
-  if (!db) return null;
-  return new Promise(resolve => {
-    const tx = db.transaction('cache','readonly');
-    const req = tx.objectStore('cache').get(hash);
-    req.onsuccess = () => {
-      const r = req.result;
-      if (r && Date.now() - r.time < 7200000) resolve(r); // 2hr TTL
-      else resolve(null);
-    };
-    req.onerror = () => resolve(null);
-  });
-}
-async function dbSet(hash, answer, conf) {
-  if (!db) return;
-  const tx = db.transaction('cache','readwrite');
-  tx.objectStore('cache').put({ hash, answer, conf, time: Date.now() });
-}
-
-// Override sendToGemini to check persistent cache first
-const _origSendToGemini = sendToGemini;
-async function sendToGemini(canvas, retryCount = 0) {
-  // Check persistent cache by frame hash
-  try {
-    const ctx = canvas.getContext('2d');
-    const idata = ctx.getImageData(0,0,Math.min(canvas.width,160),Math.min(canvas.height,120));
-    let h = 0;
-    for (let i=0; i<idata.data.length; i+=16) h = ((h<<5)-h+idata.data[i])|0;
-    const cached = await dbGet(h);
-    if (cached) {
-      log('Persistent cache hit → ' + cached.answer, 'ok');
-      showAnswer(cached.answer, {answer_text:'Cached',question_summary:'',confidence:'high',options_count:5,options_complete:true,question_complete:true,options_visible:['A','B','C','D','E']}, cached.conf);
-      haptic(cached.answer);
-      lastFrameData = null;
-      return;
-    }
-    // Store hash for later DB save
-    window._pendingHash = h;
-  } catch(e) {}
-  await _origSendToGemini(canvas, retryCount);
-}
-
-// Patch showAnswer to also save to DB
-const _origShowAnswer = showAnswer;
-function showAnswer(ans, data, conf) {
-  _origShowAnswer(ans, data, conf);
-  // Save to persistent cache
-  if (window._pendingHash && ans && ans.length === 1) {
-    dbSet(window._pendingHash, ans, conf).catch(()=>{});
-    window._pendingHash = null;
-  }
-  // Update ghost dot
-  setGhostDot('ans-'+ans);
-}
-
-// ══════════════════════════════════════════════════════════
-// API PRE-WARM
-// ══════════════════════════════════════════════════════════
-let preWarmTimer = null;
-async function preWarmAPI() {
-  if (!apiKeys.length) return;
-  const key = getActiveKey();
-  if (!key) return;
-  // 1x1 transparent PNG — minimal payload
-  const tiny = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-  try {
-    await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${key.key}`,
-      { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({contents:[{parts:[{text:'ok'},{inline_data:{mime_type:'image/png',data:tiny}}]}],generationConfig:{maxOutputTokens:4}})
-      });
-    log('API pre-warm ✓', 'dim');
-  } catch(e) {}
-  // Schedule next pre-warm in 45s
-  preWarmTimer = setTimeout(preWarmAPI, 45000);
-}
-
-// ══════════════════════════════════════════════════════════
-// AUTO SESSION RECOVERY
-// ══════════════════════════════════════════════════════════
-let lastActivityTime = Date.now();
-let sessionWatchTimer = null;
-function bumpActivity() { lastActivityTime = Date.now(); }
-
-function startSessionWatcher() {
-  sessionWatchTimer = setInterval(async () => {
-    const idle = Date.now() - lastActivityTime;
-    if (camActive && liveActive && idle > 180000) { // 3 min idle
-      log('Session watcher: idle detected — recovering…', 'warn');
-      stopLiveStream();
-      scanning = false;
-      await wakeLock();
-      await delay(800);
-      startLiveStream();
-      bumpActivity();
-      log('Session recovered automatically', 'ok');
-    }
-  }, 30000); // check every 30s
-}
-
-// Bump activity on each frame processed
-const _origProcessLiveFrame = processLiveFrame;
-async function processLiveFrame() {
-  bumpActivity();
-  await _origProcessLiveFrame();
-}
-
-// ══════════════════════════════════════════════════════════
-// VOICE COMMANDS
-// ══════════════════════════════════════════════════════════
-let voiceRecog = null;
-let voiceActive = false;
-
-function initVoice() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { log('Voice: not supported in this browser', 'warn'); return; }
-  voiceRecog = new SR();
-  voiceRecog.continuous = true;
-  voiceRecog.interimResults = false;
-  voiceRecog.lang = 'en-GB';
-  voiceRecog.maxAlternatives = 3;
-
-  voiceRecog.onresult = e => {
-    const transcript = Array.from(e.results)
-      .slice(e.resultIndex)
-      .map(r => r[0].transcript.toLowerCase().trim())
-      .join(' ');
-    handleVoiceCommand(transcript);
-  };
-
-  voiceRecog.onstart = () => {
-    voiceActive = true;
-    document.getElementById('voiceIndicator').className = 'listening';
-    log('Voice listening…', 'dim');
-  };
-  voiceRecog.onend = () => {
-    document.getElementById('voiceIndicator').className = '';
-    // Auto-restart unless manually stopped
-    if (voiceActive) setTimeout(() => { try { voiceRecog.start(); } catch(e){} }, 500);
-  };
-  voiceRecog.onerror = e => {
-    if (e.error !== 'no-speech' && e.error !== 'aborted') log('Voice error: '+e.error, 'warn');
-  };
-
-  try { voiceRecog.start(); }
-  catch(e) { log('Voice start failed: '+e.message, 'warn'); }
-  log('Voice commands ready: scan / stop / go / again / ghost', 'ok');
-}
-
-function handleVoiceCommand(text) {
-  const vi = document.getElementById('voiceIndicator');
-  vi.className = 'heard';
-  setTimeout(() => { vi.className = voiceActive ? 'listening' : ''; }, 600);
-
-  if (text.includes('scan') || text.includes('snap') || text.includes('go')) {
-    log('Voice: SCAN', 'info');
-    triggerManualScan();
-  } else if (text.includes('stop') || text.includes('pause')) {
-    log('Voice: STOP', 'info');
-    if (liveActive) stopLiveStream();
-  } else if (text.includes('start') || text.includes('live')) {
-    log('Voice: START', 'info');
-    if (!liveActive) startLiveStream();
-  } else if (text.includes('again') || text.includes('rescan') || text.includes('repeat')) {
-    log('Voice: RESCAN', 'info');
-    lastFrameData = null; // wipe so it re-triggers
-    triggerManualScan();
-  } else if (text.includes('ghost')) {
-    log('Voice: GHOST MODE', 'info');
-    toggleGhostMode();
-  } else if (text.includes('sos') || text.includes('panic')) {
-    log('Voice: SOS', 'warn');
-    triggerSOS();
-  }
-}
-
-function stopVoice() {
-  voiceActive = false;
-  if (voiceRecog) { try { voiceRecog.stop(); } catch(e){} }
-  document.getElementById('voiceIndicator').className = '';
-  log('Voice commands stopped', 'warn');
-}
+// ── Patch showAnswer to save lastAnswer for repeat ──
 
 </script>
 </body>
