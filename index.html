@@ -1178,14 +1178,6 @@ async function sendToGemini(canvas, retryCount = 0) {
 
     if (p1.status !== 'ok' || p1.options_count !== 5) {
       const visible = p1.options_count || 0;
-      if (retryCount < maxRetries) {
-        log('Reposition — retrying ('+(retryCount+1)+'/'+maxRetries+')', 'warn');
-        scanning = false; showOverlay(false);
-        await delay(600);
-        const newCanvas = captureFrame();
-        await sendToGemini(newCanvas, retryCount+1);
-        return;
-      }
       showWarn(p1);
       scanning = false; showOverlay(false); setLockDot('warn'); setLockStatus('active');
       return;
@@ -1203,13 +1195,6 @@ async function sendToGemini(canvas, retryCount = 0) {
 
     // Protection
     if (tog('protect') && p2.agree===false && !tog('speed')) {
-      if (retryCount < maxRetries) {
-        log('AI disagrees — retrying', 'warn');
-        scanning = false; showOverlay(false);
-        await delay(400);
-        await sendToGemini(canvas, retryCount+1);
-        return;
-      }
       showUncertain(p1.answer, p2.your_answer);
       scanning = false; showOverlay(false); setLockDot('warn'); setLockStatus('active');
       return;
@@ -1232,14 +1217,7 @@ async function sendToGemini(canvas, retryCount = 0) {
     markKeyFailed(e.message);
     log('API error: '+e.message, 'err');
     setLockDot('warn');
-    // If we have more keys, retry automatically
-    if (getActiveKey() && retryCount < maxRetries) {
-      log('Retrying with next key…', 'info');
-      scanning = false; showOverlay(false);
-      await delay(300);
-      await sendToGemini(canvas, retryCount+1);
-      return;
-    }
+    log('Click again to retry with next key', 'warn');
   }
 
   scanning = false;
