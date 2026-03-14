@@ -714,7 +714,6 @@ window.addEventListener('load', () => {
 
   wakeLock();
   initClickerWheel();
-  requestDND();
   log('AnswerBot Pro v5 ready · Live stream mode', 'info');
 });
 
@@ -1638,214 +1637,132 @@ function setSensPreset(level, silent) {
 }
 
 // ══════════════════════════════════════════════════════════
-// CLICKER WHEEL ENGINE
-// Core insight: one physical click sends a burst of wheel
-// events with momentum. We accumulate deltaY, fire action
-// when it crosses threshold, then lock out until wheel stops.
+// MEDIA KEY CLICKER ENGINE
+// Ring in media mode sends clean single events per press:
+//   UP   = MediaTrackNext     (keyCode 176)
+//   DOWN = MediaTrackPrevious (keyCode 177)
+//   BOTH = MediaPlayPause     (keyCode 179) → always SNAP
 // ══════════════════════════════════════════════════════════
-let wheelAccumUp   = 0;   // accumulated negative deltaY (scroll up)
-let wheelAccumDown = 0;   // accumulated positive deltaY (scroll down)
-let wheelLockout   = false;
-let wheelLockTimer = null;
-let wheelIdleTimer = null;
-let upMode   = 'snap';    // snap | auto | lock
-let downMode = 'repeat';  // repeat | snap | lock
+let upMode   = 'snap';
+let downMode = 'repeat';
 let autoModeActive = false;
 let autoTimer = null;
 let lastAnswerForRepeat = null;
 
 function initClickerWheel() {
-  // Prevent ALL scroll on the page — clicker owns the wheel
-  window.addEventListener('wheel', handleWheel, { passive: false });
-  window.addEventListener('scroll', e => window.scrollTo(0, 0), { passive: false });
-  document.body.style.overflow = 'hidden';
-  document.documentElement.style.overflow = 'hidden';
-
-  // Load saved modes
   upMode   = localStorage.getItem('ab_upmode')   || 'snap';
   downMode = localStorage.getItem('ab_downmode') || 'repeat';
-  const thresh = localStorage.getItem('ab_wheelthresh');
-  if (thresh) document.getElementById('wheelThreshold').value = thresh;
-  updateWheelThreshold();
   setUpMode(upMode, true);
   setDownMode(downMode, true);
 
-  // Update clicker pill
+  // Primary: keydown listener catches media keys
+  document.addEventListener('keydown', handleMediaKey);
+
+  // Fallback: mediaSession API for Android Chrome
+  if ('mediaSession' in navigator) {
+    try {
+      navigator.mediaSession.setActionHandler('nexttrack',     () => fireClickerAction('up'));
+      navigator.mediaSession.setActionHandler('previoustrack', () => fireClickerAction('down'));
+      navigator.mediaSession.setActionHandler('play',          () => fireClickerAction('both'));
+      navigator.mediaSession.setActionHandler('pause',         () => fireClickerAction('both'));
+    } catch(e) {}
+  }
+
   const _cd = document.getElementById('clickerDot');
   const _cl = document.getElementById('clickerLbl');
-  if(_cd){_cd.style.background='var(--green)';_cd.style.boxShadow='0 0 6px var(--green)';}
-  if(_cl){_cl.style.color='var(--green)';_cl.textContent='CLICKER LIVE';}
-  log('Clicker wheel mode active — scroll disabled', 'ok');
+  if (_cd) { _cd.style.background = 'var(--green)'; _cd.style.boxShadow = '0 0 6px var(--green)'; }
+  if (_cl) { _cl.style.color = 'var(--green)'; _cl.textContent = 'CLICKER LIVE'; }
+  log('Clicker ready — UP=Next(176) DOWN=Prev(177) BOTH=PlayPause(179)', 'ok');
 }
 
-function handleWheel(e) {
-  e.preventDefault();
-  e.stopPropagation();
-
-  const threshold = parseInt(document.getElementById('wheelThreshold').value) || 80;
-
-  if (wheelLockout) {
-    // Still in lockout — reset idle timer only
-    resetWheelIdle();
-    return;
-  }
-
-  const delta = e.deltaY;
-
-  if (delta > 0) {
-    wheelAccumDown += delta;
-    wheelAccumUp = 0;
-  } else if (delta < 0) {
-    wheelAccumUp += Math.abs(delta);
-    wheelAccumDown = 0;
-  }
-
-  // Check if we've crossed the threshold
-  if (wheelAccumDown >= threshold) {
-    wheelAccumDown = 0;
-    wheelAccumUp   = 0;
-    fireLockout();
-    fireClickerAction('down');
-  } else if (wheelAccumUp >= threshold) {
-    wheelAccumUp   = 0;
-    wheelAccumDown = 0;
-    fireLockout();
-    fireClickerAction('up');
-  }
-
-  resetWheelIdle();
-}
-
-function fireLockout() {
-  // Lock out for 600ms to absorb momentum tail
-  wheelLockout = true;
-  clearTimeout(wheelLockTimer);
-  wheelLockTimer = setTimeout(() => {
-    wheelLockout = false;
-    wheelAccumUp = 0;
-    wheelAccumDown = 0;
-  }, 600);
-}
-
-function resetWheelIdle() {
-  clearTimeout(wheelIdleTimer);
-  wheelIdleTimer = setTimeout(() => {
-    wheelAccumUp = 0;
-    wheelAccumDown = 0;
-  }, 300);
+function handleMediaKey(e) {
+  const k = e.keyCode || e.which;
+  if      (k===176 || e.key==='MediaTrackNext')      { e.preventDefault(); fireClickerAction('up');   }
+  else if (k===177 || e.key==='MediaTrackPrevious')  { e.preventDefault(); fireClickerAction('down'); }
+  else if (k===179 || e.key==='MediaPlayPause')      { e.preventDefault(); fireClickerAction('both'); }
+  else if (k===175 || e.key==='AudioVolumeUp'   || e.key==='VolumeUp')   { e.preventDefault(); fireClickerAction('up');   }
+  else if (k===174 || e.key==='AudioVolumeDown' || e.key==='VolumeDown') { e.preventDefault(); fireClickerAction('down'); }
 }
 
 function fireClickerAction(direction) {
-  // Flash the clicker pill to confirm receipt
   const pill = document.getElementById('clickerPill');
-  if(pill){ pill.style.borderColor = direction==='up'?'var(--accent)':'var(--blue)'; setTimeout(()=>{ pill.style.borderColor='var(--dim)'; },300); }
+  const col  = direction==='up' ? 'var(--accent)' : direction==='down' ? 'var(--blue)' : 'var(--green)';
+  if (pill) { pill.style.borderColor = col; setTimeout(() => { pill.style.borderColor = 'var(--dim)'; }, 300); }
+
+  if (direction === 'both') {
+    log('Clicker BOTH (PlayPause) → SNAP', 'ok');
+    triggerManualScan();
+    return;
+  }
 
   const action = direction === 'up' ? upMode : downMode;
   log('Clicker ' + direction.toUpperCase() + ' → ' + action.toUpperCase(), 'info');
-
-  switch(action) {
-    case 'snap':
-      triggerManualScan();
-      break;
-    case 'repeat':
-      repeatLastAnswer();
-      break;
-    case 'lock':
-      toggleLock();
-      break;
-    case 'auto':
-      toggleAutoMode();
-      break;
+  switch (action) {
+    case 'snap':   triggerManualScan(); break;
+    case 'repeat': repeatLastAnswer();  break;
+    case 'lock':   toggleLock();        break;
+    case 'auto':   toggleAutoMode();    break;
   }
 }
 
-// ── Repeat last answer ──
 function repeatLastAnswer() {
-  if (lastAnswer) {
-    log('Repeat: ' + lastAnswer, 'ok');
-    // Re-show answer on lock screen with a flash
-    const la = document.getElementById('lockAnswer');
-    if (la) {
-      la.style.opacity = '0';
-      setTimeout(() => {
-        la.textContent = lastAnswer;
-        la.className = 'ans-' + lastAnswer;
-        la.style.opacity = '1';
-      }, 100);
-    }
-    haptic(lastAnswer);
-  } else {
-    log('No answer to repeat yet', 'warn');
-  }
+  if (!lastAnswerForRepeat) { log('Nothing to repeat yet', 'warn'); return; }
+  log('Repeat: ' + lastAnswerForRepeat, 'ok');
+  const la = document.getElementById('lockAnswer');
+  if (la) { la.style.opacity='0'; setTimeout(() => { la.textContent=lastAnswerForRepeat; la.className='ans-'+lastAnswerForRepeat; la.style.opacity='1'; }, 100); }
+  haptic(lastAnswerForRepeat);
 }
 
-// ── Auto mode (snaps on cooldown timer) ──
 function toggleAutoMode() {
   autoModeActive = !autoModeActive;
+  const btn = document.getElementById('mode-auto');
   if (autoModeActive) {
     log('Auto mode ON — snapping every ' + document.getElementById('cooldownSecs').value + 's', 'ok');
-    document.getElementById('mode-auto').style.borderColor = 'var(--green)';
-    document.getElementById('mode-auto').style.color = 'var(--green)';
+    if (btn) { btn.style.borderColor='var(--green)'; btn.style.color='var(--green)'; }
     scheduleAutoSnap();
   } else {
     log('Auto mode OFF', 'warn');
     clearTimeout(autoTimer);
-    document.getElementById('mode-auto').style.borderColor = 'var(--border)';
-    document.getElementById('mode-auto').style.color = 'var(--muted)';
+    if (btn) { btn.style.borderColor='var(--border)'; btn.style.color='var(--muted)'; }
   }
 }
 
 function scheduleAutoSnap() {
   if (!autoModeActive) return;
-  const secs = (parseInt(document.getElementById('cooldownSecs').value) || 6) * 1000;
-  autoTimer = setTimeout(() => {
-    triggerManualScan();
-    scheduleAutoSnap();
-  }, secs);
+  const ms = (parseInt(document.getElementById('cooldownSecs').value) || 6) * 1000;
+  autoTimer = setTimeout(() => { triggerManualScan(); scheduleAutoSnap(); }, ms);
 }
 
-// ── Mode selectors ──
 function setUpMode(mode, silent) {
   upMode = mode;
   if (!silent) localStorage.setItem('ab_upmode', mode);
   ['snap','auto','lock'].forEach(m => {
-    const b = document.getElementById('mode-' + m);
-    if (!b) return;
-    b.style.borderColor = m === mode ? 'var(--accent)' : 'var(--border)';
-    b.style.color       = m === mode ? 'var(--accent)' : 'var(--muted)';
+    const b = document.getElementById('mode-'+m); if (!b) return;
+    b.style.borderColor = m===mode ? 'var(--accent)' : 'var(--border)';
+    b.style.color       = m===mode ? 'var(--accent)' : 'var(--muted)';
   });
-  const labels = { snap:'📸 SNAP', auto:'⚡ AUTO LOOP', lock:'🔒 LOCK' };
+  const lbl = {snap:'📸 SNAP', auto:'⚡ AUTO LOOP', lock:'🔒 LOCK'};
   const el = document.getElementById('upActionLbl');
-  if (el) el.textContent = labels[mode] || mode.toUpperCase();
+  if (el) el.textContent = lbl[mode] || mode.toUpperCase();
 }
 
 function setDownMode(mode, silent) {
   downMode = mode;
   if (!silent) localStorage.setItem('ab_downmode', mode);
   ['repeat','snap','lock'].forEach(m => {
-    const b = document.getElementById('dmode-' + m);
-    if (!b) return;
-    b.style.borderColor = m === mode ? 'var(--blue)' : 'var(--border)';
-    b.style.color       = m === mode ? 'var(--blue)' : 'var(--muted)';
+    const b = document.getElementById('dmode-'+m); if (!b) return;
+    b.style.borderColor = m===mode ? 'var(--blue)' : 'var(--border)';
+    b.style.color       = m===mode ? 'var(--blue)' : 'var(--muted)';
   });
-  const labels = { repeat:'🔁 REPEAT', snap:'📸 SNAP', lock:'🔒 LOCK' };
+  const lbl = {repeat:'🔁 REPEAT', snap:'📸 SNAP', lock:'🔒 LOCK'};
   const el = document.getElementById('downActionLbl');
-  if (el) el.textContent = labels[mode] || mode.toUpperCase();
+  if (el) el.textContent = lbl[mode] || mode.toUpperCase();
 }
 
-function updateWheelThreshold() {
-  const v = document.getElementById('wheelThreshold').value;
-  document.getElementById('wheelThreshLbl').textContent = v + 'px';
-  localStorage.setItem('ab_wheelthresh', v);
-}
+function updateWheelThreshold() {}
 
-// ── DND ──
 async function requestDND() {
-  try {
-    if ('Notification' in window && Notification.permission !== 'granted') {
-      await Notification.requestPermission();
-    }
-  } catch(e) {}
+  try { if ('Notification' in window && Notification.permission !== 'granted') await Notification.requestPermission(); } catch(e) {}
 }
 
 // ── Patch showAnswer to save lastAnswer for repeat ──
