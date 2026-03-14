@@ -1259,22 +1259,22 @@ async function geminiCall(base64, prompt) {
 // PROMPTS
 // ══════════════════════════════════════════════════════════
 function buildPass1Prompt() {
-  return `You are analysing a photo of a multiple choice question. It may be from Kahoot, Quizlet, Google Forms, an exam paper, pub quiz slide, whiteboard, or any other format.
+  return `You are analysing a photo of a multiple choice question from a pub quiz or game show screen. The image may be slightly blurry, at an angle, or have imperfect lighting — this is expected and normal. Do your best to read it.
 
 Count ALL distinct answer options visible (letters A-E, numbers, coloured tiles, bullets, etc).
 
-Only if EXACTLY 5 options are clearly visible AND the question text is complete:
+If EXACTLY 5 options are visible AND you can make out the question text (even if slightly blurry or angled):
 - Determine the correct answer using your full knowledge
-- Verify the question ends properly (not cut off mid-sentence)
-- Verify all 5 options have readable text
+- A slightly blurry image is fine — if you can read the words, answer it
+- Only return status reposition if you truly cannot read the question or options at all
 
 RESPOND ONLY WITH JSON — no markdown, no explanation:
 
-If ready:
+If you can answer:
 {"status":"ok","options_count":5,"answer":"A","answer_text":"exact text of correct option","question_summary":"the question","question_complete":true,"options_complete":true,"confidence":"high","options_visible":["A","B","C","D","E"],"format":"kahoot|exam|slides|other"}
 
-If not ready:
-{"status":"reposition","options_count":0,"question_complete":true,"options_complete":false,"reason":"what is missing"}`;
+If you genuinely cannot read it:
+{"status":"reposition","options_count":0,"question_complete":false,"options_complete":false,"reason":"specific reason you cannot read it"}`;
 }
 
 function buildPass2Prompt(p1) {
