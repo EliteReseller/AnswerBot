@@ -347,10 +347,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
   <!-- LIVE STREAM SETTINGS -->
   <div class="card" id="liveSettingsCard">
     <div class="card-title">Live Stream Settings</div>
-    <div class="toggle-row">
-      <div class="toggle-label">Auto-Snap<span class="toggle-sub">Automatically scans when question detected</span></div>
-      <label class="toggle"><input type="checkbox" id="tog-autosnap" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
-    </div>
+
     <div class="toggle-row">
       <div class="toggle-label">Motion Filter<span class="toggle-sub">Skip blurry frames from movement</span></div>
       <label class="toggle"><input type="checkbox" id="tog-motion" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
@@ -380,13 +377,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
       <label class="toggle"><input type="checkbox" id="tog-haptic" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
-      <div style="font-size:8px;color:var(--muted);margin-bottom:8px;">Frame capture interval</div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:8px;color:var(--dim);">Fast</span>
-        <input type="range" id="captureInterval" min="300" max="2000" step="100" value="600" style="flex:1;accent-color:var(--accent);" oninput="updateIntervalLabel()">
-        <span style="font-size:8px;color:var(--dim);">Slow</span>
-        <span style="font-size:9px;color:var(--accent);min-width:36px;" id="intervalLbl">600ms</span>
-      </div>
+
       <div style="font-size:8px;color:var(--muted);margin-top:10px;margin-bottom:8px;">API cooldown</div>
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:8px;color:var(--dim);">Fast</span>
@@ -508,7 +499,6 @@ window.addEventListener('load', () => {
   loadToggles();
   loadOLEDConfig();
   checkCamSupport();
-  updateIntervalLabel();
   updateCooldownLabel();
 
   document.addEventListener('keydown', e => {
@@ -740,7 +730,7 @@ async function sosRecover() {
   stopLiveStream();
   scanning = false;
   await wakeLock();
-  if (camActive && grantedStream && grantedStream.getVideoTracks()[0]?.readyState === 'live') { await delay(500); startLiveStream(); }
+  log('SOS recovery complete — press SNAP to scan', 'ok');
   startKeepalive();
 }
 
@@ -882,9 +872,8 @@ async function startCamera() {
     document.getElementById('liveStats').style.display = 'flex';
     setBadge('LIVE','live');
     setPill('CAM LIVE',true);
-    log('Camera started · ' + (track?.label || 'unknown'), 'ok');
-    console.log('[CAM] Camera fully started ✓ | autosnap:', tog('autosnap'));
-    if (tog('autosnap')) startLiveStream();
+    log('Camera started · ' + (track?.label || 'unknown') + ' · press SNAP to scan', 'ok');
+    console.log('[CAM] Camera fully started ✓ — manual snap mode only');
   } catch(e) {
     console.error('[CAM] startCamera error:', e.name, '-', e.message, '| stack:', e.stack);
     log('Camera error: ' + e.name + ' — ' + e.message, 'err');
@@ -896,73 +885,15 @@ async function startCamera() {
 // LIVE STREAM
 // ══════════════════════════════════════════════════════════
 function startLiveStream() {
-  if (liveActive) return;
-  liveActive = true;
-  setBadge('AUTO','live-auto');
-  log('Live stream started','ok');
-  scheduleLiveFrame();
+  console.log('[LIVE] Auto-snap disabled — manual only');
 }
 function stopLiveStream() {
   liveActive = false;
   clearTimeout(liveTimer);
   if (camActive) setBadge('LIVE','live');
 }
-function scheduleLiveFrame() {
-  if (!liveActive) return;
-  const ms = parseInt(document.getElementById('captureInterval').value)||600;
-  liveTimer = setTimeout(liveFrameTick, ms);
-}
-async function liveFrameTick() {
-  if (!liveActive || !camActive) return;
-  statFrames++;
-  updateStats();
-
-  const canvas = captureFrame();
-  const ctx = canvas.getContext('2d');
-  const frameData = ctx.getImageData(0,0,Math.min(canvas.width,320),Math.min(canvas.height,240));
-
-  // Motion check
-  let motionOk = true;
-  if (tog('motion') && prevFrameData) {
-    const diff = frameDiff(prevFrameData,frameData);
-    motionOk = diff < 8;
-    setFsPill('fs-motion', motionOk?'pass':'fail', motionOk?'STILL':Math.round(diff)+'%');
-  } else { setFsPill('fs-motion','pass','SKIP'); }
-  prevFrameData = frameData;
-
-  // Blur check
-  let blurOk = true;
-  if (tog('blur')) {
-    const b = measureBlur(canvas);
-    blurOk = b > 80;
-    setFsPill('fs-blur', blurOk?'pass':'fail', blurOk?'SHARP':Math.round(b));
-  } else { setFsPill('fs-blur','pass','SKIP'); }
-
-  // Change check
-  let changeOk = true;
-  if (tog('change') && lastFrameData) {
-    const diff2 = frameDiff(lastFrameData,frameData);
-    const threshold = 15;
-    changeOk = diff2 > threshold;
-    setFsPill('fs-change', changeOk?'pass':'skip', changeOk?'NEW Q':'SAME');
-  } else { setFsPill('fs-change','pass','NEW Q'); changeOk=true; }
-
-  // Cooldown
-  const cooldown = (parseInt(document.getElementById('cooldownSecs').value)||4)*1000;
-  const timeSinceLast = Date.now()-lastApiCallTime;
-  const cooldownOk = timeSinceLast>=cooldown;
-  setFsPill('fs-cooldown',cooldownOk?'pass':'skip',cooldownOk?'READY':Math.ceil((cooldown-timeSinceLast)/1000)+'s');
-
-  if (motionOk && blurOk && changeOk && cooldownOk) {
-    statPassed++;
-    updateStats();
-    const cf=document.getElementById('changeFlash');
-    cf.className=''; void cf.offsetWidth; cf.className='flash';
-    setLockDot('scanning');
-    await sendToGemini(canvas);
-  }
-  scheduleLiveFrame();
-}
+function scheduleLiveFrame() { /* disabled */ }
+async function liveFrameTick() { /* auto-snap disabled */ }
 
 // ══════════════════════════════════════════════════════════
 // FRAME UTILS
@@ -1348,7 +1279,7 @@ function setPill(t,on){ document.getElementById('statusPill').textContent=t; doc
 function setFsPill(id,cls,txt){ const el=document.getElementById(id); if(!el) return; el.className='fs-pill '+cls; el.textContent=txt; }
 function tog(k){ return document.getElementById('tog-'+k)?.checked??false; }
 function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
-function updateIntervalLabel(){ document.getElementById('intervalLbl').textContent=document.getElementById('captureInterval').value+'ms'; }
+function updateIntervalLabel(){ /* removed */ }
 function updateCooldownLabel(){ document.getElementById('cooldownLbl').textContent=document.getElementById('cooldownSecs').value+'s'; }
 
 function loadToggles() {
@@ -1358,7 +1289,7 @@ function loadToggles() {
   const cd=localStorage.getItem('ab_cooldown'); if(cd){document.getElementById('cooldownSecs').value=cd;updateCooldownLabel();}
 }
 function saveToggles() {
-  const keys=['autosnap','motion','blur','change','protect','speed','hold','haptic'];
+  const keys=['motion','blur','change','protect','speed','hold','haptic'];
   const obj={};
   keys.forEach(k=>{obj[k]=document.getElementById('tog-'+k)?.checked??false;});
   localStorage.setItem('ab_toggles',JSON.stringify(obj));
