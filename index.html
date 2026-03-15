@@ -366,6 +366,12 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
           <div style="font-size:8px;color:var(--muted);width:36px;flex-shrink:0;">PATH</div>
           <input type="text" id="espPath" placeholder="/capture" value="/capture" style="flex:1;font-size:11px;">
         </div>
+        <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+          <div style="font-size:8px;color:var(--blue);width:36px;flex-shrink:0;">OLED</div>
+          <input type="text" id="oledIP" placeholder="192.168.x.x (OLED ESP32)" style="flex:1;font-size:11px;border-color:#4db8ff60;">
+          <button class="btn btn-blue" style="font-size:8px;padding:6px 8px;white-space:nowrap;" onclick="testOLED()">TEST</button>
+        </div>
+        <div style="font-size:8px;color:var(--muted);margin-bottom:8px;line-height:1.7;">OLED IP = your diymore ESP32-C3 board · answers scroll on screen</div>
         <div style="display:flex;gap:6px;">
           <button class="btn btn-blue" style="flex:1;" onclick="testESP32()">🔍 TEST CONNECTION</button>
           <button class="btn btn-accent" style="flex:1;" onclick="saveESPConfig()">SAVE</button>
@@ -1424,6 +1430,7 @@ function showAnswer(ans, data, conf) {
   setPill('ANSWER: '+ans, true);
   addHistory(ans);
   signalESP32LED(ans);
+  sendToOLED(ans, data.answer_text || '', data.question_summary || '');
 }
 
 function showWarn(result) {
@@ -1858,17 +1865,22 @@ function saveESPConfig() {
   localStorage.setItem('ab_esp_ip',   document.getElementById('espIP').value.trim());
   localStorage.setItem('ab_esp_port', document.getElementById('espPort').value.trim());
   localStorage.setItem('ab_esp_path', document.getElementById('espPath').value.trim());
+  localStorage.setItem('ab_oled_ip',  document.getElementById('oledIP').value.trim());
   log('ESP32 config saved → ' + getESPUrl(), 'ok');
+  const oledIp = document.getElementById('oledIP').value.trim();
+  if (oledIp) log('OLED IP saved → ' + oledIp, 'ok');
 }
 
 function loadESPConfig() {
   const ip   = localStorage.getItem('ab_esp_ip');
   const port = localStorage.getItem('ab_esp_port');
   const path = localStorage.getItem('ab_esp_path');
+  const oled = localStorage.getItem('ab_oled_ip');
   const src  = localStorage.getItem('ab_camsrc') || 'phone';
   if (ip)   document.getElementById('espIP').value   = ip;
   if (port) document.getElementById('espPort').value = port;
   if (path) document.getElementById('espPath').value = path;
+  if (oled) document.getElementById('oledIP').value  = oled;
   setCamSource(src);
 }
 
@@ -1972,6 +1984,34 @@ function signalESP32LED(answer) {
     .catch(() => {});
 }
 
+// ══════════════════════════════════════════════════════════
+// OLED DISPLAY — sends answer to diymore ESP32-C3
+// ══════════════════════════════════════════════════════════
+function sendToOLED(answer, answerText, questionSummary) {
+  const ip = document.getElementById('oledIP')?.value.trim();
+  if (!ip) return;
+  // Build a short message that fits the tiny 72x40 screen
+  let msg = 'ANS: ' + answer;
+  if (answerText) msg += ' ' + answerText.slice(0, 40);
+  const encoded = encodeURIComponent(msg);
+  fetch(`http://${ip}/display?text=${encoded}`, { mode: 'cors', cache: 'no-store' })
+    .then(() => log('OLED updated: ' + msg.slice(0, 30), 'ok'))
+    .catch(() => log('OLED send failed — check IP', 'warn'));
+}
+
+async function testOLED() {
+  const ip = document.getElementById('oledIP')?.value.trim();
+  if (!ip) { log('Enter OLED IP first', 'warn'); return; }
+  log('Testing OLED at ' + ip + '…', 'info');
+  try {
+    const res = await fetch(`http://${ip}/display?text=ANSWERBOT+CONNECTED`, { mode: 'cors', cache: 'no-store' });
+    if (res.ok) log('✓ OLED connected!', 'ok');
+    else log('OLED responded with error ' + res.status, 'warn');
+  } catch(e) {
+    log('OLED not reachable — same network?', 'err');
+  }
+}
+
 // ── Turn LED off and stop preview when app goes to background ──
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { signalESP32LED('OFF'); stopESPPreview(); }
@@ -2053,7 +2093,7 @@ async function fetchPreviewFrame() {
     if (st) { st.textContent = '✗ ' + e.message; st.style.color = 'var(--red)'; }
     await new Promise(r => setTimeout(r, 2000));
   }
-  if (espPreviewActive) espPreviewTimer = setTimeout(fetchPreviewFrame, 500);
+  if (espPreviewActive) espPreviewTimer = setTimeout(fetchPreviewFrame, 0);
 }
 
 async function espSingleFrame() {
