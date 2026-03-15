@@ -312,6 +312,76 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
     </label>
   </div>
 
+  <!-- CAMERA ENHANCEMENT SETTINGS -->
+  <div class="card" style="border-color:#4db8ff40;background:#060d14;">
+    <div class="card-title" style="color:var(--blue);">📷 Camera Enhancement</div>
+    <div style="font-size:8px;color:var(--muted);margin-bottom:10px;line-height:1.9;">
+      Hazy / bottle mode · turn on all for best results in low-light or obscured scenarios
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-label">Autofocus
+        <span class="toggle-sub">Continuous focus — re-applies on each snap</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-autofocus" checked onchange="saveToggles();applyFocusSettings()"><div class="toggle-track"></div></label>
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-label">Boost Brightness
+        <span class="toggle-sub">+80% brightness for dark / bottle scenarios</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-brightness" onchange="saveToggles()"><div class="toggle-track"></div></label>
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-label">Boost Contrast
+        <span class="toggle-sub">Sharpen text against hazy backgrounds</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-contrast" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-label">Sharpen
+        <span class="toggle-sub">Unsharp mask to recover soft edges</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-sharpen" onchange="saveToggles()"><div class="toggle-track"></div></label>
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-label">Denoise
+        <span class="toggle-sub">Reduce grain from low-light sensor noise</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-denoise" onchange="saveToggles()"><div class="toggle-track"></div></label>
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-label">Dehaze
+        <span class="toggle-sub">Dark channel prior — lifts fog/haze/condensation</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-dehaze" onchange="saveToggles()"><div class="toggle-track"></div></label>
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-label">Auto Levels
+        <span class="toggle-sub">Stretch histogram to use full tonal range</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-autolevels" onchange="saveToggles()"><div class="toggle-track"></div></label>
+    </div>
+
+    <div class="toggle-row" style="border-bottom:none;">
+      <div class="toggle-label">🍾 Bottle Mode
+        <span class="toggle-sub">All enhancements on · blur filter off · for obscured camera</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-bottle" onchange="toggleBottleMode()"><div class="toggle-track"></div></label>
+    </div>
+
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+      <div style="font-size:8px;color:var(--muted);margin-bottom:6px;">Enhancement preview</div>
+      <canvas id="previewCanvas" style="width:100%;border-radius:4px;border:1px solid var(--border);display:none;"></canvas>
+      <button class="btn btn-blue btn-wide" style="margin-top:6px;font-size:10px;" onclick="showEnhancedPreview()">👁 PREVIEW ENHANCEMENT</button>
+    </div>
+  </div>
+
   <!-- LIVE CAMERA -->
   <div class="cam-wrap" id="camWrap" style="display:none;">
     <video id="video" autoplay playsinline muted></video>
@@ -824,7 +894,15 @@ async function requestCam() {
     console.log('[CAM] Requesting getUserMedia({video:true})…');
     // Request with basic constraints first — store the stream for reuse
     grantedStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      video: {
+        facingMode: { ideal: 'environment' },
+        width:  { ideal: 1920 },
+        height: { ideal: 1080 },
+        focusMode:        { ideal: 'continuous' },
+        focusDistance:    { ideal: 0.5 },
+        exposureMode:     { ideal: 'continuous' },
+        whiteBalanceMode: { ideal: 'continuous' }
+      }
     });
     const track = grantedStream.getVideoTracks()[0];
     console.log('[CAM] Permission granted ✓ | Track:', track?.label, '| State:', track?.readyState);
@@ -846,7 +924,15 @@ async function startCamera() {
     if (!stream || stream.getVideoTracks()[0]?.readyState === 'ended') {
       console.log('[CAM] No valid stream — requesting new one');
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+        video: {
+        facingMode: { ideal: 'environment' },
+        width:  { ideal: 1920 },
+        height: { ideal: 1080 },
+        focusMode:        { ideal: 'continuous' },
+        focusDistance:    { ideal: 0.5 },
+        exposureMode:     { ideal: 'continuous' },
+        whiteBalanceMode: { ideal: 'continuous' }
+      }
       });
       grantedStream = stream;
     } else {
@@ -866,6 +952,34 @@ async function startCamera() {
     };
     await v.play();
     console.log('[CAM] video.play() resolved ✓ | videoWidth:', v.videoWidth, 'videoHeight:', v.videoHeight);
+
+    // Apply autofocus via applyConstraints (works on Android Chrome, some iOS)
+    try {
+      const track = stream.getVideoTracks()[0];
+      const caps = track.getCapabilities?.() || {};
+      console.log('[CAM] Focus capabilities:', JSON.stringify(caps.focusMode));
+      const focusConstraints = {};
+      if (caps.focusMode?.includes('continuous')) {
+        focusConstraints.focusMode = 'continuous';
+        console.log('[CAM] Applying continuous autofocus');
+      } else if (caps.focusMode?.includes('single-shot')) {
+        focusConstraints.focusMode = 'single-shot';
+        console.log('[CAM] Applying single-shot focus');
+      }
+      if (caps.exposureMode?.includes('continuous')) focusConstraints.exposureMode = 'continuous';
+      if (caps.whiteBalanceMode?.includes('continuous')) focusConstraints.whiteBalanceMode = 'continuous';
+      if (Object.keys(focusConstraints).length > 0) {
+        await track.applyConstraints({ advanced: [focusConstraints] });
+        log('Autofocus enabled ✓', 'ok');
+        console.log('[CAM] applyConstraints success:', JSON.stringify(focusConstraints));
+      } else {
+        log('Autofocus not supported on this device', 'warn');
+        console.warn('[CAM] No autofocus capability found on track');
+      }
+    } catch(focusErr) {
+      console.warn('[CAM] applyConstraints failed (non-fatal):', focusErr.message);
+      log('Autofocus not available: ' + focusErr.message, 'warn');
+    }
     camActive = true;
     document.getElementById('camWrap').style.display = 'block';
     document.getElementById('camPermCard').style.display = 'none';
@@ -899,20 +1013,177 @@ async function liveFrameTick() { /* auto-snap disabled */ }
 // FRAME UTILS
 // ══════════════════════════════════════════════════════════
 function captureFrame() {
-  const v=document.getElementById('video');
-  const c=document.getElementById('canvas');
-  c.width=v.videoWidth||1280; c.height=v.videoHeight||720;
-  const ctx=c.getContext('2d');
-  ctx.drawImage(v,0,0);
-  try {
-    const o=document.createElement('canvas'); o.width=c.width; o.height=c.height;
-    const octx=o.getContext('2d');
-    octx.filter='contrast(1.2) brightness(0.94) saturate(1.1)';
-    octx.drawImage(c,0,0);
-    ctx.clearRect(0,0,c.width,c.height);
-    ctx.drawImage(o,0,0);
-  } catch(e){}
+  const v = document.getElementById('video');
+  const c = document.getElementById('canvas');
+  c.width  = v.videoWidth  || 1280;
+  c.height = v.videoHeight || 720;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(v, 0, 0);
+  try { enhanceFrame(c); } catch(e) { console.warn('[ENHANCE] Error:', e.message); }
   return c;
+}
+
+function enhanceFrame(canvas) {
+  const w = canvas.width, h = canvas.height;
+  const ctx = canvas.getContext('2d');
+
+  // ── Step 1: CSS filter pipeline (fast, GPU-accelerated) ──
+  const filters = [];
+  if (tog('brightness')) filters.push('brightness(1.8)');
+  if (tog('contrast'))   filters.push('contrast(1.4) saturate(1.2)');
+  if (tog('sharpen'))    filters.push('contrast(1.1)'); // CSS can't truly sharpen but helps
+  if (filters.length > 0) {
+    const tmp = document.createElement('canvas');
+    tmp.width = w; tmp.height = h;
+    const tctx = tmp.getContext('2d');
+    tctx.filter = filters.join(' ');
+    tctx.drawImage(canvas, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(tmp, 0, 0);
+    console.log('[ENHANCE] CSS filters applied:', filters.join(' '));
+  }
+
+  // ── Step 2: Pixel-level processing ──
+  const doAutoLevels = tog('autolevels');
+  const doDenoise    = tog('denoise');
+  const doDehaze     = tog('dehaze');
+  const doSharpen    = tog('sharpen');
+
+  if (!doAutoLevels && !doDenoise && !doDehaze && !doSharpen) return;
+
+  const id = ctx.getImageData(0, 0, w, h);
+  const px = id.data;
+  const len = px.length;
+
+  // Auto Levels: stretch histogram per channel
+  if (doAutoLevels) {
+    let rMin=255,rMax=0,gMin=255,gMax=0,bMin=255,bMax=0;
+    for (let i=0; i<len; i+=4) {
+      if(px[i]  <rMin)rMin=px[i];   if(px[i]  >rMax)rMax=px[i];
+      if(px[i+1]<gMin)gMin=px[i+1]; if(px[i+1]>gMax)gMax=px[i+1];
+      if(px[i+2]<bMin)bMin=px[i+2]; if(px[i+2]>bMax)bMax=px[i+2];
+    }
+    const rR=rMax-rMin||1, gR=gMax-gMin||1, bR=bMax-bMin||1;
+    for (let i=0; i<len; i+=4) {
+      px[i]   = ((px[i]  -rMin)/rR*255)|0;
+      px[i+1] = ((px[i+1]-gMin)/gR*255)|0;
+      px[i+2] = ((px[i+2]-bMin)/bR*255)|0;
+    }
+    console.log('[ENHANCE] Auto levels: R['+rMin+'-'+rMax+'] G['+gMin+'-'+gMax+'] B['+bMin+'-'+bMax+']');
+  }
+
+  // Dehaze: dark channel prior (simplified)
+  // Estimates atmospheric light and removes haze
+  if (doDehaze) {
+    const t = 0.7; // transmission estimate
+    const A = 220; // atmospheric light estimate
+    for (let i=0; i<len; i+=4) {
+      px[i]   = Math.min(255, ((px[i]   - A) / t + A)|0);
+      px[i+1] = Math.min(255, ((px[i+1] - A) / t + A)|0);
+      px[i+2] = Math.min(255, ((px[i+2] - A) / t + A)|0);
+    }
+    console.log('[ENHANCE] Dehaze applied');
+  }
+
+  // Denoise: 3x3 box blur then blend back (reduces sensor noise)
+  if (doDenoise) {
+    const tmp2 = new Uint8ClampedArray(px);
+    for (let y=1; y<h-1; y++) {
+      for (let x=1; x<w-1; x++) {
+        for (let c=0; c<3; c++) {
+          let sum = 0;
+          for (let dy=-1; dy<=1; dy++)
+            for (let dx=-1; dx<=1; dx++)
+              sum += tmp2[((y+dy)*w+(x+dx))*4+c];
+          const i = (y*w+x)*4+c;
+          // Blend 60% denoised + 40% original to preserve detail
+          px[i] = ((sum/9)*0.6 + tmp2[i]*0.4)|0;
+        }
+      }
+    }
+    console.log('[ENHANCE] Denoise applied');
+  }
+
+  // Sharpen: unsharp mask (boosts edges — great for text clarity)
+  if (doSharpen) {
+    const orig = new Uint8ClampedArray(px);
+    const amount = 1.5;
+    for (let y=1; y<h-1; y++) {
+      for (let x=1; x<w-1; x++) {
+        for (let c=0; c<3; c++) {
+          // Gaussian-like blur neighbour average
+          const i  = (y*w+x)*4+c;
+          const n  = ((y-1)*w+x)*4+c;
+          const s  = ((y+1)*w+x)*4+c;
+          const wl = (y*w+(x-1))*4+c;
+          const er = (y*w+(x+1))*4+c;
+          const blur = (orig[n]+orig[s]+orig[wl]+orig[er]+orig[i]*4)/8;
+          px[i] = Math.min(255, Math.max(0, (orig[i] + (orig[i]-blur)*amount)|0));
+        }
+      }
+    }
+    console.log('[ENHANCE] Unsharp mask applied');
+  }
+
+  ctx.putImageData(id, 0, 0);
+}
+
+// Re-apply autofocus on each snap for bottle/hazy scenarios
+async function refocusCamera() {
+  if (!tog('autofocus') || !grantedStream) return;
+  try {
+    const track = grantedStream.getVideoTracks()[0];
+    if (!track) return;
+    const caps = track.getCapabilities?.() || {};
+    if (caps.focusMode?.includes('single-shot')) {
+      await track.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] });
+      await new Promise(r => setTimeout(r, 300));
+      if (caps.focusMode?.includes('continuous')) {
+        await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+      }
+      console.log('[CAM] Refocus triggered');
+    }
+  } catch(e) { console.warn('[CAM] Refocus failed:', e.message); }
+}
+
+function toggleBottleMode() {
+  const on = tog('bottle');
+  ['brightness','contrast','sharpen','denoise','dehaze','autolevels','autofocus'].forEach(id => {
+    const el = document.getElementById('tog-'+id);
+    if (el) el.checked = on;
+  });
+  // Disable blur filter in bottle mode — camera WILL look blurry through glass
+  const blurEl = document.getElementById('tog-blur');
+  if (blurEl) blurEl.checked = !on;
+  saveToggles();
+  applyFocusSettings();
+  log(on ? '🍾 Bottle mode ON — all enhancements active' : 'Bottle mode OFF', on ? 'ok' : 'dim');
+}
+
+function applyFocusSettings() {
+  if (!grantedStream) return;
+  const track = grantedStream.getVideoTracks()[0];
+  if (!track) return;
+  try {
+    const caps = track.getCapabilities?.() || {};
+    const mode = tog('autofocus') ? 'continuous' : 'manual';
+    if (caps.focusMode?.includes(mode)) {
+      track.applyConstraints({ advanced: [{ focusMode: mode }] })
+        .then(() => console.log('[CAM] Focus mode set to', mode))
+        .catch(e => console.warn('[CAM] Focus mode apply failed:', e.message));
+    }
+  } catch(e) {}
+}
+
+function showEnhancedPreview() {
+  if (!camActive) { log('Start camera first', 'warn'); return; }
+  const raw = captureFrame();
+  const pc = document.getElementById('previewCanvas');
+  pc.width  = raw.width;
+  pc.height = raw.height;
+  pc.getContext('2d').drawImage(raw, 0, 0);
+  pc.style.display = 'block';
+  log('Enhancement preview updated', 'info');
 }
 function frameDiff(a,b) {
   if(!a||!b||a.data.length!==b.data.length) return 100;
@@ -947,6 +1218,7 @@ async function triggerManualScan() {
   if (!apiKeys.length) { log('No API keys saved','err'); return; }
   if (!camActive) { log('Camera not active — use Upload button instead','warn'); return; }
   log('Manual scan triggered','info');
+  await refocusCamera(); // re-trigger autofocus before snap
   const canvas = captureFrame();
   await sendToGemini(canvas);
 }
@@ -1308,7 +1580,7 @@ function loadToggles() {
   const cd=localStorage.getItem('ab_cooldown'); if(cd){document.getElementById('cooldownSecs').value=cd;updateCooldownLabel();}
 }
 function saveToggles() {
-  const keys=['motion','blur','change','protect','speed','hold','haptic'];
+  const keys=['motion','blur','change','protect','speed','hold','haptic','autofocus','brightness','contrast','sharpen','denoise','dehaze','autolevels','bottle'];
   const obj={};
   keys.forEach(k=>{obj[k]=document.getElementById('tog-'+k)?.checked??false;});
   localStorage.setItem('ab_toggles',JSON.stringify(obj));
