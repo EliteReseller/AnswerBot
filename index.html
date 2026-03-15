@@ -127,6 +127,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
 .vcheck{display:flex;align-items:center;gap:5px;background:#060810;border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-size:8px;letter-spacing:1px;transition:all 0.2s;}
 .vcheck.pass{border-color:#39ff8540;background:#39ff8508;color:var(--green);}
 .vcheck.fail{border-color:#ff335540;background:#ff335508;color:var(--red);}
+.vcheck.warn{border-color:#ffaa0040;background:#ffaa0008;color:var(--amber);}
 .vcheck-icon{font-size:10px;flex-shrink:0;}
 .vcheck-txt{flex:1;}
 .vcheck-val{font-size:9px;font-weight:800;margin-left:auto;}
@@ -468,9 +469,10 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
       <div class="vcheck" id="vc-count"><span class="vcheck-icon">🔢</span><span class="vcheck-txt">5 options</span><span class="vcheck-val" id="vc-count-val">—</span></div>
       <div class="vcheck" id="vc-conf"><span class="vcheck-icon">🎯</span><span class="vcheck-txt">Confidence</span><span class="vcheck-val" id="vc-conf-val">—</span></div>
       <div class="vcheck" id="vc-agree"><span class="vcheck-icon">✓✓</span><span class="vcheck-txt">Dual check</span><span class="vcheck-val" id="vc-agree-val">—</span></div>
+      <div class="vcheck" id="vc-imgqual"><span class="vcheck-icon">🌫</span><span class="vcheck-txt">Img quality</span><span class="vcheck-val" id="vc-imgqual-val">—</span></div>
     </div>
     <div class="conf-wrap">
-      <div class="conf-lbl"><span>CONFIDENCE</span><span id="confPct">—</span></div>
+      <div class="conf-lbl"><span>CONFIDENCE · IMAGE QUALITY</span><span id="confPct">—</span></div>
       <div class="conf-bar"><div class="conf-fill" id="confFill"></div></div>
     </div>
   </div>
@@ -1246,8 +1248,12 @@ async function sendToGemini(canvas) {
     console.log('[GEMINI] Pass 1 result:', JSON.stringify(p1));
     log('P1→ status:'+p1.status+' count:'+p1.options_count+' ans:'+p1.answer+' conf:'+p1.confidence,'dim');
     updateValidation(p1);
-    if (p1.status!=='ok'||p1.options_count!==5) {
-      console.warn('[GEMINI] Pass 1 failed — status:', p1.status, '| options:', p1.options_count);
+    if (p1.status!=='ok' || p1.options_count!==5) {
+      console.warn('[GEMINI] Pass 1 failed — status:', p1.status, '| options:', p1.options_count, '| confidence_score:', p1.confidence_score);
+      // If Gemini gave a confidence_score, show it in the warn
+      if (p1.confidence_score !== undefined) {
+        p1.reason = (p1.reason || '') + ' [image clarity: '+p1.confidence_score+'%]';
+      }
       showWarn(p1); scanning=false; showOverlay(false); setLockDot('warn'); return;
     }
     let p2={agree:true,final_answer:p1.answer,your_answer:p1.answer};
@@ -1271,7 +1277,10 @@ async function sendToGemini(canvas) {
     statAnswers++; updateStats();
     setLockDot('ok');
     lastFrameData=null;
-    log('✓ ANSWER = '+finalAns+' | conf='+conf+'% | "'+( p1.question_summary||'')+'"','ok');
+    const partialNote = p1.partial_read ? ' ⚠ PARTIAL READ' : '';
+  const geminiConf  = p1.confidence_score ? ' | gemini='+p1.confidence_score+'%' : '';
+  log('✓ ANSWER = '+finalAns+' | conf='+conf+'%'+geminiConf+partialNote+' | "'+( p1.question_summary||'')+'"','ok');
+  if (p1.partial_read) log('⚠ Partial image read — answer is best guess', 'warn');
   } catch(e) {
     console.error('[GEMINI] ERROR:', e.name, '-', e.message, '| stack:', e.stack);
     markKeyFailed(e.message);
@@ -1331,33 +1340,37 @@ async function geminiCall(base64, prompt) {
 }
 
 function buildPass1Prompt() {
-  return `You are analysing a photo of a multiple choice question from a pub quiz or game show screen. The image may be slightly blurry, at an angle, or have imperfect lighting — this is expected and normal. Do your best to read it.
+  return `You are analysing a photo of a multiple choice quiz question. The image may be overexposed, hazy, blurry, taken through glass or a bottle, at an angle, or partially obscured. This is completely normal — do NOT refuse to answer because of image quality.
 
-Count ALL distinct answer options visible (letters A-E, numbers, coloured tiles, bullets, etc).
+CRITICAL RULES:
+1. If you can read the question AND count 5 answer options (even partially), return status "ok" and answer it
+2. Use your general knowledge to answer — you do not need to read every word perfectly
+3. If some option text is unreadable but you can still identify which answer is correct, answer it anyway with confidence "low" or "medium"
+4. ONLY return "reposition" if the image is so completely unreadable that you cannot identify ANY question or ANY options whatsoever
+5. Overexposed, blurry, hazy, or distorted images are acceptable — make your best guess
+6. Count coloured tiles, boxes, or regions as answer options (Kahoot style) even if text is unclear
+7. Return a numeric confidence_score from 0-100 based on how clearly you could read the image
 
-If EXACTLY 5 options are visible AND you can make out the question text (even if slightly blurry or angled):
-- Determine the correct answer using your full knowledge
-- A slightly blurry image is fine — if you can read the words, answer it
-- Only return status reposition if you truly cannot read the question or options at all
+YOUR RESPONSE MUST BE A SINGLE RAW JSON OBJECT. Start with { and end with }. No markdown, no explanation, no preamble.
 
-YOUR RESPONSE MUST BE A SINGLE RAW JSON OBJECT ONLY. No markdown. No explanation. No thinking text. No code fences. Start your response with { and end with }.
+If you can answer (even partially readable):
+{"status":"ok","options_count":5,"answer":"B","answer_text":"text of correct option or best guess","question_summary":"question text or best guess","confidence":"high","confidence_score":85,"partial_read":false,"options_visible":["A","B","C","D","E"]}
 
-If you can answer (5 options visible and question readable):
-{"status":"ok","options_count":5,"answer":"B","answer_text":"exact text of the correct option","question_summary":"brief question text","question_complete":true,"options_complete":true,"confidence":"high","options_visible":["A","B","C","D","E"]}
+Use partial_read:true and lower confidence_score if the image was hard to read but you still answered.
 
-If you cannot read it at all (image completely unreadable):
-{"status":"reposition","options_count":0,"question_complete":false,"options_complete":false,"reason":"specific reason"}`;
+Only if COMPLETELY unreadable (no question, no options identifiable at all):
+{"status":"reposition","options_count":0,"confidence_score":0,"reason":"specific reason why unreadable"}`;
 }
 
 function buildPass2Prompt(p1) {
-  return `Verify this multiple choice answer by looking at the image again independently.
+  return `Verify this multiple choice answer. The image may be blurry, hazy, or overexposed — that is fine, make your best judgment.
 
-Previous reading: question="${p1.question_summary}" | proposed answer="${p1.answer}" | answer text="${p1.answer_text}"
+Previous reading: question="${p1.question_summary}" | proposed answer="${p1.answer}" | answer text="${p1.answer_text}" | image quality score=${p1.confidence_score||'?'}/100
 
-Do you agree with this answer? What is your own independent answer?
+Do you agree? Even if the image is imperfect, give your best independent answer.
 
-RESPOND WITH A SINGLE RAW JSON OBJECT ONLY — no markdown, no explanation, start with {:
-{"agree":true,"final_answer":"B","your_answer":"B","reason":"one sentence reason"}`;
+RESPOND WITH A SINGLE RAW JSON OBJECT ONLY — start with {:
+{"agree":true,"final_answer":"B","your_answer":"B","confidence_score":80,"reason":"one sentence reason"}`;
 }
 
 function repairJSON(s) {
@@ -1380,15 +1393,28 @@ function extractFallback(raw) {
 }
 
 function scoreConfidence(p1,p2) {
-  let s=0;
-  if(p1.options_count===5)         s+=20;
-  if(p1.confidence==='high')       s+=30;
-  if(p1.confidence==='medium')     s+=15;
-  if(p1.question_complete!==false) s+=15;
-  if(p1.options_complete!==false)  s+=10;
-  if(p2.agree===true)              s+=20;
-  if(p2.your_answer===p1.answer)   s+=5;
-  return Math.min(s,100);
+  // If Gemini returned its own numeric score, blend it with our checks
+  const geminiScore = p1.confidence_score || null;
+  const p2Score     = p2.confidence_score || null;
+  
+  let s = 0;
+  if (p1.options_count===5)         s += 15;
+  if (p1.confidence==='high')       s += 20;
+  if (p1.confidence==='medium')     s += 10;
+  if (p1.question_complete!==false) s += 10;
+  if (p1.options_complete!==false)  s += 5;
+  if (p2.agree===true)              s += 15;
+  if (p2.your_answer===p1.answer)   s += 5;
+  // Partial read penalty
+  if (p1.partial_read===true)       s -= 10;
+
+  // If Gemini gave us numeric scores, blend them in (weighted 35%)
+  if (geminiScore !== null) {
+    const blended = Math.round(s * 0.65 + geminiScore * 0.35);
+    console.log('[CONF] Local:', s, '| Gemini P1:', geminiScore, '| P2:', p2Score, '| Blended:', blended);
+    return Math.min(Math.max(blended, 5), 100);
+  }
+  return Math.min(Math.max(s, 5), 100);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1403,14 +1429,17 @@ function showAnswer(ans, data, conf) {
 
   const ab=document.getElementById('ansBig');
   ab.textContent=ans; ab.className='ans-big ans-'+ans;
-  document.getElementById('ansSub').textContent=(data.answer_text||'')+(conf?'  ·  '+conf+'%':'');
+  const partialWarn = data.partial_read ? '  ⚠ partial' : '';
+  const scoreLabel  = data.confidence_score ? '  ·  img:'+data.confidence_score+'%' : '';
+  document.getElementById('ansSub').textContent=(data.answer_text||'')+(conf?'  ·  '+conf+'%':'')+ scoreLabel + partialWarn;
   document.getElementById('optChips').innerHTML=ANSWERS.map(l=>
     `<div class="chip ${l===ans?'act-'+ans:''}">${l}</div>`).join('');
 
   const la=document.getElementById('lockAnswer');
   la.textContent=ans; la.className='ans-'+ans;
   setConfBar(conf);
-  document.getElementById('confPct').textContent=conf+'%';
+  const gemConf = data.confidence_score;
+  document.getElementById('confPct').textContent = conf+'%' + (gemConf ? ' (img '+gemConf+'%)' : '');
   setPill('ANSWER: '+ans,true);
   addHistory(ans);
 
@@ -1463,8 +1492,14 @@ function haptic(ans) {
 // VALIDATION UI
 // ══════════════════════════════════════════════════════════
 function updateValidation(r) {
-  updateVCheck('vc-count',r.options_count===5,r.options_count+'/5');
-  updateVCheck('vc-conf',r.confidence==='high',r.confidence==='high'?'HIGH':r.confidence==='medium'?'MED':r.confidence||'?');
+  updateVCheck('vc-count', r.options_count===5, r.options_count+'/5');
+  updateVCheck('vc-conf',  r.confidence==='high', r.confidence==='high'?'HIGH':r.confidence==='medium'?'MED':r.confidence||'?');
+  if (r.confidence_score !== undefined) {
+    const imgOk = r.confidence_score >= 40;
+    const cls   = r.confidence_score >= 70 ? 'pass' : r.confidence_score >= 40 ? 'warn' : 'fail';
+    updateVCheck('vc-imgqual', imgOk, r.confidence_score+'%', cls);
+  }
+  if (r.partial_read) updateVCheck('vc-imgqual', false, 'PARTIAL', 'warn');
 }
 function updateVCheck(id,pass,val,cls) {
   const el=document.getElementById(id); if(!el) return;
