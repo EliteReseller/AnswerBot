@@ -529,6 +529,11 @@ window.addEventListener('load', () => {
   }
 
   wakeLock();
+  console.log('[BOOT] ESP AnswerBot OLED starting');
+  console.log('[BOOT] User agent:', navigator.userAgent);
+  console.log('[BOOT] Protocol:', location.protocol, '| Hostname:', location.hostname);
+  console.log('[BOOT] mediaDevices available:', !!navigator.mediaDevices);
+  console.log('[BOOT] localStorage available:', (() => { try { localStorage.setItem('t','1'); localStorage.removeItem('t'); return true; } catch(e) { return false; } })());
   log('ESP AnswerBot OLED ready · phone cam + OLED display', 'info');
 });
 
@@ -539,66 +544,103 @@ function getOLEDIP() {
   return (document.getElementById('oledIP')?.value || '').trim();
 }
 
+let oledRetryCount = 0;
+const OLED_MAX_RETRIES = 3;
+
 async function sendToOLED(text, silent) {
   const ip = getOLEDIP();
-  if (!ip) return;
+  if (!ip) { console.warn('[OLED] No IP set — skipping send'); return; }
+  const url = `http://${ip}/display?text=${encodeURIComponent(text)}`;
+  console.log('[OLED] sendToOLED →', url, '| silent:', silent, '| text:', text);
   setOLEDDot('sending');
   document.getElementById('oledStatusTxt').textContent = 'Sending…';
   try {
-    const encoded = encodeURIComponent(text);
-    const res = await fetch(`http://${ip}/display?text=${encoded}`, {
+    const res = await fetch(url, {
       mode: 'cors', cache: 'no-store',
-      signal: AbortSignal.timeout(4000)
+      signal: AbortSignal.timeout(5000)
     });
+    console.log('[OLED] Response:', res.status, res.statusText, '| ok:', res.ok);
     if (res.ok) {
       oledConnected = true;
+      oledRetryCount = 0;
       setOLEDDot('ok');
-      document.getElementById('oledStatusTxt').textContent = 'OLED connected · ' + ip;
+      document.getElementById('oledStatusTxt').textContent = 'OLED ✓ ' + ip;
       document.getElementById('oledLastSent').textContent = text.slice(0, 20);
       if (!silent) log('OLED ← ' + text.slice(0, 40), 'ok');
     } else {
-      throw new Error('HTTP ' + res.status);
+      throw new Error('HTTP ' + res.status + ' ' + res.statusText);
     }
   } catch(e) {
     oledConnected = false;
+    oledRetryCount++;
     setOLEDDot('err');
-    document.getElementById('oledStatusTxt').textContent = 'OLED offline — retrying';
-    if (!silent) log('OLED send failed: ' + e.message, 'warn');
-    // Auto-retry once after 3s
-    setTimeout(() => sendToOLED(text, true), 3000);
+    console.error('[OLED] FAILED attempt', oledRetryCount, '| error:', e.name, '-', e.message, '| url:', url);
+    document.getElementById('oledStatusTxt').textContent = 'OLED ✗ ' + e.message.slice(0, 30);
+    if (!silent) log('OLED failed ('+oledRetryCount+'): ' + e.message, 'warn');
+    if (oledRetryCount <= OLED_MAX_RETRIES) {
+      const retryDelay = oledRetryCount * 3000;
+      console.log('[OLED] Retry', oledRetryCount, '/', OLED_MAX_RETRIES, 'in', retryDelay/1000, 's');
+      setTimeout(() => sendToOLED(text, true), retryDelay);
+    } else {
+      console.warn('[OLED] Max retries reached — stopping. Keep-alive will reconnect.');
+      oledRetryCount = 0;
+    }
   }
 }
 
 function setOLEDDot(state) {
   const d = document.getElementById('oledDot');
   d.className = state;
+  console.log('[OLED] Dot state →', state);
 }
 
-// Keep-alive: pings OLED every N seconds with a silent dot to prevent WiFi sleep
+// Keep-alive: pings OLED every N seconds to prevent WiFi sleep disconnection
 function startKeepalive() {
   stopKeepalive();
   const ms = parseInt(document.getElementById('keepaliveInterval')?.value || '20000');
+  console.log('[KEEPALIVE] Starting · interval:', ms/1000, 's');
   keepaliveTimer = setInterval(async () => {
     const ip = getOLEDIP();
-    if (!ip) return;
+    if (!ip) { console.warn('[KEEPALIVE] No IP — skipping'); return; }
     const dot = document.getElementById('keepaliveDot');
     dot.className = 'ping';
-    setTimeout(() => { dot.className = ''; }, 500);
+    setTimeout(() => { dot.className = ''; }, 400);
+    const pingUrl = `http://${ip}/ping`;
+    console.log('[KEEPALIVE] Pinging →', pingUrl);
     try {
-      await fetch(`http://${ip}/display?text=.`, {
+      const res = await fetch(pingUrl, {
         mode: 'cors', cache: 'no-store',
-        signal: AbortSignal.timeout(3000)
+        signal: AbortSignal.timeout(4000)
       });
+      console.log('[KEEPALIVE] Ping response:', res.status);
       if (!oledConnected) {
         oledConnected = true;
+        oledRetryCount = 0;
         setOLEDDot('ok');
         document.getElementById('oledStatusTxt').textContent = 'OLED reconnected · ' + ip;
-        log('OLED keep-alive: reconnected', 'ok');
+        log('OLED keep-alive: reconnected ✓', 'ok');
       }
     } catch(e) {
-      oledConnected = false;
-      setOLEDDot('err');
-      document.getElementById('oledStatusTxt').textContent = 'OLED offline — keep-alive retrying…';
+      console.warn('[KEEPALIVE] /ping failed:', e.message, '— trying /display fallback');
+      try {
+        await fetch(`http://${ip}/display?text=%20`, {
+          mode: 'cors', cache: 'no-store',
+          signal: AbortSignal.timeout(4000)
+        });
+        console.log('[KEEPALIVE] Fallback /display ping OK');
+        if (!oledConnected) {
+          oledConnected = true;
+          oledRetryCount = 0;
+          setOLEDDot('ok');
+          document.getElementById('oledStatusTxt').textContent = 'OLED reconnected · ' + ip;
+          log('OLED keep-alive: reconnected via fallback ✓', 'ok');
+        }
+      } catch(e2) {
+        oledConnected = false;
+        setOLEDDot('err');
+        console.error('[KEEPALIVE] Both /ping and /display failed:', e2.name, e2.message, '| ip:', ip);
+        document.getElementById('oledStatusTxt').textContent = 'OLED offline · keep-alive retrying…';
+      }
     }
   }, ms);
   log('Keep-alive started · every ' + (ms/1000) + 's', 'info');
@@ -764,40 +806,77 @@ async function testAllKeys() {
 // ══════════════════════════════════════════════════════════
 // CAMERA
 // ══════════════════════════════════════════════════════════
+let grantedStream = null; // reuse stream from permission grant
+
 function checkCamSupport() {
+  console.log('[CAM] Protocol:', location.protocol, '| Host:', location.hostname);
+  console.log('[CAM] getUserMedia available:', !!navigator.mediaDevices?.getUserMedia);
   if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
     document.getElementById('httpsWarn').style.display = 'block';
+    console.warn('[CAM] Not HTTPS — camera may be blocked by browser');
   }
 }
+
 async function requestCam() {
+  console.log('[CAM] requestCam() called');
   try {
-    await navigator.mediaDevices.getUserMedia({video:true});
+    console.log('[CAM] Requesting getUserMedia({video:true})…');
+    // Request with basic constraints first — store the stream for reuse
+    grantedStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    const track = grantedStream.getVideoTracks()[0];
+    console.log('[CAM] Permission granted ✓ | Track:', track?.label, '| State:', track?.readyState);
+    console.log('[CAM] Track settings:', JSON.stringify(track?.getSettings()));
     document.getElementById('permGranted').style.display = 'block';
     document.getElementById('permDenied').style.display  = 'none';
-    log('Camera permission granted','ok');
+    log('Camera permission granted · ' + (track?.label || 'unknown'), 'ok');
   } catch(e) {
+    console.error('[CAM] Permission denied:', e.name, '-', e.message);
     document.getElementById('permDenied').style.display = 'block';
-    log('Camera denied: '+e.message,'err');
+    log('Camera denied: ' + e.name + ' — ' + e.message, 'err');
   }
 }
+
 async function startCamera() {
+  console.log('[CAM] startCamera() called | grantedStream:', !!grantedStream);
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}
-    });
+    let stream = grantedStream;
+    if (!stream || stream.getVideoTracks()[0]?.readyState === 'ended') {
+      console.log('[CAM] No valid stream — requesting new one');
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      grantedStream = stream;
+    } else {
+      console.log('[CAM] Reusing granted stream');
+    }
+    const track = stream.getVideoTracks()[0];
+    console.log('[CAM] Track:', track?.label, '| readyState:', track?.readyState);
+    console.log('[CAM] Track capabilities:', JSON.stringify(track?.getCapabilities?.()));
     const v = document.getElementById('video');
+    console.log('[CAM] Assigning srcObject to video element…');
     v.srcObject = stream;
+    v.onloadedmetadata = () => {
+      console.log('[CAM] Video metadata loaded | size:', v.videoWidth, 'x', v.videoHeight);
+    };
+    v.onerror = (e) => {
+      console.error('[CAM] Video element error:', e);
+    };
     await v.play();
+    console.log('[CAM] video.play() resolved ✓ | videoWidth:', v.videoWidth, 'videoHeight:', v.videoHeight);
     camActive = true;
     document.getElementById('camWrap').style.display = 'block';
     document.getElementById('camPermCard').style.display = 'none';
     document.getElementById('liveStats').style.display = 'flex';
     setBadge('LIVE','live');
     setPill('CAM LIVE',true);
-    log('Camera started · '+stream.getVideoTracks()[0].label,'ok');
+    log('Camera started · ' + (track?.label || 'unknown'), 'ok');
+    console.log('[CAM] Camera fully started ✓ | autosnap:', tog('autosnap'));
     if (tog('autosnap')) startLiveStream();
   } catch(e) {
-    log('Camera error: '+e.message,'err');
+    console.error('[CAM] startCamera error:', e.name, '-', e.message, '| stack:', e.stack);
+    log('Camera error: ' + e.name + ' — ' + e.message, 'err');
     setBadge('ERROR','error');
   }
 }
@@ -936,31 +1015,40 @@ async function triggerManualScan() {
 async function sendToGemini(canvas, retryCount=0) {
   if (scanning) return;
   scanning=true; lastApiCallTime=Date.now(); statSent++; updateStats();
+  console.log('[GEMINI] sendToGemini called | canvas:', canvas.width+'x'+canvas.height, '| statSent:', statSent);
   const ctx=canvas.getContext('2d');
   lastFrameData=ctx.getImageData(0,0,canvas.width,canvas.height);
   const imgB64=canvas.toDataURL('image/jpeg',0.88).split(',')[1];
+  console.log('[GEMINI] Image b64 length:', imgB64.length, '| ~', Math.round(imgB64.length*0.75/1024), 'KB');
   clearValidation();
   showOverlay(true,'PASS 1 · READING');
   setLockDot('scanning');
   try {
+    console.log('[GEMINI] Starting Pass 1…');
     const p1=await geminiCall(imgB64,buildPass1Prompt());
+    console.log('[GEMINI] Pass 1 result:', JSON.stringify(p1));
     log('P1→ status:'+p1.status+' count:'+p1.options_count+' ans:'+p1.answer+' conf:'+p1.confidence,'dim');
     updateValidation(p1);
     if (p1.status!=='ok'||p1.options_count!==5) {
+      console.warn('[GEMINI] Pass 1 failed — status:', p1.status, '| options:', p1.options_count);
       showWarn(p1); scanning=false; showOverlay(false); setLockDot('warn'); return;
     }
     let p2={agree:true,final_answer:p1.answer,your_answer:p1.answer};
     if (!tog('speed')) {
       showOverlay(true,'PASS 2 · VERIFYING');
+      console.log('[GEMINI] Starting Pass 2 verification…');
       p2=await geminiCall(imgB64,buildPass2Prompt(p1));
+      console.log('[GEMINI] Pass 2 result:', JSON.stringify(p2));
       log('P2→ agree:'+p2.agree+' ans:'+p2.final_answer,'dim');
     }
     updateVCheck('vc-agree',p2.agree!==false,p2.agree?'YES':'NO');
     if (tog('protect')&&p2.agree===false&&!tog('speed')) {
+      console.warn('[GEMINI] Protection triggered — P1:', p1.answer, 'P2:', p2.your_answer);
       showUncertain(p1.answer,p2.your_answer); scanning=false; showOverlay(false); setLockDot('warn'); return;
     }
     const conf=scoreConfidence(p1,p2);
     const finalAns=p2.final_answer||p1.answer;
+    console.log('[GEMINI] Final answer:', finalAns, '| confidence:', conf);
     showAnswer(finalAns,p1,conf);
     haptic(finalAns);
     statAnswers++; updateStats();
@@ -968,28 +1056,36 @@ async function sendToGemini(canvas, retryCount=0) {
     lastFrameData=null;
     log('✓ ANSWER = '+finalAns+' | conf='+conf+'% | "'+( p1.question_summary||'')+'"','ok');
   } catch(e) {
+    console.error('[GEMINI] ERROR:', e.name, '-', e.message, '| stack:', e.stack);
     markKeyFailed(e.message);
     log('API error: '+e.message,'err');
     setLockDot('warn');
   }
   scanning=false; showOverlay(false);
+  console.log('[GEMINI] Done. scanning reset to false');
 }
 
 async function geminiCall(base64, prompt) {
   const keyObj=getActiveKey();
+  console.log('[GEMINI API] keyObj found:', !!keyObj, '| activeKeyIdx:', activeKeyIdx, '| total keys:', apiKeys.length);
   if (!keyObj) {
     const soonest=Math.min(...apiKeys.map(k=>k.limitedUntil||0));
     const wait=Math.ceil((soonest-Date.now())/1000);
+    console.error('[GEMINI API] All keys rate limited. Next in', wait, 's');
     throw new Error('All keys rate limited. Next in '+wait+'s');
   }
+  console.log('[GEMINI API] Using key', activeKeyIdx+1, '| prompt length:', prompt.length);
   const res=await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${keyObj.key}`,
     {method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:base64}}]}],generationConfig:{temperature:0.05,maxOutputTokens:1024}})}
   );
-  if (!res.ok) { const t=await res.text(); throw new Error(t.slice(0,300)+' status='+res.status); }
+  console.log('[GEMINI API] Response status:', res.status, res.statusText);
+  if (!res.ok) { const t=await res.text(); console.error('[GEMINI API] Error body:', t.slice(0,500)); throw new Error(t.slice(0,300)+' status='+res.status); }
   const data=await res.json();
+  console.log('[GEMINI API] Response candidates:', data.candidates?.length, '| finishReason:', data.candidates?.[0]?.finishReason);
   const raw=data.candidates?.[0]?.content?.parts?.[0]?.text||'{}';
+  console.log('[GEMINI API] Raw response text:', raw.slice(0, 300));
   const clean=raw.replace(/```json|```/g,'').trim();
   try { return JSON.parse(clean); }
   catch(e) {
