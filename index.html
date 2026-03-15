@@ -1023,7 +1023,7 @@ async function geminiCall(base64, prompt) {
   const res=await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${keyObj.key}`,
     {method:'POST',headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:base64}}]}],generationConfig:{temperature:0.05,maxOutputTokens:1024}})}
+     body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:base64}}]}],generationConfig:{temperature:0,maxOutputTokens:2048}})}
   );
   console.log('[GEMINI API] Response status:', res.status, res.statusText);
   if (!res.ok) { const t=await res.text(); console.error('[GEMINI API] Error body:', t.slice(0,500)); throw new Error(t.slice(0,300)+' status='+res.status); }
@@ -1031,11 +1031,30 @@ async function geminiCall(base64, prompt) {
   console.log('[GEMINI API] Response candidates:', data.candidates?.length, '| finishReason:', data.candidates?.[0]?.finishReason);
   const raw=data.candidates?.[0]?.content?.parts?.[0]?.text||'{}';
   console.log('[GEMINI API] Raw response text:', raw.slice(0, 300));
-  const clean=raw.replace(/```json|```/g,'').trim();
+  // Strip thinking blocks (Gemini 2.5 Pro emits <think>...</think> before JSON)
+  // Also strip markdown fences
+  let clean = raw
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/```json\s*/gi, '')
+    .replace(/```\s*/g, '')
+    .trim();
+  // Find the first { in case there's preamble text
+  const jsonStart = clean.indexOf('{');
+  if (jsonStart > 0) {
+    console.log('[GEMINI API] Stripped preamble:', clean.slice(0, jsonStart).trim());
+    clean = clean.slice(jsonStart);
+  }
   try { return JSON.parse(clean); }
   catch(e) {
+    console.warn('[GEMINI API] JSON parse failed, trying repair. Raw:', clean.slice(0,200));
     try { return JSON.parse(repairJSON(clean)); }
-    catch(e2) { return extractFallback(clean)||{status:'reposition',options_count:0}; }
+    catch(e2) {
+      console.warn('[GEMINI API] Repair also failed. Trying fallback extraction. Raw:', clean.slice(0,300));
+      const fb = extractFallback(clean);
+      if (fb) { console.log('[GEMINI API] Fallback extracted:', JSON.stringify(fb)); return fb; }
+      console.error('[GEMINI API] All parse attempts failed — returning reposition. Full raw response:', clean);
+      return {status:'reposition',options_count:0,reason:'JSON parse failed — check console for raw response'};
+    }
   }
 }
 
@@ -1049,24 +1068,24 @@ If EXACTLY 5 options are visible AND you can make out the question text (even if
 - A slightly blurry image is fine — if you can read the words, answer it
 - Only return status reposition if you truly cannot read the question or options at all
 
-RESPOND ONLY WITH JSON — no markdown, no explanation:
+YOUR RESPONSE MUST BE A SINGLE RAW JSON OBJECT ONLY. No markdown. No explanation. No thinking text. No code fences. Start your response with { and end with }.
 
-If you can answer:
-{"status":"ok","options_count":5,"answer":"A","answer_text":"exact text of correct option","question_summary":"the question","question_complete":true,"options_complete":true,"confidence":"high","options_visible":["A","B","C","D","E"],"format":"kahoot|exam|slides|other"}
+If you can answer (5 options visible and question readable):
+{"status":"ok","options_count":5,"answer":"B","answer_text":"exact text of the correct option","question_summary":"brief question text","question_complete":true,"options_complete":true,"confidence":"high","options_visible":["A","B","C","D","E"]}
 
-If you genuinely cannot read it:
-{"status":"reposition","options_count":0,"question_complete":false,"options_complete":false,"reason":"specific reason you cannot read it"}`;
+If you cannot read it at all (image completely unreadable):
+{"status":"reposition","options_count":0,"question_complete":false,"options_complete":false,"reason":"specific reason"}`;
 }
 
 function buildPass2Prompt(p1) {
-  return `Independently verify this multiple choice answer. Look at the image fresh.
+  return `Verify this multiple choice answer by looking at the image again independently.
 
-Previous analysis: question="${p1.question_summary}" proposed answer="${p1.answer}" text="${p1.answer_text}"
+Previous reading: question="${p1.question_summary}" | proposed answer="${p1.answer}" | answer text="${p1.answer_text}"
 
-Do you agree? What is YOUR independent answer?
+Do you agree with this answer? What is your own independent answer?
 
-RESPOND ONLY WITH JSON:
-{"agree":true,"final_answer":"A","your_answer":"A","reason":"brief reason"}`;
+RESPOND WITH A SINGLE RAW JSON OBJECT ONLY — no markdown, no explanation, start with {:
+{"agree":true,"final_answer":"B","your_answer":"B","reason":"one sentence reason"}`;
 }
 
 function repairJSON(s) {
@@ -1285,7 +1304,7 @@ function updateCooldownLabel(){ document.getElementById('cooldownLbl').textConte
 function loadToggles() {
   const saved=JSON.parse(localStorage.getItem('ab_toggles')||'{}');
   Object.keys(saved).forEach(k=>{ const el=document.getElementById('tog-'+k); if(el) el.checked=saved[k]; });
-  const iv=localStorage.getItem('ab_interval'); if(iv){document.getElementById('captureInterval').value=iv;updateIntervalLabel();}
+  // captureInterval removed — interval slider no longer exists
   const cd=localStorage.getItem('ab_cooldown'); if(cd){document.getElementById('cooldownSecs').value=cd;updateCooldownLabel();}
 }
 function saveToggles() {
@@ -1293,7 +1312,7 @@ function saveToggles() {
   const obj={};
   keys.forEach(k=>{obj[k]=document.getElementById('tog-'+k)?.checked??false;});
   localStorage.setItem('ab_toggles',JSON.stringify(obj));
-  localStorage.setItem('ab_interval',document.getElementById('captureInterval').value);
+  // captureInterval removed
   localStorage.setItem('ab_cooldown',document.getElementById('cooldownSecs').value);
 }
 
