@@ -380,8 +380,28 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
         </div>
       </div>
       <button class="btn btn-accent btn-wide" onclick="espSnap()" style="margin-bottom:4px;">📡 ESP32 SNAP TEST</button>
+
+      <!-- ESP32 LIVE PREVIEW -->
+      <div style="margin-top:8px;">
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <button class="btn btn-blue" style="flex:1;font-family:'Bebas Neue';font-size:14px;letter-spacing:2px;" id="espPreviewBtn" onclick="toggleESPPreview()">▶ LIVE PREVIEW</button>
+          <button class="btn" style="flex:1;font-size:8px;" onclick="espSingleFrame()">📸 SINGLE FRAME</button>
+        </div>
+        <!-- Preview container — hidden until activated -->
+        <div id="espPreviewWrap" style="display:none;position:relative;width:100%;background:#000;border-radius:6px;overflow:hidden;border:1px solid var(--blue);margin-bottom:6px;">
+          <img id="espPreviewImg" style="width:100%;display:block;border-radius:6px;" src="" alt="ESP32 preview">
+          <!-- Overlay info bar -->
+          <div style="position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:#000a;">
+            <span style="font-size:7px;letter-spacing:2px;color:var(--blue);">ESP32-S3 LIVE</span>
+            <span style="font-size:7px;color:var(--muted);" id="espPreviewFps">-- fps</span>
+            <span style="font-size:7px;color:var(--muted);" id="espPreviewSize">-- KB</span>
+          </div>
+          <!-- Scanning flash overlay -->
+          <div id="espPreviewFlash" style="position:absolute;inset:0;background:var(--accent);opacity:0;pointer-events:none;border-radius:6px;transition:opacity 0.1s;"></div>
+        </div>
+        <div id="espPreviewStatus" style="font-size:8px;color:var(--muted);letter-spacing:1px;text-align:center;"></div>
+      </div>
     </div>
-  </div>
 
   <!-- CAMERA SETUP (phone mode) -->
   <div class="card" id="camPermCard">
@@ -1967,10 +1987,129 @@ function showWarn(result) {
   signalESP32LED('WARN');
 }
 
+// ══════════════════════════════════════════════════════════
+// ESP32 LIVE PREVIEW ENGINE
+// Polls /capture repeatedly to show a live view in the app
+// ══════════════════════════════════════════════════════════
+let espPreviewActive = false;
+let espPreviewTimer  = null;
+let espFrameCount    = 0;
+let espFpsTimer      = null;
+let espFpsCount      = 0;
+
+function getESPBaseUrl() {
+  const ip   = document.getElementById('espIP').value.trim()   || '192.168.105.150';
+  const port = document.getElementById('espPort').value.trim() || '80';
+  return `http://${ip}:${port}`;
+}
+
+function toggleESPPreview() {
+  espPreviewActive ? stopESPPreview() : startESPPreview();
+}
+
+function startESPPreview() {
+  espPreviewActive = true;
+  document.getElementById('espPreviewWrap').style.display = 'block';
+  document.getElementById('espPreviewBtn').textContent    = '⏹ STOP PREVIEW';
+  document.getElementById('espPreviewBtn').style.borderColor = 'var(--red)';
+  document.getElementById('espPreviewBtn').style.color       = 'var(--red)';
+  document.getElementById('espPreviewStatus').textContent    = 'Streaming…';
+  document.getElementById('espPreviewStatus').style.color    = 'var(--green)';
+
+  // Start FPS counter
+  espFpsCount = 0;
+  espFpsTimer = setInterval(() => {
+    document.getElementById('espPreviewFps').textContent = espFpsCount + ' fps';
+    espFpsCount = 0;
+  }, 1000);
+
+  fetchPreviewFrame();
+  log('ESP32 live preview started', 'info');
+}
+
+function stopESPPreview() {
+  espPreviewActive = false;
+  clearTimeout(espPreviewTimer);
+  clearInterval(espFpsTimer);
+  document.getElementById('espPreviewBtn').textContent    = '▶ LIVE PREVIEW';
+  document.getElementById('espPreviewBtn').style.borderColor = 'var(--blue)';
+  document.getElementById('espPreviewBtn').style.color       = 'var(--blue)';
+  document.getElementById('espPreviewStatus').textContent    = 'Preview stopped';
+  document.getElementById('espPreviewStatus').style.color    = 'var(--muted)';
+  document.getElementById('espPreviewFps').textContent       = '-- fps';
+  log('ESP32 live preview stopped', 'dim');
+}
+
+async function fetchPreviewFrame() {
+  if (!espPreviewActive) return;
+  try {
+    const url = getESPBaseUrl() + '/capture?t=' + Date.now();
+    const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const objUrl = URL.createObjectURL(blob);
+    const img = document.getElementById('espPreviewImg');
+    // Revoke old object URL to free memory
+    if (img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+    img.src = objUrl;
+    // Update size display
+    document.getElementById('espPreviewSize').textContent = (blob.size/1024).toFixed(0) + ' KB';
+    // FPS counter
+    espFpsCount++;
+    // Flash when a real scan is happening
+    if (scanning) {
+      const f = document.getElementById('espPreviewFlash');
+      f.style.opacity = '0.3';
+      setTimeout(() => { f.style.opacity = '0'; }, 150);
+    }
+    document.getElementById('espPreviewStatus').textContent = '● LIVE';
+    document.getElementById('espPreviewStatus').style.color = 'var(--green)';
+  } catch(e) {
+    document.getElementById('espPreviewStatus').textContent = '✗ ' + e.message;
+    document.getElementById('espPreviewStatus').style.color = 'var(--red)';
+    // Slow down on error to avoid hammering
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  // Chain next frame — ~500ms interval gives ~2fps which is enough for debug
+  if (espPreviewActive) {
+    espPreviewTimer = setTimeout(fetchPreviewFrame, 500);
+  }
+}
+
+async function espSingleFrame() {
+  try {
+    document.getElementById('espPreviewWrap').style.display = 'block';
+    document.getElementById('espPreviewStatus').textContent = 'Fetching…';
+    document.getElementById('espPreviewStatus').style.color = 'var(--accent)';
+    const url = getESPBaseUrl() + '/capture?t=' + Date.now();
+    const res = await fetch(url, { mode: 'cors', cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const img = document.getElementById('espPreviewImg');
+    if (img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+    img.src = URL.createObjectURL(blob);
+    document.getElementById('espPreviewSize').textContent = (blob.size/1024).toFixed(0) + ' KB';
+    document.getElementById('espPreviewStatus').textContent = '✓ Single frame captured';
+    document.getElementById('espPreviewStatus').style.color = 'var(--green)';
+    log('ESP32 single frame captured — ' + (blob.size/1024).toFixed(1) + ' KB', 'ok');
+  } catch(e) {
+    document.getElementById('espPreviewStatus').textContent = '✗ ' + e.message;
+    document.getElementById('espPreviewStatus').style.color = 'var(--red)';
+  }
+}
+
+// Stop preview if switching away from ESP32 mode
+const _origSetCamSource = setCamSource;
+function setCamSource(src) {
+  if (src !== 'esp32' && espPreviewActive) stopESPPreview();
+  _origSetCamSource(src);
+}
+
 // ── Turn LED off when app goes to background ──
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) signalESP32LED('OFF');
+  if (document.hidden) { signalESP32LED('OFF'); stopESPPreview(); }
 });
+
 
 </script>
 </body>
