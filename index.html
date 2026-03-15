@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>ESP AnswerBot · OLED</title>
+<title>ESP AnswerBot · OLED 1.2</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=Bebas+Neue&display=swap');
 :root{
@@ -101,6 +101,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
 /* Camera */
 .cam-wrap{position:relative;width:100%;aspect-ratio:16/10;background:#000;border-radius:6px;overflow:hidden;border:1px solid var(--border);margin-bottom:8px;}
 #video{width:100%;height:100%;object-fit:cover;display:block;}
+.guide{position:absolute;inset:0;pointer-events:none;}
 .guide::before,.guide::after,.guide .c3,.guide .c4{content:'';position:absolute;width:18px;height:18px;border-style:solid;border-color:var(--accent);opacity:0.5;}
 .guide::before{top:8px;left:8px;border-width:2px 0 0 2px;}
 .guide::after{top:8px;right:8px;border-width:2px 2px 0 0;}
@@ -225,7 +226,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
 
   <div class="topbar">
     <div>
-      <div class="topbar-title">ESP <span style="color:var(--accent2)">ANSWERBOT</span> <span style="color:var(--blue);font-size:16px;">OLED</span></div>
+      <div class="topbar-title">ESP <span style="color:var(--accent2)">ANSWERBOT</span> <span style="color:var(--blue);font-size:16px;">OLED</span> <span style="color:var(--muted);font-size:12px;">1.2</span></div>
       <div class="topbar-sub">PHONE CAM · GEMINI · OLED DISPLAY</div>
     </div>
     <div class="pill"><div class="pill-dot" id="statusDot"></div><span id="statusPill">IDLE</span></div>
@@ -538,52 +539,61 @@ window.addEventListener('load', () => {
 });
 
 // ══════════════════════════════════════════════════════════
+// ABORT SIGNAL HELPER — works on older mobile browsers
+// ══════════════════════════════════════════════════════════
+function makeAbortSignal(ms) {
+  if (typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
+  const ctrl = new AbortController();
+  setTimeout(() => ctrl.abort(), ms);
+  return ctrl.signal;
+}
+
+// ══════════════════════════════════════════════════════════
 // OLED ENGINE
 // ══════════════════════════════════════════════════════════
 function getOLEDIP() {
   return (document.getElementById('oledIP')?.value || '').trim();
 }
 
-let oledRetryCount = 0;
 const OLED_MAX_RETRIES = 3;
 
-async function sendToOLED(text, silent) {
+async function sendToOLED(text, _retryNum) {
+  const retryNum = _retryNum || 0;
   const ip = getOLEDIP();
   if (!ip) { console.warn('[OLED] No IP set — skipping send'); return; }
   const url = `http://${ip}/display?text=${encodeURIComponent(text)}`;
-  console.log('[OLED] sendToOLED →', url, '| silent:', silent, '| text:', text);
-  setOLEDDot('sending');
-  document.getElementById('oledStatusTxt').textContent = 'Sending…';
+  console.log('[OLED] sendToOLED →', url, '| retry:', retryNum, '| text:', text);
+  if (retryNum === 0) {
+    setOLEDDot('sending');
+    document.getElementById('oledStatusTxt').textContent = 'Sending…';
+  }
   try {
     const res = await fetch(url, {
       mode: 'cors', cache: 'no-store',
-      signal: AbortSignal.timeout(5000)
+      signal: makeAbortSignal(5000)
     });
     console.log('[OLED] Response:', res.status, res.statusText, '| ok:', res.ok);
     if (res.ok) {
       oledConnected = true;
-      oledRetryCount = 0;
       setOLEDDot('ok');
       document.getElementById('oledStatusTxt').textContent = 'OLED ✓ ' + ip;
       document.getElementById('oledLastSent').textContent = text.slice(0, 20);
-      if (!silent) log('OLED ← ' + text.slice(0, 40), 'ok');
+      if (retryNum === 0) log('OLED ← ' + text.slice(0, 40), 'ok');
     } else {
       throw new Error('HTTP ' + res.status + ' ' + res.statusText);
     }
-  } catch(e) {
+  } catch(err) {
     oledConnected = false;
-    oledRetryCount++;
     setOLEDDot('err');
-    console.error('[OLED] FAILED attempt', oledRetryCount, '| error:', e.name, '-', e.message, '| url:', url);
-    document.getElementById('oledStatusTxt').textContent = 'OLED ✗ ' + e.message.slice(0, 30);
-    if (!silent) log('OLED failed ('+oledRetryCount+'): ' + e.message, 'warn');
-    if (oledRetryCount <= OLED_MAX_RETRIES) {
-      const retryDelay = oledRetryCount * 3000;
-      console.log('[OLED] Retry', oledRetryCount, '/', OLED_MAX_RETRIES, 'in', retryDelay/1000, 's');
-      setTimeout(() => sendToOLED(text, true), retryDelay);
+    console.error('[OLED] FAILED attempt', retryNum+1, '| error:', err.name, '-', err.message, '| url:', url);
+    document.getElementById('oledStatusTxt').textContent = 'OLED ✗ ' + err.message.slice(0, 30);
+    if (retryNum === 0) log('OLED failed: ' + err.message, 'warn');
+    if (retryNum < OLED_MAX_RETRIES) {
+      const retryDelay = (retryNum + 1) * 3000;
+      console.log('[OLED] Retry', retryNum+1, '/', OLED_MAX_RETRIES, 'in', retryDelay/1000, 's');
+      setTimeout(() => sendToOLED(text, retryNum + 1), retryDelay);
     } else {
       console.warn('[OLED] Max retries reached — stopping. Keep-alive will reconnect.');
-      oledRetryCount = 0;
     }
   }
 }
@@ -610,27 +620,28 @@ function startKeepalive() {
     try {
       const res = await fetch(pingUrl, {
         mode: 'cors', cache: 'no-store',
-        signal: AbortSignal.timeout(4000)
+        signal: makeAbortSignal(4000)
       });
       console.log('[KEEPALIVE] Ping response:', res.status);
       if (!oledConnected) {
         oledConnected = true;
-        oledRetryCount = 0;
         setOLEDDot('ok');
         document.getElementById('oledStatusTxt').textContent = 'OLED reconnected · ' + ip;
         log('OLED keep-alive: reconnected ✓', 'ok');
+      } else {
+        setOLEDDot('ok'); // ensure dot stays green
       }
     } catch(e) {
       console.warn('[KEEPALIVE] /ping failed:', e.message, '— trying /display fallback');
       try {
         await fetch(`http://${ip}/display?text=%20`, {
           mode: 'cors', cache: 'no-store',
-          signal: AbortSignal.timeout(4000)
+          signal: makeAbortSignal(4000)
         });
         console.log('[KEEPALIVE] Fallback /display ping OK');
         if (!oledConnected) {
           oledConnected = true;
-          oledRetryCount = 0;
+
           setOLEDDot('ok');
           document.getElementById('oledStatusTxt').textContent = 'OLED reconnected · ' + ip;
           log('OLED keep-alive: reconnected via fallback ✓', 'ok');
@@ -729,7 +740,7 @@ async function sosRecover() {
   stopLiveStream();
   scanning = false;
   await wakeLock();
-  if (camActive) { await delay(500); startLiveStream(); }
+  if (camActive && grantedStream && grantedStream.getVideoTracks()[0]?.readyState === 'live') { await delay(500); startLiveStream(); }
   startKeepalive();
 }
 
@@ -853,15 +864,15 @@ async function startCamera() {
     }
     const track = stream.getVideoTracks()[0];
     console.log('[CAM] Track:', track?.label, '| readyState:', track?.readyState);
-    console.log('[CAM] Track capabilities:', JSON.stringify(track?.getCapabilities?.()));
+    try { console.log('[CAM] Track capabilities:', JSON.stringify(track?.getCapabilities?.())); } catch(_) {}
     const v = document.getElementById('video');
     console.log('[CAM] Assigning srcObject to video element…');
     v.srcObject = stream;
     v.onloadedmetadata = () => {
       console.log('[CAM] Video metadata loaded | size:', v.videoWidth, 'x', v.videoHeight);
     };
-    v.onerror = (e) => {
-      console.error('[CAM] Video element error:', e);
+    v.onerror = (evt) => {
+      console.error('[CAM] Video element error:', evt);
     };
     await v.play();
     console.log('[CAM] video.play() resolved ✓ | videoWidth:', v.videoWidth, 'videoHeight:', v.videoHeight);
@@ -1003,7 +1014,7 @@ function measureBlur(canvas) {
 async function triggerManualScan() {
   if (scanning) return;
   if (!apiKeys.length) { log('No API keys saved','err'); return; }
-  if (!camActive) { log('Camera not active','warn'); return; }
+  if (!camActive) { log('Camera not active — use Upload button instead','warn'); return; }
   log('Manual scan triggered','info');
   const canvas = captureFrame();
   await sendToGemini(canvas);
@@ -1012,12 +1023,15 @@ async function triggerManualScan() {
 // ══════════════════════════════════════════════════════════
 // GEMINI
 // ══════════════════════════════════════════════════════════
-async function sendToGemini(canvas, retryCount=0) {
+async function sendToGemini(canvas) {
   if (scanning) return;
   scanning=true; lastApiCallTime=Date.now(); statSent++; updateStats();
   console.log('[GEMINI] sendToGemini called | canvas:', canvas.width+'x'+canvas.height, '| statSent:', statSent);
   const ctx=canvas.getContext('2d');
-  lastFrameData=ctx.getImageData(0,0,canvas.width,canvas.height);
+  // Store a small thumbnail for change detection (must match liveFrameTick crop size)
+  const _tmpC=document.createElement('canvas'); _tmpC.width=320; _tmpC.height=240;
+  _tmpC.getContext('2d').drawImage(canvas,0,0,320,240);
+  lastFrameData=_tmpC.getContext('2d').getImageData(0,0,320,240);
   const imgB64=canvas.toDataURL('image/jpeg',0.88).split(',')[1];
   console.log('[GEMINI] Image b64 length:', imgB64.length, '| ~', Math.round(imgB64.length*0.75/1024), 'KB');
   clearValidation();
@@ -1303,9 +1317,7 @@ function handleUpload(e) {
       c.width=img.width;c.height=img.height;
       c.getContext('2d').drawImage(img,0,0);
       log('Photo loaded ('+img.width+'×'+img.height+') — scanning…','ok');
-      camActive=true;
       await sendToGemini(c);
-      camActive=false;
     };
     img.src=ev.target.result;
   };
