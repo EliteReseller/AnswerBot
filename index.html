@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>AnswerBot Pro v5</title>
+<title>ESP AnswerBot 1.1</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=Bebas+Neue&display=swap');
 :root{
@@ -312,8 +312,8 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
 
   <div class="topbar">
     <div>
-      <div class="topbar-title">ANSWERBOT <span style="color:var(--accent2)">v4</span></div>
-      <div class="topbar-sub">LIVE STREAM · AUTO-SNAP · BULLETPROOF</div>
+      <div class="topbar-title">ESP <span style="color:var(--accent2)">ANSWERBOT</span> <span style="color:var(--blue);font-size:16px;">1.1</span></div>
+      <div class="topbar-sub">ESP32-S3 CAM · CLICKER · GEMINI · BULLETPROOF</div>
     </div>
     <div class="pill">
       <div class="pill-dot" id="statusDot"></div>
@@ -345,9 +345,47 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
     </div>
   </div>
 
-  <!-- CAMERA SETUP -->
+  <!-- ESP32 CAM SOURCE SELECTOR -->
+  <div class="card" style="border-color:#4db8ff40;background:#060d14;">
+    <div class="card-title" style="color:var(--blue);">📡 Camera Source</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+      <button id="src-phone" class="btn" style="padding:12px 0;font-family:'Bebas Neue';font-size:16px;border-color:var(--accent);color:var(--accent);background:#e8ff4710;" onclick="setCamSource('phone')">📱 PHONE</button>
+      <button id="src-esp32" class="btn" style="padding:12px 0;font-family:'Bebas Neue';font-size:16px;border-color:var(--dim);color:var(--dim);" onclick="setCamSource('esp32')">📡 ESP32</button>
+    </div>
+    <!-- ESP32 config (shown when ESP32 source selected) -->
+    <div id="esp32Config" style="display:none;">
+      <div style="background:#040c18;border:1px solid #4db8ff30;border-radius:6px;padding:10px;margin-bottom:8px;">
+        <div style="font-size:8px;color:var(--blue);letter-spacing:2px;margin-bottom:8px;">ESP32-S3 CONNECTION</div>
+        <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center;">
+          <div style="font-size:8px;color:var(--muted);width:36px;flex-shrink:0;">IP</div>
+          <input type="text" id="espIP" placeholder="192.168.1.200" value="192.168.1.200" style="flex:1;font-size:11px;">
+          <div style="font-size:8px;color:var(--muted);width:40px;flex-shrink:0;">PORT</div>
+          <input type="number" id="espPort" placeholder="80" value="80" style="width:56px;font-size:11px;">
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">
+          <div style="font-size:8px;color:var(--muted);width:36px;flex-shrink:0;">PATH</div>
+          <input type="text" id="espPath" placeholder="/capture" value="/capture" style="flex:1;font-size:11px;">
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-blue" style="flex:1;" onclick="testESP32()">🔍 TEST CONNECTION</button>
+          <button class="btn btn-accent" style="flex:1;" onclick="saveESPConfig()">SAVE</button>
+        </div>
+        <div id="espStatus" style="margin-top:8px;font-size:9px;color:var(--muted);letter-spacing:1px;">Not connected</div>
+      </div>
+      <div style="background:#040c18;border:1px solid #4db8ff20;border-radius:6px;padding:9px;margin-bottom:8px;">
+        <div style="font-size:8px;color:var(--muted);line-height:2;">
+          <b style="color:var(--blue);">Setup:</b> ESP32 connects to your home Wi-Fi router · Phone stays on same Wi-Fi with full internet<br>
+          <b style="color:var(--blue);">Fixed IP:</b> <span style="color:var(--accent)">192.168.1.200</span> (set in sketch) · change if your network uses 192.168.0.x<br>
+          <b style="color:var(--blue);">Endpoints:</b> GET /capture → JPEG · GET /led?answer=A → LED colour
+        </div>
+      </div>
+      <button class="btn btn-accent btn-wide" onclick="espSnap()" style="margin-bottom:4px;">📡 ESP32 SNAP TEST</button>
+    </div>
+  </div>
+
+  <!-- CAMERA SETUP (phone mode) -->
   <div class="card" id="camPermCard">
-    <div class="card-title">Camera Setup</div>
+    <div class="card-title">Phone Camera Setup</div>
     <div id="httpsWarn" style="display:none;background:#1a0808;border:1px solid #ff335540;border-radius:6px;padding:10px;margin-bottom:10px;">
       <div style="font-size:10px;color:var(--red);font-weight:700;margin-bottom:4px;">⚠ NEEDS HTTPS</div>
       <div style="font-size:9px;color:#c05050;line-height:1.7;">Host on <b style="color:var(--blue)">GitHub Pages</b> for camera access · Free HTTPS in 2 mins</div>
@@ -574,7 +612,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
   <div class="card">
     <div class="card-title">Physical LED Simulator</div>
     <div style="background:#050708;border:2px solid #1a2030;border-radius:14px;padding:18px 14px 14px;position:relative;margin-bottom:8px;">
-      <div style="position:absolute;top:6px;left:50%;transform:translateX(-50%);font-size:7px;letter-spacing:3px;color:#1a2030;white-space:nowrap;">ANSWERBOT DEVICE</div>
+      <div style="position:absolute;top:6px;left:50%;transform:translateX(-50%);font-size:7px;letter-spacing:3px;color:#1a2030;white-space:nowrap;">ESP ANSWERBOT 1.1</div>
       <div style="display:flex;justify-content:space-around;align-items:flex-end;margin-top:6px;margin-bottom:14px;">
         <div><div class="phys-led led-A" id="pled-a"></div><div class="phys-lbl" style="color:#ff4466;">A</div></div>
         <div><div class="phys-led led-B" id="pled-b"></div><div class="phys-lbl" style="color:#4488ff;">B</div></div>
@@ -714,7 +752,7 @@ window.addEventListener('load', () => {
 
   wakeLock();
   initClickerWheel();
-  log('AnswerBot Pro v5 ready · Live stream mode', 'info');
+  log('ESP AnswerBot 1.1 ready · ESP32-S3 CAM + Phone mode', 'info');
 });
 
 function loadToggles() {
@@ -1744,6 +1782,195 @@ async function requestDND() {
 }
 
 // ── Patch showAnswer to save lastAnswer for repeat ──
+
+// ══════════════════════════════════════════════════════════
+// ESP32 CAM SOURCE ENGINE
+// ══════════════════════════════════════════════════════════
+let camSource = 'phone'; // 'phone' | 'esp32'
+let espConnected = false;
+
+function setCamSource(src) {
+  camSource = src;
+  localStorage.setItem('ab_camsrc', src);
+
+  const phoneBtn = document.getElementById('src-phone');
+  const esp32Btn = document.getElementById('src-esp32');
+  const espCfg   = document.getElementById('esp32Config');
+  const camPerm  = document.getElementById('camPermCard');
+  const camWrap  = document.getElementById('camWrap');
+
+  if (src === 'esp32') {
+    phoneBtn.style.borderColor = 'var(--dim)';   phoneBtn.style.color = 'var(--dim)';   phoneBtn.style.background = 'transparent';
+    esp32Btn.style.borderColor = 'var(--blue)';  esp32Btn.style.color = 'var(--blue)';  esp32Btn.style.background = '#4db8ff10';
+    espCfg.style.display  = 'block';
+    camPerm.style.display = 'none';
+    camWrap.style.display = 'none';
+    // Stop phone camera if running
+    const v = document.getElementById('video');
+    if (v && v.srcObject) { v.srcObject.getTracks().forEach(t=>t.stop()); v.srcObject=null; }
+    camActive = false;
+    setBadge('ESP32 MODE', 'live');
+    setPill('ESP32 SRC', true);
+    log('Camera source → ESP32-S3', 'info');
+  } else {
+    phoneBtn.style.borderColor = 'var(--accent)'; phoneBtn.style.color = 'var(--accent)'; phoneBtn.style.background = '#e8ff4710';
+    esp32Btn.style.borderColor = 'var(--dim)';    esp32Btn.style.color = 'var(--dim)';    esp32Btn.style.background = 'transparent';
+    espCfg.style.display  = 'none';
+    camPerm.style.display = 'block';
+    log('Camera source → Phone', 'info');
+  }
+}
+
+function getESPUrl() {
+  const ip   = document.getElementById('espIP').value.trim()   || '192.168.4.1';
+  const port = document.getElementById('espPort').value.trim() || '80';
+  const path = document.getElementById('espPath').value.trim() || '/capture';
+  return `http://${ip}:${port}${path}`;
+}
+
+function saveESPConfig() {
+  localStorage.setItem('ab_esp_ip',   document.getElementById('espIP').value.trim());
+  localStorage.setItem('ab_esp_port', document.getElementById('espPort').value.trim());
+  localStorage.setItem('ab_esp_path', document.getElementById('espPath').value.trim());
+  log('ESP32 config saved → ' + getESPUrl(), 'ok');
+}
+
+function loadESPConfig() {
+  const ip   = localStorage.getItem('ab_esp_ip');
+  const port = localStorage.getItem('ab_esp_port');
+  const path = localStorage.getItem('ab_esp_path');
+  const src  = localStorage.getItem('ab_camsrc') || 'phone';
+  if (ip)   document.getElementById('espIP').value   = ip;
+  if (port) document.getElementById('espPort').value = port;
+  if (path) document.getElementById('espPath').value = path;
+  setCamSource(src);
+}
+
+async function fetchESP32Frame() {
+  const url = getESPUrl() + '?t=' + Date.now(); // cache bust
+  const setStatus = (msg, color) => {
+    const el = document.getElementById('espStatus');
+    if (el) { el.textContent = msg; el.style.color = color; }
+  };
+  try {
+    setStatus('Fetching from ESP32…', 'var(--accent)');
+    const res = await fetch(url, { method: 'GET', mode: 'cors', cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    if (!blob.type.startsWith('image/')) throw new Error('Not an image response — got: ' + blob.type);
+    setStatus('✓ Frame received (' + (blob.size/1024).toFixed(1) + ' KB)', 'var(--green)');
+    espConnected = true;
+    // Draw into canvas and return it
+    const bitmap = await createImageBitmap(blob);
+    const c = document.getElementById('canvas');
+    c.width  = bitmap.width;
+    c.height = bitmap.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0);
+    // Apply same post-processing as phone camera
+    try {
+      const o = document.createElement('canvas');
+      o.width = c.width; o.height = c.height;
+      const octx = o.getContext('2d');
+      octx.filter = 'contrast(1.2) brightness(0.94) saturate(1.1)';
+      octx.drawImage(c, 0, 0);
+      ctx.clearRect(0, 0, c.width, c.height);
+      ctx.drawImage(o, 0, 0);
+    } catch(e) {}
+    log('ESP32 frame: ' + bitmap.width + '×' + bitmap.height, 'dim');
+    return c;
+  } catch(e) {
+    espConnected = false;
+    const hint = e.message.includes('Failed to fetch') ?
+      'Cannot reach ESP32 — make sure phone and ESP32 are on the same Wi-Fi network' : e.message;
+    setStatus('✗ ' + hint, 'var(--red)');
+    log('ESP32 fetch failed: ' + hint, 'err');
+    throw e;
+  }
+}
+
+async function testESP32() {
+  log('Testing ESP32 connection → ' + getESPUrl(), 'info');
+  try {
+    await fetchESP32Frame();
+    log('ESP32 ✓ connected & returning images', 'ok');
+  } catch(e) {
+    // error already logged inside fetchESP32Frame
+  }
+}
+
+async function espSnap() {
+  if (scanning) return;
+  if (!apiKeys.length) { log('No API keys saved', 'err'); return; }
+  log('ESP32 snap triggered', 'info');
+  try {
+    const canvas = await fetchESP32Frame();
+    await sendToGemini(canvas);
+  } catch(e) {
+    log('ESP32 snap failed — check connection', 'err');
+  }
+}
+
+// ── Override triggerManualScan to route to ESP32 when in ESP32 mode ──
+const _origTriggerManualScan = triggerManualScan;
+window.triggerManualScan = async function() {
+  if (camSource === 'esp32') {
+    if (scanning) return;
+    if (!apiKeys.length) { log('No API keys saved', 'err'); return; }
+    log('Manual scan → ESP32', 'info');
+    try {
+      const canvas = await fetchESP32Frame();
+      await sendToGemini(canvas);
+    } catch(e) {
+      log('ESP32 scan failed: ' + e.message, 'err');
+    }
+  } else {
+    _origTriggerManualScan();
+  }
+};
+
+// ── Load ESP config on boot ──
+window.addEventListener('load', () => {
+  loadESPConfig();
+}, true);
+
+// ══════════════════════════════════════════════════════════
+// ESP32 LED SIGNALLING
+// Fires after every answer — silent fail, LED is a bonus
+// ══════════════════════════════════════════════════════════
+function signalESP32LED(answer) {
+  if (camSource !== 'esp32') return;
+  const ip   = document.getElementById('espIP').value.trim()   || '192.168.1.200';
+  const port = document.getElementById('espPort').value.trim() || '80';
+  fetch(`http://${ip}:${port}/led?answer=${answer}`, { mode: 'cors', cache: 'no-store' })
+    .catch(() => {}); // silent — LED failure never blocks answer display
+}
+
+// ── Signal LED when scanning starts ──
+const _origShowOverlay = showOverlay;
+function showOverlay(on, step) {
+  _origShowOverlay(on, step);
+  if (on && camSource === 'esp32') signalESP32LED('SCAN');
+}
+
+// ── Signal LED on answer ──
+const _origShowAnswer = showAnswer;
+function showAnswer(ans, data, conf) {
+  _origShowAnswer(ans, data, conf);
+  signalESP32LED(ans);
+}
+
+// ── Signal LED on warn/reposition ──
+const _origShowWarn = showWarn;
+function showWarn(result) {
+  _origShowWarn(result);
+  signalESP32LED('WARN');
+}
+
+// ── Turn LED off when app goes to background ──
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) signalESP32LED('OFF');
+});
 
 </script>
 </body>
