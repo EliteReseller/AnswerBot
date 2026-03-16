@@ -590,7 +590,7 @@ async function captureHighRes() {
   // Try ImageCapture.takePhoto() first — full sensor resolution
   if (imageCapture) {
     try {
-      blob = await imageCapture.takePhoto({ imageWidth: 2000 });
+      blob = await imageCapture.takePhoto(); // full sensor resolution — Z Flip 4 = 50MP
       log(`takePhoto: ${(blob.size/1024).toFixed(0)}KB`, 'dim');
     } catch(e) {
       log('takePhoto failed: '+e.message+' — fallback to video', 'warn');
@@ -603,11 +603,12 @@ async function captureHighRes() {
 
   if (blob) {
     const img = new Image();
+    const blobUrl = URL.createObjectURL(blob);
     await new Promise((res, rej) => {
       img.onload = res; img.onerror = rej;
-      img.src = URL.createObjectURL(blob);
+      img.src = blobUrl;
     });
-    URL.revokeObjectURL(img.src);
+    URL.revokeObjectURL(blobUrl); // revoke after image fully loaded
 
     canvas.width  = img.naturalWidth;
     canvas.height = img.naturalHeight;
@@ -639,15 +640,8 @@ async function captureHighRes() {
     }
   }
 
-  // Contrast + sharpness enhancement
-  const tmp = document.createElement('canvas');
-  tmp.width = canvas.width; tmp.height = canvas.height;
-  const tctx = tmp.getContext('2d');
-  tctx.filter = 'contrast(1.25) brightness(0.95) saturate(1.1)';
-  tctx.drawImage(canvas, 0, 0);
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(tmp, 0, 0);
-
+  // Skip canvas filter — applying filters re-encodes and adds compression
+  // artifacts on top of full-res photo. Send clean image to Gemini.
   return canvas;
 }
 
@@ -697,8 +691,10 @@ function scoreFrame(canvas) {
 }
 
 function frameToB64(canvas) {
-  // 1200px wide — good balance: readable text, reasonable token cost
-  const maxW = 1200;
+  // For medical text: 1920px wide at high quality
+  // Gemini can read fine text well at this resolution
+  // Z Flip 4 full res ~8160px → scaled to 1920 = still very detailed
+  const maxW = 1920;
   const out  = document.createElement('canvas');
   if (canvas.width <= maxW) {
     out.width  = canvas.width;
@@ -708,8 +704,14 @@ function frameToB64(canvas) {
     out.width  = maxW;
     out.height = Math.round(canvas.height * sc);
   }
-  out.getContext('2d').drawImage(canvas, 0, 0, out.width, out.height);
-  const b64 = out.toDataURL('image/jpeg', 0.82).split(',')[1];
+  // Use high quality rendering
+  const ctx = out.getContext('2d');
+  ctx.imageSmoothingEnabled  = true;
+  ctx.imageSmoothingQuality  = 'high';
+  ctx.drawImage(canvas, 0, 0, out.width, out.height);
+  const b64 = out.toDataURL('image/jpeg', 0.92).split(',')[1];
+  const kb  = Math.round(b64.length * 0.75 / 1024);
+  log(`Image: ${out.width}×${out.height} — ${kb}KB`, 'dim');
   return b64;
 }
 
@@ -798,26 +800,36 @@ async function triggerScan() {
 // ═══════════════════════════════════════════════════════
 function buildPrompt(nFrames) {
   const frameNote = nFrames > 1
-    ? `You have been given ${nFrames} images of the same quiz screen taken milliseconds apart. Use whichever frame is clearest to read the question and options. Ignore blurry frames.`
+    ? `You have been given ${nFrames} images of the same quiz screen taken milliseconds apart. Use whichever is clearest. Ignore blurry frames.`
     : `You have been given 1 image of a quiz screen.`;
 
   return `${frameNote}
 
-YOUR TASK:
-1. Read the question.
-2. List ALL 5 answer options exactly as they appear, in screen order top-to-bottom (or left-to-right). Label them position 1 through 5.
-3. Identify which option is CORRECT using your knowledge.
-4. Set "correct_text" to the EXACT text of the correct option — it must match one of your options_ordered entries word for word.
+CONTEXT: This is a UK medical school multiple choice question (MCQ). Questions cover clinical medicine, pharmacology, anatomy, physiology, pathology, microbiology, and surgery following UK clinical guidelines (NICE, BNF, Oxford Handbook). Answer as a UK foundation doctor would.
 
-RULES:
-- You MUST find exactly 5 options. If you cannot see all 5 → reposition.
-- Blur and glare are not reasons to reposition — only missing options or completely unreadable question.
-- Do NOT guess if options are missing.
+Common question formats you may see:
+- Clinical scenarios: "A 45-year-old presents with chest pain..." → identify diagnosis or management
+- Drug of choice: "First-line treatment for..." → use UK BNF/NICE guidelines
+- Anatomy/physiology: nerve supplies, dermatomes, blood supply, embryology
+- Investigations: most appropriate next test, gold standard diagnosis
+- Emergency management: ABCDE approach, sepsis 6, ALS protocols
+- Statistics/evidence: sensitivity, specificity, NNT, p-values
 
-RESPOND WITH JSON ONLY — no markdown, no explanation:
+TASK:
+1. Read the full question carefully including any clinical scenario.
+2. List ALL 5 answer options EXACTLY as shown, in screen order top-to-bottom.
+3. Apply UK medical knowledge to identify the single best answer.
+4. Set "correct_text" to the EXACT text of the correct option — must match your options_ordered word for word.
+
+IMAGE RULES:
+- You MUST see exactly 5 options to answer. Fewer than 5 → reposition.
+- Blur and glare alone are NOT reasons to reposition — read through them.
+- Only reposition if options are genuinely missing or question is completely unreadable.
+
+RESPOND WITH JSON ONLY — no markdown, no preamble:
 
 If 5 options visible:
-{"status":"ok","options_count":5,"correct_text":"exact text of correct answer","options_ordered":["option 1 text","option 2 text","option 3 text","option 4 text","option 5 text"],"question_summary":"brief question","confidence":"high"}
+{"status":"ok","options_count":5,"correct_text":"exact text of correct answer","options_ordered":["option 1","option 2","option 3","option 4","option 5"],"question_summary":"brief clinical question","confidence":"high","reasoning":"one sentence why this answer is correct"}
 
 If cannot see all 5 options:
 {"status":"reposition","options_count":0,"reason":"specific reason"}`;
@@ -946,18 +958,19 @@ async function handleResult(result, frames, key) {
 
 async function callGeminiVerify(p1, b64, key) {
   const opts = (p1.options_ordered||[]).map((t,i) => `${i+1}. ${t}`).join('\n');
-  const prompt = `Verify this quiz answer independently.
+  const prompt = `You are verifying a UK medical school MCQ answer. Apply UK clinical guidelines (NICE, BNF, Oxford Handbook).
 
 Question: "${p1.question_summary}"
 Options on screen in order:
 ${opts}
 
 Proposed answer: "${p1.correct_text}"
+Reasoning given: "${p1.reasoning||''}"
 
-Do you agree? If not, give the EXACT text of the correct option from the list above.
+Do you agree this is the single best answer for a UK medical student? If not, give the EXACT text of the correct option from the list above.
 
 RESPOND WITH JSON ONLY:
-{"agree":true,"correct_text":"${p1.correct_text}","reason":""}`;
+{"agree":true,"correct_text":"${p1.correct_text}","reason":"one sentence explanation"}`;
 
   const body = {
     contents: [{ parts: [
@@ -1064,8 +1077,9 @@ function showResult(result, tag='') {
   num.textContent = String(pos);
   num.className   = 'answer-number pos-'+pos;
 
+  const reasonNote = result.reasoning ? '  · '+result.reasoning : '';
   document.getElementById('answerText').textContent =
-    (result.correct_text || '') + ' · ' + conf + '%' + (tag ? ' '+tag : '');
+    (result.correct_text || '') + ' · ' + conf + '%' + reasonNote + (tag ? ' '+tag : '');
 
   // Update chips
   for (let i=1; i<=5; i++) {
@@ -1362,7 +1376,7 @@ function renderCaptures() {
         <div style="font-size:7px;color:var(--accent);margin-bottom:3px;letter-spacing:1px;">${c.label}</div>
         ${r.question_summary ? `<div style="font-size:7px;color:var(--text);margin-bottom:3px;">${r.question_summary}</div>` : ''}
         ${opts}
-        ${r.correct_text ? `<div style="font-size:7px;color:var(--green);margin-top:3px;">✓ ${r.correct_text}</div>` : ''}
+        ${r.correct_text ? `<div style="font-size:7px;color:var(--green);margin-top:3px;">✓ ${r.correct_text}</div>` : ''}${r.reasoning ? `<div style="font-size:7px;color:var(--blue);margin-top:2px;font-style:italic;">${r.reasoning}</div>` : ''}
         ${r.reason ? `<div style="font-size:7px;color:var(--red);margin-top:3px;">⚠ ${r.reason}</div>` : ''}
         <button onclick="downloadCapture(${i})" style="margin-top:5px;width:100%;padding:3px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:7px;cursor:pointer;border-radius:3px;">⬇ SAVE IMAGE</button>
         ${c.rawResponse ? `<details style="margin-top:4px;"><summary style="font-size:7px;color:var(--dim);cursor:pointer;">raw response</summary><pre style="font-size:6px;color:var(--dim);white-space:pre-wrap;margin-top:3px;">${c.rawResponse.slice(0,400)}</pre></details>` : ''}
