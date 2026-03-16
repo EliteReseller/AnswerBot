@@ -765,9 +765,9 @@ body.cover-dim #dimBtn { color: #1a1a1a; }
   <div class="card">
     <div class="card-title">🔔 Buzz Answer Controls</div>
     <div style="font-size:8px;color:var(--muted);margin-bottom:10px;line-height:1.8;">
-      A=1×<b>60ms</b> · B=2×<b>100ms</b> · C=3×<b>150ms</b> · D=4×<b>200ms</b> · E=5×<b>260ms</b><br>
-      <b style="color:var(--red)">R = 1×500ms continuous</b> — unmistakable<br>
-      Count + duration = double confirmation
+      1st option=1 buzz · 2nd=2 · 3rd=3 · 4th=4 · 5th=5<br>
+      <b style="color:var(--red)">Reposition = 5 second continuous buzz</b><br>
+      Adjust buzz duration and gap below
     </div>
     <div class="buzz-row">
       <div class="buzz-lbl">Buzz duration<span class="buzz-sub">How long each pulse lasts</span></div>
@@ -1332,7 +1332,8 @@ async function sendToGemini(canvas, retryCount = 0) {
 
     showAnswer(finalAns, p1, conf);
     lightPhysLED(finalAns);
-    haptic(finalAns);
+    lastAnswerData = p1;
+    haptic(finalAns, p1.options_visible);
     statAnswers++;
     updateStats();
     setLockDot('ok');
@@ -1521,36 +1522,46 @@ function resumeAudio() {
   }
 }
 
-function haptic(ans) {
+function haptic(ans, options) {
   if (!tog('haptic')) return;
   resumeAudio();
   if (!navigator.vibrate) { log('Vibration not supported', 'warn'); return; }
 
-  const g = parseInt(document.getElementById('buzzGap')?.value || 120);
+  const dur = parseInt(document.getElementById('buzzDur')?.value || 150);
+  const g   = parseInt(document.getElementById('buzzGap')?.value || 120);
 
-  // Count system (1-5) but each letter has a DISTINCT pulse duration
-  // so you feel the difference immediately — no need to count carefully
-  // A = 1 × 60ms  (very short snappy tap)
-  // B = 2 × 100ms (short taps)
-  // C = 3 × 150ms (medium taps)
-  // D = 4 × 200ms (firm buzzes)
-  // E = 5 × 260ms (strong buzzes)
-  // R = 1 × 500ms (long continuous — unmistakable)
-  const durations = {A:60, B:100, C:150, D:200, E:260};
-  const dur = durations[ans] || parseInt(document.getElementById('buzzDur')?.value || 80);
-  const counts = {A:1, B:2, C:3, D:4, E:5};
-  const n = counts[ans] || 1;
-
+  // Buzz count = POSITION of answer in the options list (1st option=1, 2nd=2 etc)
+  // This is reliable regardless of what letter label each option has
+  // Reposition = 5 second continuous buzz — completely unmistakable
+  let n = 0;
   const pattern = [];
+
   if (ans === 'R' || ans === 'WARN') {
-    pattern.push(0, 500); // single long continuous buzz
-  } else {
-    for (let i=0; i<n; i++) {
-      pattern.push(i===0 ? 0 : g);
-      pattern.push(dur);
-    }
+    // Long continuous 5-second buzz for reposition
+    pattern.push(0, 5000);
+    const label = 'REPOSITION — 5s continuous';
+    const ok = navigator.vibrate(pattern);
+    if (!ok) { navigator.vibrate(0); setTimeout(() => navigator.vibrate(pattern), 50); }
+    log('Buzz: '+label+' '+(ok?'✓':'retry'), 'dim');
+    return;
   }
-  const label = ans==='R'||ans==='WARN' ? 'long 500ms' : n+'×'+dur+'ms';
+
+  // Determine position from options_visible array
+  if (options && Array.isArray(options) && options.length > 0) {
+    const pos = options.indexOf(ans);
+    n = pos >= 0 ? pos + 1 : 0;
+  }
+  // Fallback to letter-based position if no options array
+  if (n === 0) {
+    const fallback = {A:1, B:2, C:3, D:4, E:5};
+    n = fallback[ans] || 1;
+  }
+
+  for (let i=0; i<n; i++) {
+    pattern.push(i===0 ? 0 : g);
+    pattern.push(dur);
+  }
+  const label = n+'×'+dur+'ms (option '+n+')';
 
   // Fire immediately, then re-fire once after 80ms as backup
   // (Samsung sometimes drops the first vibrate call)
@@ -1858,6 +1869,7 @@ let downMode = 'repeat';
 let autoModeActive = false;
 let autoTimer = null;
 let lastAnswerForRepeat = null;
+let lastAnswerData = null;
 
 function initClickerWheel() {
   // Init audio keepalive on first user interaction — required by browser policy
@@ -1923,7 +1935,7 @@ function repeatLastAnswer() {
   log('Repeat: ' + lastAnswerForRepeat, 'ok');
   const la = document.getElementById('lockAnswer');
   if (la) { la.style.opacity='0'; setTimeout(() => { la.textContent=lastAnswerForRepeat; la.className='ans-'+lastAnswerForRepeat; la.style.opacity='1'; }, 100); }
-  haptic(lastAnswerForRepeat);
+  haptic(lastAnswerForRepeat, lastAnswerData?.options_visible);
 }
 
 function toggleAutoMode() {
@@ -2119,8 +2131,9 @@ function testBuzz() {
   log('Testing buzz: B = 2 pulses', 'info');
   const dur = parseInt(document.getElementById('buzzDur')?.value || 80);
   const gap = parseInt(document.getElementById('buzzGap')?.value || 120);
-  // Test with C pattern — 3×150ms
-  const tg=parseInt(document.getElementById('buzzGap')?.value||120); navigator.vibrate && navigator.vibrate([0,150,tg,150,tg,150]);
+  // Test: 3 buzzes = 3rd option
+  const td=parseInt(document.getElementById('buzzDur')?.value||150), tg=parseInt(document.getElementById('buzzGap')?.value||120);
+  navigator.vibrate && navigator.vibrate([0,td,tg,td,tg,td]);
 }
 
 // ══════════════════════════════════════════════════════════
