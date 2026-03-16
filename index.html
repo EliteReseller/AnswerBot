@@ -1303,7 +1303,7 @@ async function sendToGemini(canvas, retryCount = 0) {
   try {
     // ── PASS 1 ──
     const p1 = await geminiCall(imgB64, buildPass1Prompt());
-    log('P1→ status:'+p1.status+' options:'+p1.options_count+' answer:'+p1.answer+' position:'+p1.answer_position+' conf:'+p1.confidence, 'dim');
+    log('P1→ status:'+p1.status+' options:'+p1.options_count+' position:'+p1.answer_position+' conf:'+p1.confidence, 'dim');
 
     updateValidation(p1);
 
@@ -1352,7 +1352,7 @@ async function sendToGemini(canvas, retryCount = 0) {
     if (!tog('speed')) {
       showOverlay(true, 'PASS 2 · VERIFYING');
       p2 = await geminiCall(imgB64, buildPass2Prompt(p1));
-      log('P2→ agree:'+p2.agree+' ans:'+p2.final_answer, 'dim');
+      log('P2→ agree:'+p2.agree+' final_pos:'+p2.final_position, 'dim');
     }
 
     updateVCheck('vc-agree', p2.agree!==false, p2.agree ? 'YES' : 'NO');
@@ -1365,21 +1365,31 @@ async function sendToGemini(canvas, retryCount = 0) {
     }
 
     const conf = scoreConfidence(p1, p2);
-    const finalAns = p2.final_answer || p1.answer;
+    // Use position from p2 if it disagrees, otherwise p1
+    const finalPos = (p2.final_position >= 1 && p2.final_position <= 5)
+      ? p2.final_position : p1.answer_position;
 
-    showAnswer(finalAns, p1, conf);
-    lightPhysLED(finalAns);
+    if (!finalPos || finalPos < 1 || finalPos > 5) {
+      log('ERROR: no valid position — pos='+finalPos, 'err');
+      showWarn({reason:'Could not determine option position', options_count:5});
+      scanning = false; showOverlay(false); setLockDot('warn');
+      return;
+    }
+
+    // Pass position as the answer — showAnswer uses it for display
+    p1.answer_position = finalPos; // ensure p1 has final position
+    showAnswer('POS', p1, conf);
     lastAnswerData = p1;
-    const pos = p1.answer_position || 0;
-    if (pos < 1 || pos > 5) { log("WARNING: answer_position="+pos+" — check options", "warn"); }
-    haptic(finalAns, pos);
+    lightPhysLED(String(finalPos));
+    haptic('ANS', finalPos);
     statAnswers++;
     updateStats();
     setLockDot('ok');
     setLockStatus('active');
-    lastFrameData = null; // answer lock reset — next question triggers immediately
-    log('✓ ANSWER: '+finalAns+' | '+conf+'% | "'+(p1.question_summary||'')+'"', 'ok');
-    log('API: gemini-3-flash-preview | speed='+(tog('speed')?'1-pass':'2-pass'), 'api');
+    lastFrameData = null;
+    log('✓ OPTION '+finalPos+' | '+conf+'% | "'+(p1.question_summary||'')+'"', 'ok');
+    log('Text: "'+(p1.answer_text||p1.options_ordered?.[finalPos-1]||'')+'"', 'ok');
+    log('API: gemini-3-flash-preview | '+(tog('speed')?'1-pass':'2-pass'), 'api');
 
   } catch(e) {
     markKeyFailed(e.message);
@@ -1433,39 +1443,39 @@ async function geminiCall(base64, prompt) {
 // PROMPTS
 // ══════════════════════════════════════════════════════════
 function buildPass1Prompt() {
-  return `You are reading a multiple choice quiz question from a photo. The image may be blurry, angled, or have screen glare — work through it.
+  return `You are reading a multiple choice quiz question from a photo. The image may be blurry or have glare — do your best.
 
-STEP 1 — COUNT THE OPTIONS:
-Count every distinct answer option visible on screen (labelled A/B/C/D/E, or numbered, or coloured tiles, or bullets — any format).
-List them in the ORDER they appear on screen from top to bottom (or left to right).
+YOUR TASK:
+1. Find ALL answer options on screen. List them in order: first option at top/left = position 1, last = position 5.
+2. You MUST find exactly 5 options. If fewer than 5 visible → reposition.
+3. Decide which option is the correct answer to the question.
+4. Set answer_position to WHERE that option appears in the list (1, 2, 3, 4, or 5).
 
-STEP 2 — CHECK:
-- If you can see EXACTLY 5 options AND can read the question text → answer it
-- If you see fewer than 5 options, or cannot read the question at all → reposition (do NOT guess)
-- Blur and glare alone are NOT reasons to reposition — only missing options or unreadable question
+CRITICAL: answer_position is the POSITION ON SCREEN (1=topmost/leftmost option), NOT related to any letter label.
+Example: if the correct answer is the THIRD item in the list, answer_position=3 regardless of whether it says "A" "C" or anything else.
 
-STEP 3 — IDENTIFY THE CORRECT ANSWER:
-Using your knowledge, determine which option is correct.
-Set "answer_position" to its position number in your ordered list (1=first option, 2=second, 3=third, 4=fourth, 5=fifth).
+RESPOND ONLY WITH JSON — no markdown:
 
-RESPOND ONLY WITH VALID JSON — no markdown, no extra text:
+Success (5 options visible):
+{"status":"ok","options_count":5,"answer_position":3,"answer_text":"exact text of correct option","options_ordered":["1st option text","2nd option text","3rd option text","4th option text","5th option text"],"question_summary":"brief question","confidence":"high"}
 
-If 5 options visible and question readable:
-{"status":"ok","options_count":5,"answer_position":3,"answer":"C","answer_text":"exact text of the correct option","options_ordered":["text of 1st","text of 2nd","text of 3rd","text of 4th","text of 5th"],"question_summary":"brief question text","confidence":"high"}
-
-If fewer than 5 options OR question unreadable:
-{"status":"reposition","options_count":2,"reason":"Only 2 options visible — need to see all 5"}`;
+Fail (cannot see 5 options or cannot read question):
+{"status":"reposition","options_count":0,"reason":"specific reason"}`;
 }
 
 function buildPass2Prompt(p1) {
-  return `Verify this multiple choice answer independently. The image may be blurry or have glare — look past it.
+  const opts = (p1.options_ordered||[]).map((t,i)=>(i+1)+'. '+t).join(', ');
+  return `Verify this quiz answer. Look at the image again independently.
 
-Previous reading: question="${p1.question_summary}" proposed answer="${p1.answer}" text="${p1.answer_text}"
+Question: "${p1.question_summary}"
+Options in order: ${opts}
+Proposed correct position: ${p1.answer_position} (text: "${p1.answer_text}")
 
-Do you agree? Give YOUR independent answer.
+Do you agree that position ${p1.answer_position} is correct?
+If not, give the correct position number (1-5).
 
 RESPOND ONLY WITH JSON:
-{"agree":true,"final_answer":"B","your_answer":"B","reason":"brief reason"}`;
+{"agree":true,"final_position":${p1.answer_position},"reason":"brief reason"}`;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1485,10 +1495,12 @@ function extractFallback(raw) {
   const status = g('status') || (raw.includes('"ok"')?'ok':'reposition');
   const answer = g('answer');
   if (!answer && status!=='ok') return null;
-  return {status,answer,options_count:gn('options_count')||0,answer_text:g('answer_text')||'',
+  return {status,answer:answer||'',options_count:gn('options_count')||0,
+    answer_text:g('answer_text')||'',answer_position:gn('answer_position')||0,
     question_summary:g('question_summary')||'',confidence:g('confidence')||'medium',
-    answer_position:gn('answer_position')||0,options_visible:['A','B','C','D','E'],question_complete:true,options_complete:true,
-    agree:raw.includes('"agree": true'),final_answer:g('final_answer')||answer,your_answer:g('your_answer')||answer};
+    options_ordered:[],question_complete:true,options_complete:true,
+    agree:raw.includes('"agree":true')||raw.includes('"agree": true'),
+    final_position:gn('final_position')||gn('answer_position')||0};
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1496,13 +1508,12 @@ function extractFallback(raw) {
 // ══════════════════════════════════════════════════════════
 function scoreConfidence(p1, p2) {
   let s=0;
-  if(p1.options_count===5)          s+=20;
-  if(p1.confidence==='high')        s+=30;
-  if(p1.confidence==='medium')      s+=15;
-  if(p1.question_complete!==false)  s+=15;
-  if(p1.options_complete!==false)   s+=10;
-  if(p2.agree===true)               s+=20;
-  if(p2.your_answer===p1.answer)    s+=5;
+  if(p1.options_count===5)                                s+=20;
+  if(p1.confidence==='high')                              s+=30;
+  if(p1.confidence==='medium')                            s+=15;
+  if(p1.answer_position>=1&&p1.answer_position<=5)        s+=15;
+  if(p2.agree===true)                                     s+=20;
+  if(p2.final_position===p1.answer_position)              s+=5;
   return Math.min(s,100);
 }
 
@@ -1567,37 +1578,42 @@ function resumeAudio() {
 function haptic(ans, position) {
   if (!tog('haptic')) return;
   resumeAudio();
-  if (!navigator.vibrate) { log('Vibrate API not available', 'warn'); return; }
+  if (!navigator.vibrate) { log('Vibrate API not available — try Chrome on Android', 'warn'); return; }
 
   const dur = parseInt(document.getElementById('buzzDur')?.value) || 150;
   const gap = parseInt(document.getElementById('buzzGap')?.value) || 200;
 
-  // Always cancel first — Samsung ignores new vibrate if one is running
-  navigator.vibrate(0);
-
   const n = (position >= 1 && position <= 5) ? position : 0;
 
+  let pattern;
+  let label;
+
   if (!n || ans === 'R' || ans === 'WARN') {
-    // REPOSITION: 3 long buzzes — completely unmistakable
-    setTimeout(() => navigator.vibrate([0, 500, 200, 500, 200, 500]), 50);
-    log('Buzz: REPOSITION — 3×500ms', 'warn');
-    return;
-  }
-
-  // ANSWER: n short buzzes = option n
-  const pattern = [];
-  for (let i = 0; i < n; i++) {
-    pattern.push(i === 0 ? 0 : gap);
-    pattern.push(dur);
-  }
-
-  setTimeout(() => {
-    const ok = navigator.vibrate(pattern);
-    log('Buzz: option ' + n + ' — ' + n + '×' + dur + 'ms ' + (ok ? '✓' : '✗ (retrying)'), 'dim');
-    if (!ok) {
-      setTimeout(() => navigator.vibrate(pattern), 150);
+    // REPOSITION: 3 long distinct buzzes
+    pattern = [0, 500, 200, 500, 200, 500];
+    label = 'REPOSITION 3×500ms';
+  } else {
+    // ANSWER: n buzzes of dur ms each
+    pattern = [];
+    for (let i = 0; i < n; i++) {
+      pattern.push(i === 0 ? 0 : gap);
+      pattern.push(dur);
     }
-  }, 50);
+    label = 'option ' + n + ' (' + n + '×' + dur + 'ms)';
+  }
+
+  // Fire directly — we are in a user gesture chain (clicker press)
+  // No setTimeout, no cancel — just fire
+  const ok = navigator.vibrate(pattern);
+  log('Buzz: ' + label + ' ' + (ok ? '✓' : '✗'), ok ? 'dim' : 'warn');
+
+  if (!ok) {
+    // Retry once after 200ms — only if first call failed
+    setTimeout(() => {
+      const ok2 = navigator.vibrate(pattern);
+      log('Buzz retry: ' + (ok2 ? '✓' : '✗ — check haptic toggle & Chrome Android'), ok2 ? 'dim' : 'err');
+    }, 200);
+  }
 }
 
 // ══════════════════════════════════════════════════════════
