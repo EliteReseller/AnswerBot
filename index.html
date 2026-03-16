@@ -826,7 +826,12 @@ async function callGemini(frames, key) {
 
   const body = {
     contents: [{ parts }],
-    generationConfig: { temperature: 0.05, maxOutputTokens: 512 }
+    generationConfig: {
+      temperature: 0.05,
+      maxOutputTokens: 2048,
+      // Disable thinking mode — we need fast clean JSON, not reasoning
+      thinkingConfig: { thinkingBudget: 0 }
+    }
   };
 
   const res = await fetch(`${API}?key=${key}`, {
@@ -899,6 +904,7 @@ async function handleResult(result, frames, key) {
   log(`Gemini: status=${result.status} options=${result.options_count}`, 'info');
 
   if (result.status !== 'ok' || result.options_count !== 5) {
+    log('Reposition reason: '+result.reason+' | options_count='+result.options_count, 'warn');
     // Try zoom retry if enabled
     if (document.getElementById('togZoom').checked) {
       log('Unclear — trying zoom retry…', 'warn');
@@ -948,7 +954,7 @@ RESPOND WITH JSON ONLY:
       { text: prompt },
       { inline_data: { mime_type:'image/jpeg', data:b64 } }
     ]}],
-    generationConfig: { temperature:0.05, maxOutputTokens:128 }
+    generationConfig: { temperature:0.05, maxOutputTokens:512, thinkingConfig: { thinkingBudget: 0 } }
   };
 
   const res = await fetch(`${API}?key=${document.getElementById('apiKey').value.trim()}`, {
@@ -956,7 +962,13 @@ RESPOND WITH JSON ONLY:
   });
   if (!res.ok) throw new Error('P2 HTTP '+res.status);
   const data = await res.json();
-  const raw  = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const vParts = data.candidates?.[0]?.content?.parts || [];
+  let raw = '';
+  for (const part of vParts) {
+    if (part.text && !part.thought) { raw = part.text; break; }
+  }
+  if (!raw) raw = vParts.filter(p => p.text).map(p => p.text).join('');
+  log('P2 raw: '+raw.slice(0,100), 'dim');
   return parseGeminiResponse(raw);
 }
 
