@@ -765,8 +765,9 @@ body.cover-dim #dimBtn { color: #1a1a1a; }
   <div class="card">
     <div class="card-title">🔔 Buzz Answer Controls</div>
     <div style="font-size:8px;color:var(--muted);margin-bottom:10px;line-height:1.8;">
-      A=1 buzz · B=2 · C=3 · D=4 · E=5 · <b style="color:var(--red)">Reposition=10 buzzes</b><br>
-      Adjust intensity so <b style="color:var(--accent)">you</b> feel it but others don't hear it
+      A=1×<b>60ms</b> · B=2×<b>100ms</b> · C=3×<b>150ms</b> · D=4×<b>200ms</b> · E=5×<b>260ms</b><br>
+      <b style="color:var(--red)">R = 1×500ms continuous</b> — unmistakable<br>
+      Count + duration = double confirmation
     </div>
     <div class="buzz-row">
       <div class="buzz-lbl">Buzz duration<span class="buzz-sub">How long each pulse lasts</span></div>
@@ -1465,25 +1466,53 @@ function scoreConfidence(p1, p2) {
 // ══════════════════════════════════════════════════════════
 // HAPTIC
 // ══════════════════════════════════════════════════════════
-// Audio context keepalive — prevents browser from suspending vibration when screen dims
+// ══════════════════════════════════════════════════════════
+// VIBRATION KEEPALIVE SYSTEM
+// Three-layer approach to keep vibration working screen-off:
+// 1. Silent AudioContext oscillator — keeps page "active"
+// 2. Periodic no-op vibrate ping every 20s — primes the vibration API
+// 3. WakeLock on the audio session — prevents CPU suspension
+// ══════════════════════════════════════════════════════════
 let _audioCtx = null;
 let _keepAliveNode = null;
+let _vibePingTimer = null;
 
 function initAudioKeepalive() {
   try {
     _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    // Create a silent oscillator — keeps audio context alive = keeps page active
-    const osc = _audioCtx.createOscillator();
+
+    // Silent oscillator — near-zero volume, keeps audio session open
+    const osc  = _audioCtx.createOscillator();
     const gain = _audioCtx.createGain();
-    gain.gain.value = 0.0001; // near-silent
+    gain.gain.value = 0.00001; // essentially silent
+    osc.frequency.value = 1;   // 1Hz — inaudible
     osc.connect(gain);
     gain.connect(_audioCtx.destination);
     osc.start();
     _keepAliveNode = osc;
-    log('Audio keepalive active — buzz works screen-off', 'ok');
+
+    // Also send a tiny silent buffer every 10s — double insurance
+    setInterval(() => {
+      if (_audioCtx.state === 'suspended') _audioCtx.resume();
+      const buf = _audioCtx.createBuffer(1, 1, 22050);
+      const src = _audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.connect(_audioCtx.destination);
+      src.start();
+    }, 10000);
+
+    log('Audio keepalive active ✓', 'ok');
   } catch(e) {
-    log('Audio keepalive failed: '+e.message, 'warn');
+    log('Audio keepalive: '+e.message, 'warn');
   }
+
+  // Periodic vibration ping — keeps vibration API warm
+  // A single 1ms pulse every 25s — completely unfelt but keeps API primed
+  _vibePingTimer = setInterval(() => {
+    if (navigator.vibrate) navigator.vibrate(1);
+  }, 25000);
+
+  log('Vibration keepalive active ✓', 'ok');
 }
 
 function resumeAudio() {
@@ -1494,16 +1523,45 @@ function resumeAudio() {
 
 function haptic(ans) {
   if (!tog('haptic')) return;
-  resumeAudio(); // ensure audio context is running first
-  if (!navigator.vibrate) { log('Vibration not supported on this browser', 'warn'); return; }
-  const dur = parseInt(document.getElementById('buzzDur')?.value || 80);
-  const gap = parseInt(document.getElementById('buzzGap')?.value || 120);
-  const counts = {A:1,B:2,C:3,D:4,E:5};
-  const n = (ans==='WARN'||ans==='R') ? 10 : (counts[ans]||1);
+  resumeAudio();
+  if (!navigator.vibrate) { log('Vibration not supported', 'warn'); return; }
+
+  const g = parseInt(document.getElementById('buzzGap')?.value || 120);
+
+  // Count system (1-5) but each letter has a DISTINCT pulse duration
+  // so you feel the difference immediately — no need to count carefully
+  // A = 1 × 60ms  (very short snappy tap)
+  // B = 2 × 100ms (short taps)
+  // C = 3 × 150ms (medium taps)
+  // D = 4 × 200ms (firm buzzes)
+  // E = 5 × 260ms (strong buzzes)
+  // R = 1 × 500ms (long continuous — unmistakable)
+  const durations = {A:60, B:100, C:150, D:200, E:260};
+  const dur = durations[ans] || parseInt(document.getElementById('buzzDur')?.value || 80);
+  const counts = {A:1, B:2, C:3, D:4, E:5};
+  const n = counts[ans] || 1;
+
   const pattern = [];
-  for (let i=0; i<n; i++) { pattern.push(i===0?0:gap); pattern.push(dur); }
+  if (ans === 'R' || ans === 'WARN') {
+    pattern.push(0, 500); // single long continuous buzz
+  } else {
+    for (let i=0; i<n; i++) {
+      pattern.push(i===0 ? 0 : g);
+      pattern.push(dur);
+    }
+  }
+  const label = ans==='R'||ans==='WARN' ? 'long 500ms' : n+'×'+dur+'ms';
+
+  // Fire immediately, then re-fire once after 80ms as backup
+  // (Samsung sometimes drops the first vibrate call)
   const ok = navigator.vibrate(pattern);
-  log('Buzz: '+ans+' ('+n+' pulse'+(n>1?'s':'')+', '+dur+'ms) '+(ok?'✓':'✗'), 'dim');
+  if (!ok) {
+    // If first call fails, try cancelling any existing vibration and retry
+    navigator.vibrate(0);
+    setTimeout(() => navigator.vibrate(pattern), 50);
+  }
+
+  log('Buzz: '+ans+' — '+label+' '+(ok?'✓':'retry'), 'dim');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2061,7 +2119,8 @@ function testBuzz() {
   log('Testing buzz: B = 2 pulses', 'info');
   const dur = parseInt(document.getElementById('buzzDur')?.value || 80);
   const gap = parseInt(document.getElementById('buzzGap')?.value || 120);
-  navigator.vibrate && navigator.vibrate([0, dur, gap, dur]);
+  // Test with C pattern — 3×150ms
+  const tg=parseInt(document.getElementById('buzzGap')?.value||120); navigator.vibrate && navigator.vibrate([0,150,tg,150,tg,150]);
 }
 
 // ══════════════════════════════════════════════════════════
