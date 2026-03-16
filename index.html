@@ -241,61 +241,104 @@ body.cover-dim #coverDot{width:16px;height:16px;top:50%;left:50%;transform:trans
 
   <!-- BUZZ -->
   <div class="card">
-    <div class="card-title">VIBRATION · 1 buzz=opt1 · 5 buzzes=opt5 · 6=reposition</div>
+    <div class="card-title">VIBRATION · 1 buzz=opt1 · 5=opt5 · 6=reposition</div>
 
-    <!-- Silent mode + enabled row -->
+    <!-- Enabled -->
     <div class="row">
       <div class="row-label">Vibration enabled</div>
       <label class="toggle"><input type="checkbox" id="togHaptic" checked onchange="onHapticToggle()"><div class="toggle-track"></div></label>
     </div>
-    <div class="row">
-      <div class="row-label">Silent mode
-        <span class="row-sub">Vibrate silently — felt through clothing, not heard</span>
+
+    <!-- Mode selector — three radio-style buttons -->
+    <div style="margin:10px 0 6px;">
+      <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">VIBRATION MODE</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+        <button id="modeBtn_normal" onclick="setVibMode('normal')"
+          style="padding:8px 4px;border-radius:6px;border:1px solid var(--border);background:var(--dim);color:var(--text);font-family:inherit;font-size:8px;cursor:pointer;line-height:1.4;">
+          ⚡ NORMAL<br><span style="font-size:7px;color:var(--muted);">200ms / 250ms</span>
+        </button>
+        <button id="modeBtn_silent" onclick="setVibMode('silent')"
+          style="padding:8px 4px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:inherit;font-size:8px;cursor:pointer;line-height:1.4;">
+          🤫 SILENT<br><span style="font-size:7px;color:var(--muted);">80ms / 120ms</span>
+        </button>
+        <button id="modeBtn_micro" onclick="setVibMode('micro')"
+          style="padding:8px 4px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:inherit;font-size:8px;cursor:pointer;line-height:1.4;">
+          🫥 MICRO<br><span style="font-size:7px;color:var(--muted);">25ms clusters</span>
+        </button>
       </div>
-      <label class="toggle"><input type="checkbox" id="togSilent" onchange="onSilentToggle()"><div class="toggle-track"></div></label>
     </div>
 
-    <!-- Silent mode indicator banner -->
-    <div id="silentBanner" style="display:none;background:#1a1a0a;border:1px solid var(--amber);border-radius:5px;padding:6px 10px;margin-bottom:8px;font-size:8px;color:var(--amber);letter-spacing:1px;">
-      🤫 SILENT — 80ms pulses, felt not heard
-    </div>
+    <!-- Mode description banner -->
+    <div id="modeBanner" style="border-radius:5px;padding:6px 10px;margin-bottom:8px;font-size:8px;letter-spacing:0.5px;display:none;"></div>
 
-    <!-- Tuner (hidden when silent mode active) -->
+    <!-- Manual tuner — visible in normal/silent, hidden in micro -->
     <div id="vibTuner">
-      <div class="row" style="margin-top:4px;">
-        <div class="row-label">Buzz duration (ms)
-          <span class="row-sub">Shorter = quieter. 80ms = barely audible</span>
+      <div class="row" style="margin-top:2px;">
+        <div class="row-label">Buzz duration
+          <span class="row-sub">Shorter = quieter</span>
         </div>
-        <input type="range" id="buzzDur" min="40" max="400" step="10" value="200" style="width:90px;"
+        <input type="range" id="buzzDur" min="20" max="400" step="5" value="200" style="width:90px;"
           oninput="document.getElementById('buzzDurVal').textContent=this.value+'ms';saveSetting('buzzDur',this.value)">
         <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="buzzDurVal">200ms</span>
       </div>
       <div class="row">
         <div class="row-label">Gap between buzzes
-          <span class="row-sub">Tighter gaps = harder to hear</span>
+          <span class="row-sub">Tighter = harder to hear</span>
         </div>
         <input type="range" id="buzzGap" min="60" max="500" step="10" value="250" style="width:90px;"
           oninput="document.getElementById('buzzGapVal').textContent=this.value+'ms';saveSetting('buzzGap',this.value)">
         <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="buzzGapVal">250ms</span>
       </div>
+    </div>
 
-      <!-- Presets -->
-      <div style="display:flex;gap:6px;margin-top:8px;margin-bottom:8px;">
-        <button class="btn btn-full" onclick="applyPreset('standard')" style="font-size:8px;letter-spacing:0.5px;">⚡ STANDARD<br><span style="font-size:7px;color:var(--muted);">200ms / 250ms</span></button>
-        <button class="btn btn-full" onclick="applyPreset('stealth')" style="font-size:8px;letter-spacing:0.5px;">🤫 STEALTH<br><span style="font-size:7px;color:var(--muted);">80ms / 120ms</span></button>
-        <button class="btn btn-full" onclick="applyPreset('strong')" style="font-size:8px;letter-spacing:0.5px;">💪 STRONG<br><span style="font-size:7px;color:var(--muted);">350ms / 200ms</span></button>
+    <!-- Micro-burst tuner — visible in micro mode only -->
+    <div id="microTuner" style="display:none;">
+      <div class="row" style="margin-top:2px;">
+        <div class="row-label">Pulse width (ms)
+          <span class="row-sub">25ms = motor fires but can't resonate</span>
+        </div>
+        <input type="range" id="microPulse" min="10" max="60" step="5" value="25" style="width:90px;"
+          oninput="document.getElementById('microPulseVal').textContent=this.value+'ms';saveSetting('microPulse',this.value)">
+        <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="microPulseVal">25ms</span>
+      </div>
+      <div class="row">
+        <div class="row-label">Pulse gap (ms)
+          <span class="row-sub">Gap inside each cluster</span>
+        </div>
+        <input type="range" id="microGap" min="10" max="60" step="5" value="25" style="width:90px;"
+          oninput="document.getElementById('microGapVal').textContent=this.value+'ms';saveSetting('microGap',this.value)">
+        <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="microGapVal">25ms</span>
+      </div>
+      <div class="row">
+        <div class="row-label">Cluster pause (ms)
+          <span class="row-sub">Gap between clusters = pause between counts</span>
+        </div>
+        <input type="range" id="microPause" min="80" max="400" step="10" value="160" style="width:90px;"
+          oninput="document.getElementById('microPauseVal').textContent=this.value+'ms';saveSetting('microPause',this.value)">
+        <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="microPauseVal">160ms</span>
+      </div>
+      <div class="row">
+        <div class="row-label">Pulses per cluster
+          <span class="row-sub">Taps per count — 3 feels like one solid beat</span>
+        </div>
+        <select id="microCount" onchange="saveSetting('microCount',this.value)" style="width:60px;">
+          <option value="2">2</option>
+          <option value="3" selected>3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+        </select>
       </div>
     </div>
 
-    <!-- Test buttons — all 5 options + reposition -->
-    <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">
-      <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">PATTERN TESTER — feel each option</div>
+    <!-- Test buttons — always visible -->
+    <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:8px;">
+      <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">TEST EACH OPTION</div>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px;">
-        <button class="btn" onclick="buzzTest(1)" style="font-size:9px;padding:8px 0;font-weight:700;color:#ff4466;border-color:#ff4466;">1</button>
-        <button class="btn" onclick="buzzTest(2)" style="font-size:9px;padding:8px 0;font-weight:700;color:#4db8ff;border-color:#4db8ff;">2</button>
-        <button class="btn" onclick="buzzTest(3)" style="font-size:9px;padding:8px 0;font-weight:700;color:#e8ff47;border-color:#e8ff47;">3</button>
-        <button class="btn" onclick="buzzTest(4)" style="font-size:9px;padding:8px 0;font-weight:700;color:#39ff85;border-color:#39ff85;">4</button>
-        <button class="btn" onclick="buzzTest(5)" style="font-size:9px;padding:8px 0;font-weight:700;color:#cc55ff;border-color:#cc55ff;">5</button>
+        <button class="btn" onclick="buzzTest(1)" style="font-size:10px;padding:9px 0;font-weight:700;color:#ff4466;border-color:#ff4466;">1</button>
+        <button class="btn" onclick="buzzTest(2)" style="font-size:10px;padding:9px 0;font-weight:700;color:#4db8ff;border-color:#4db8ff;">2</button>
+        <button class="btn" onclick="buzzTest(3)" style="font-size:10px;padding:9px 0;font-weight:700;color:#e8ff47;border-color:#e8ff47;">3</button>
+        <button class="btn" onclick="buzzTest(4)" style="font-size:10px;padding:9px 0;font-weight:700;color:#39ff85;border-color:#39ff85;">4</button>
+        <button class="btn" onclick="buzzTest(5)" style="font-size:10px;padding:9px 0;font-weight:700;color:#cc55ff;border-color:#cc55ff;">5</button>
       </div>
       <div style="display:flex;gap:6px;">
         <button class="btn btn-red btn-full" onclick="buzzTest('R')" style="font-size:8px;">↩ REPOSITION</button>
@@ -414,10 +457,13 @@ function loadSettings() {
   s('apiKey',  'apiKey',   '');
   s('togBurst','burst',    false);
   s('burstSend','burstSend',3);
-  s('togHaptic','haptic',  true);
-  s('togSilent','silent',  false);
-  s('buzzDur', 'buzzDur',  200);
-  s('buzzGap', 'buzzGap',  250);
+  s('togHaptic',  'haptic',     true);
+  s('buzzDur',    'buzzDur',    200);
+  s('buzzGap',    'buzzGap',    250);
+  s('microPulse', 'microPulse', 25);
+  s('microGap',   'microGap',   25);
+  s('microPause', 'microPause', 160);
+  s('microCount', 'microCount', 3);
   s('togGlare','glare',    true);
   s('camRot',  'camRot',   '180');
   s('togZoom', 'zoom',     true);
@@ -1190,39 +1236,111 @@ function showReposition(reason) {
 // ═══════════════════════════════════════════════════════
 // VIBRATION — clean simple implementation
 // ═══════════════════════════════════════════════════════
-// ── Vibration settings — silent mode overrides sliders ──────────────────────
-function getVibSettings() {
-  const silent = document.getElementById('togSilent')?.checked;
-  if (silent) return { dur: 80, gap: 120 };
-  return {
-    dur: parseInt(document.getElementById('buzzDur').value) || 200,
-    gap: parseInt(document.getElementById('buzzGap').value) || 250
+// ── Vibration mode: 'normal' | 'silent' | 'micro' ───────────────────────────
+let vibMode = 'normal';
+
+function setVibMode(mode) {
+  vibMode = mode;
+  saveSetting('vibMode', mode);
+
+  // Update button styles
+  ['normal','silent','micro'].forEach(m => {
+    const btn = document.getElementById('modeBtn_'+m);
+    if (!btn) return;
+    btn.style.background  = m === mode ? 'var(--accent)' : 'transparent';
+    btn.style.color       = m === mode ? '#000' : 'var(--text)';
+    btn.style.borderColor = m === mode ? 'var(--accent)' : 'var(--border)';
+    // Keep sub-label readable
+    const sub = btn.querySelector('span');
+    if (sub) sub.style.color = m === mode ? '#00000088' : 'var(--muted)';
+  });
+
+  // Show/hide tuners and banner
+  const tuner      = document.getElementById('vibTuner');
+  const microTuner = document.getElementById('microTuner');
+  const banner     = document.getElementById('modeBanner');
+
+  tuner.style.display      = mode === 'micro'  ? 'none'  : 'block';
+  microTuner.style.display = mode === 'micro'  ? 'block' : 'none';
+
+  const banners = {
+    normal: null,
+    silent: { bg:'#1a1a0a', border:'var(--amber)', color:'var(--amber)',
+              text:'🤫 SILENT — 80ms pulses, felt not heard' },
+    micro:  { bg:'#0a1020', border:'var(--blue)',  color:'var(--blue)',
+              text:'🫥 MICRO-BURST — 25ms clusters, motor never resonates, near-silent' }
   };
+  const b = banners[mode];
+  if (b) {
+    banner.style.display     = 'block';
+    banner.style.background  = b.bg;
+    banner.style.border      = '1px solid '+b.border;
+    banner.style.color       = b.color;
+    banner.textContent       = b.text;
+  } else {
+    banner.style.display = 'none';
+  }
+
+  // Apply preset values for silent mode
+  if (mode === 'silent') {
+    document.getElementById('buzzDur').value = 80;
+    document.getElementById('buzzGap').value = 120;
+    document.getElementById('buzzDurVal').textContent = '80ms';
+    document.getElementById('buzzGapVal').textContent = '120ms';
+  }
+
+  log(`Vibration mode: ${mode}`, 'info');
+}
+
+function buildVibratePattern(posOrR) {
+  const isRepos = (posOrR === 'R' || posOrR === 0);
+  const n = isRepos ? 6 : parseInt(posOrR);
+
+  if (vibMode === 'micro') {
+    // ── Micro-burst: N clusters of K×25ms pulses, 160ms pause between clusters ──
+    // Each cluster = [pulse, gap, pulse, gap, pulse] — NO leading zero
+    // This prevents LRA motor from reaching resonance amplitude → near-silent
+    const pulse  = parseInt(document.getElementById('microPulse')?.value)  || 25;
+    const mGap   = parseInt(document.getElementById('microGap')?.value)    || 25;
+    const pause  = parseInt(document.getElementById('microPause')?.value)  || 160;
+    const kPulses= parseInt(document.getElementById('microCount')?.value)  || 3;
+
+    // Build one cluster: [pulse, gap, pulse, gap, pulse]
+    const cluster = [];
+    for (let k = 0; k < kPulses; k++) { if (k > 0) cluster.push(mGap); cluster.push(pulse); }
+
+    // Stack N clusters separated by pause
+    const pattern = [];
+    for (let i = 0; i < n; i++) {
+      if (i > 0) pattern.push(pause);   // inter-cluster pause
+      pattern.push(...cluster);
+    }
+    return pattern;
+
+  } else {
+    // ── Normal / silent: N simple buzzes ──
+    const dur = vibMode === 'silent' ? 80  : (parseInt(document.getElementById('buzzDur')?.value) || 200);
+    const gap = vibMode === 'silent' ? 120 : (parseInt(document.getElementById('buzzGap')?.value) || 250);
+    const reposDur = vibMode === 'silent' ? 80 : 300;
+    const reposGap = vibMode === 'silent' ? 100 : 150;
+
+    const pattern = [];
+    for (let i = 0; i < n; i++) {
+      if (i > 0) pattern.push(isRepos ? reposGap : gap);
+      pattern.push(isRepos ? reposDur : dur);
+    }
+    return pattern;
+  }
 }
 
 function vibrate(posOrR) {
   if (!document.getElementById('togHaptic').checked) { log('Vibrate: OFF','dim'); return; }
-
-  const { dur, gap } = getVibSettings();
-  const silent = document.getElementById('togSilent')?.checked;
-
-  // Build pattern — NO leading zero, pattern[0] is always a vibration duration
-  let pattern = [];
-  if (posOrR === 'R' || posOrR === 0) {
-    // Reposition: 6 buzzes — shorter in silent mode
-    const d = silent ? 80 : 300, g = silent ? 100 : 150;
-    for (let i = 0; i < 6; i++) { if (i > 0) pattern.push(g); pattern.push(d); }
-  } else {
-    const n = parseInt(posOrR);
-    for (let i = 0; i < n; i++) { if (i > 0) pattern.push(gap); pattern.push(dur); }
-  }
-
-  const label = (posOrR === 'R' || posOrR === 0)
-    ? `REPOSITION 6×${silent?80:300}ms`
-    : `opt${posOrR} ${posOrR}×${dur}ms${silent?' [silent]':''}`;
-  log(`Vibrate: ${label} → ${JSON.stringify(pattern)}`, 'dim');
-
   if (!('vibrate' in navigator)) { log('navigator.vibrate not available','err'); return; }
+
+  const pattern = buildVibratePattern(posOrR);
+  const label = (posOrR === 'R' || posOrR === 0) ? 'REPOS' : `opt${posOrR}`;
+  log(`Vibrate [${vibMode}] ${label}: ${JSON.stringify(pattern)}`, 'dim');
+
   const ok = navigator.vibrate(pattern);
   log(`vibrate() → ${ok}`, ok ? 'ok' : 'warn');
   if (!ok) {
@@ -1231,10 +1349,10 @@ function vibrate(posOrR) {
   }
 }
 
-// Test button: always fires even if haptic toggled off, so you can feel while tuning
+// Test: always fires regardless of haptic toggle so you can tune freely
 function buzzTest(posOrR) {
   const label = (posOrR === 'R' || posOrR === 0) ? 'REPOSITION' : `opt${posOrR}`;
-  log(`Test: ${label}`, 'info');
+  log(`Test [${vibMode}]: ${label}`, 'info');
   const el = document.getElementById('togHaptic');
   const was = el.checked; el.checked = true;
   vibrate(posOrR);
@@ -1242,38 +1360,14 @@ function buzzTest(posOrR) {
 }
 
 function buzzRaw() {
-  log('RAW TEST: [80,80,80,80,80]', 'info');
+  log('RAW TEST: micro cluster [25,25,25,25,25]', 'info');
   if (!('vibrate' in navigator)) { log('NOT AVAILABLE','err'); return; }
-  const ok = navigator.vibrate([80,80,80,80,80]);
+  const ok = navigator.vibrate([25,25,25,25,25]);
   log(`RAW → ${ok}`, ok ? 'ok' : 'err');
 }
 
 function onHapticToggle() {
   saveSetting('haptic', document.getElementById('togHaptic').checked);
-}
-
-function onSilentToggle() {
-  const on = document.getElementById('togSilent').checked;
-  saveSetting('silent', on);
-  document.getElementById('silentBanner').style.display = on ? 'block' : 'none';
-  document.getElementById('vibTuner').style.opacity = on ? '0.35' : '1';
-  document.getElementById('vibTuner').style.pointerEvents = on ? 'none' : 'auto';
-  log(`Silent mode ${on ? 'ON (80ms / 120ms)' : 'OFF'}`, 'info');
-}
-
-function applyPreset(name) {
-  const p = { standard:{dur:200,gap:250}, stealth:{dur:80,gap:120}, strong:{dur:350,gap:200} }[name];
-  if (!p) return;
-  document.getElementById('buzzDur').value = p.dur;
-  document.getElementById('buzzGap').value = p.gap;
-  document.getElementById('buzzDurVal').textContent = p.dur+'ms';
-  document.getElementById('buzzGapVal').textContent = p.gap+'ms';
-  saveSetting('buzzDur', p.dur);
-  saveSetting('buzzGap', p.gap);
-  // Applying a manual preset turns off silent mode
-  document.getElementById('togSilent').checked = false;
-  onSilentToggle();
-  log(`Preset: ${name} — ${p.dur}ms buzz / ${p.gap}ms gap`, 'ok');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1417,11 +1511,10 @@ window.addEventListener('load', () => {
     }, 500);
   }
 
-  // Apply silent mode UI state on load
-  if (getSetting('silent', false)) {
-    document.getElementById('togSilent').checked = true;
-    onSilentToggle();
-  }
+  // Restore vibration mode
+  const savedMode = getSetting('vibMode', 'normal');
+  vibMode = savedMode;
+  setVibMode(savedMode);
 
   log('AnswerBot v7.0 ready', 'ok');
   log('1. Add API key  2. Start camera  3. Press ring', 'info');
