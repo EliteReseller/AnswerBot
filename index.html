@@ -3,6 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#08090c">
+<link rel="manifest" href="data:application/json,{
+  &quot;name&quot;:&quot;AnswerBot&quot;,
+  &quot;short_name&quot;:&quot;AnswerBot&quot;,
+  &quot;display&quot;:&quot;standalone&quot;,
+  &quot;start_url&quot;:&quot;.&quot;,
+  &quot;background_color&quot;:&quot;#08090c&quot;,
+  &quot;theme_color&quot;:&quot;#08090c&quot;,
+  &quot;icons&quot;:[{&quot;src&quot;:&quot;https://via.placeholder.com/192x192/08090c/e8ff47?text=A&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/png&quot;}]
+}">
 <title>AnswerBot</title>
 <style>
 :root {
@@ -471,6 +484,12 @@ async function startCamera() {
     camTrack = camStream.getVideoTracks()[0];
     document.getElementById('camOverlay').style.display = 'none';
     document.getElementById('snapBtn').disabled = false;
+
+    // Auto-reconnect if Android drops the stream (common on Samsung when screen dims)
+    camTrack.onended = () => {
+      log('Camera stream ended — auto-reconnecting…', 'warn');
+      setTimeout(() => startCamera(), 1000);
+    };
 
     const s = camTrack.getSettings();
     document.getElementById('camLabel').textContent = `${s.width||'?'}×${s.height||'?'}`;
@@ -1347,6 +1366,22 @@ window.addEventListener('load', () => {
 
   log('AnswerBot v7.0 ready', 'ok');
   log('1. Add API key  2. Start camera  3. Press ring', 'info');
+
+  // devicechange — fires when OTG camera plugged/unplugged
+  // Re-scans and auto-switches if an OTG camera appears
+  navigator.mediaDevices.addEventListener('devicechange', async () => {
+    log('Device change detected — rescanning cameras…', 'info');
+    await new Promise(r => setTimeout(r, 600)); // brief settle delay
+    await scanCameras();
+
+    // If an OTG camera just appeared and camera is running, auto-switch to it
+    const sel = document.getElementById('camSelect');
+    const selectedLabel = sel.options[sel.selectedIndex]?.text || '';
+    if (selectedLabel.includes('OTG') && camStream) {
+      log('OTG camera detected — switching automatically', 'ok');
+      startCamera();
+    }
+  });
 
   // Restore key
   const k = getSetting('apiKey','');
