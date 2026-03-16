@@ -766,7 +766,7 @@ body.cover-dim #dimBtn { color: #1a1a1a; }
     <div class="card-title">🔔 Buzz Answer Controls</div>
     <div style="font-size:8px;color:var(--muted);margin-bottom:10px;line-height:1.8;">
       1st option=1 buzz · 2nd=2 · 3rd=3 · 4th=4 · 5th=5<br>
-      <b style="color:var(--red)">Reposition = 5 second continuous buzz</b><br>
+      <b style="color:var(--red)">Reposition = 3 long buzzes (500ms each)</b><br>
       Adjust buzz duration and gap below
     </div>
     <div class="buzz-row">
@@ -1299,11 +1299,11 @@ async function sendToGemini(canvas, retryCount = 0) {
   try {
     // ── PASS 1 ──
     const p1 = await geminiCall(imgB64, buildPass1Prompt());
-    log('P1→ status:'+p1.status+' count:'+p1.options_count+' ans:'+p1.answer+' conf:'+p1.confidence, 'dim');
+    log('P1→ status:'+p1.status+' options:'+p1.options_count+' answer:'+p1.answer+' position:'+p1.answer_position+' conf:'+p1.confidence, 'dim');
 
     updateValidation(p1);
 
-    if (p1.status !== 'ok' || p1.options_count !== 5) {
+    if (p1.status !== 'ok' || p1.options_count !== 5 || !p1.answer_position || p1.answer_position < 1 || p1.answer_position > 5) {
       const visible = p1.options_count || 0;
       showWarn(p1);
       scanning = false; showOverlay(false); setLockDot('warn'); setLockStatus('active');
@@ -1333,7 +1333,9 @@ async function sendToGemini(canvas, retryCount = 0) {
     showAnswer(finalAns, p1, conf);
     lightPhysLED(finalAns);
     lastAnswerData = p1;
-    haptic(finalAns, p1.options_visible);
+    const pos = p1.answer_position || 0;
+    if (pos < 1 || pos > 5) { log("WARNING: answer_position="+pos+" — check options", "warn"); }
+    haptic(finalAns, pos);
     statAnswers++;
     updateStats();
     setLockDot('ok');
@@ -1394,25 +1396,28 @@ async function geminiCall(base64, prompt) {
 // PROMPTS
 // ══════════════════════════════════════════════════════════
 function buildPass1Prompt() {
-  return `You are reading a multiple choice question from a pub quiz screen. The photo may be taken through a small hole in a bottle, at an angle, with slight blur or screen glare — this is expected. Use every clue available to read it.
+  return `You are reading a multiple choice quiz question from a photo. The image may be blurry, angled, or have screen glare — work through it.
 
-IMPORTANT RULES:
-- You MUST see exactly 5 answer options to return status ok
-- Blur, glare, slight angle or imperfect lighting is NOT a reason to reposition — do your best to read through it
-- Only return reposition if you genuinely cannot identify the question text OR cannot find 5 options at all
-- Screen glare, reflections and colour casts are normal — look past them
+STEP 1 — COUNT THE OPTIONS:
+Count every distinct answer option visible on screen (labelled A/B/C/D/E, or numbered, or coloured tiles, or bullets — any format).
+List them in the ORDER they appear on screen from top to bottom (or left to right).
 
-If you can see the question and all 5 options (even if slightly blurry or glary):
-- Determine the correct answer using your full knowledge
-- Return status ok
+STEP 2 — CHECK:
+- If you can see EXACTLY 5 options AND can read the question text → answer it
+- If you see fewer than 5 options, or cannot read the question at all → reposition (do NOT guess)
+- Blur and glare alone are NOT reasons to reposition — only missing options or unreadable question
 
-RESPOND ONLY WITH JSON — no markdown, no explanation:
+STEP 3 — IDENTIFY THE CORRECT ANSWER:
+Using your knowledge, determine which option is correct.
+Set "answer_position" to its position number in your ordered list (1=first option, 2=second, 3=third, 4=fourth, 5=fifth).
 
-If ready (5 options visible, question readable):
-{"status":"ok","options_count":5,"answer":"B","answer_text":"exact text of correct option","question_summary":"the question in brief","question_complete":true,"options_complete":true,"confidence":"high","options_visible":["A","B","C","D","E"],"format":"kahoot|pub|slides|other"}
+RESPOND ONLY WITH VALID JSON — no markdown, no extra text:
 
-If genuinely cannot read (not just blurry — truly unreadable or fewer than 5 options):
-{"status":"reposition","options_count":0,"question_complete":false,"options_complete":false,"reason":"SPECIFIC reason — e.g. only 4 options visible, or text completely obscured"}`;
+If 5 options visible and question readable:
+{"status":"ok","options_count":5,"answer_position":3,"answer":"C","answer_text":"exact text of the correct option","options_ordered":["text of 1st","text of 2nd","text of 3rd","text of 4th","text of 5th"],"question_summary":"brief question text","confidence":"high"}
+
+If fewer than 5 options OR question unreadable:
+{"status":"reposition","options_count":2,"reason":"Only 2 options visible — need to see all 5"}`;
 }
 
 function buildPass2Prompt(p1) {
@@ -1445,7 +1450,7 @@ function extractFallback(raw) {
   if (!answer && status!=='ok') return null;
   return {status,answer,options_count:gn('options_count')||0,answer_text:g('answer_text')||'',
     question_summary:g('question_summary')||'',confidence:g('confidence')||'medium',
-    options_visible:['A','B','C','D','E'],question_complete:true,options_complete:true,
+    answer_position:gn('answer_position')||0,options_visible:['A','B','C','D','E'],question_complete:true,options_complete:true,
     agree:raw.includes('"agree": true'),final_answer:g('final_answer')||answer,your_answer:g('your_answer')||answer};
 }
 
@@ -1522,57 +1527,40 @@ function resumeAudio() {
   }
 }
 
-function haptic(ans, options) {
+function haptic(ans, position) {
+  // ans     = the answer letter (A/B/C/D/E) or 'R'/'WARN'
+  // position = 1-5 (which option number it is on screen) — set by the calling code
   if (!tog('haptic')) return;
   resumeAudio();
   if (!navigator.vibrate) { log('Vibration not supported', 'warn'); return; }
 
   const dur = parseInt(document.getElementById('buzzDur')?.value || 150);
-  const g   = parseInt(document.getElementById('buzzGap')?.value || 120);
+  const gap = parseInt(document.getElementById('buzzGap')?.value || 180);
 
-  // Buzz count = POSITION of answer in the options list (1st option=1, 2nd=2 etc)
-  // This is reliable regardless of what letter label each option has
-  // Reposition = 5 second continuous buzz — completely unmistakable
-  let n = 0;
-  const pattern = [];
+  function fire(pattern) {
+    navigator.vibrate(0); // cancel any existing vibration first
+    setTimeout(() => {
+      const ok = navigator.vibrate(pattern);
+      if (!ok) setTimeout(() => navigator.vibrate(pattern), 100); // one retry
+    }, 30);
+  }
 
   if (ans === 'R' || ans === 'WARN') {
-    // Long continuous 5-second buzz for reposition
-    pattern.push(0, 5000);
-    const label = 'REPOSITION — 5s continuous';
-    const ok = navigator.vibrate(pattern);
-    if (!ok) { navigator.vibrate(0); setTimeout(() => navigator.vibrate(pattern), 50); }
-    log('Buzz: '+label+' '+(ok?'✓':'retry'), 'dim');
+    // REPOSITION: 3 long buzzes (500ms each, 200ms gap) — very distinct, not too long
+    fire([0, 500, 200, 500, 200, 500]);
+    log('Buzz: REPOSITION — 3 long buzzes', 'warn');
     return;
   }
 
-  // Determine position from options_visible array
-  if (options && Array.isArray(options) && options.length > 0) {
-    const pos = options.indexOf(ans);
-    n = pos >= 0 ? pos + 1 : 0;
-  }
-  // Fallback to letter-based position if no options array
-  if (n === 0) {
-    const fallback = {A:1, B:2, C:3, D:4, E:5};
-    n = fallback[ans] || 1;
-  }
-
-  for (let i=0; i<n; i++) {
-    pattern.push(i===0 ? 0 : g);
+  // ANSWER: n buzzes where n = position on screen (1st=1, 2nd=2 ... 5th=5)
+  const n = (position >= 1 && position <= 5) ? position : 1;
+  const pattern = [];
+  for (let i = 0; i < n; i++) {
+    pattern.push(i === 0 ? 0 : gap);
     pattern.push(dur);
   }
-  const label = n+'×'+dur+'ms (option '+n+')';
-
-  // Fire immediately, then re-fire once after 80ms as backup
-  // (Samsung sometimes drops the first vibrate call)
-  const ok = navigator.vibrate(pattern);
-  if (!ok) {
-    // If first call fails, try cancelling any existing vibration and retry
-    navigator.vibrate(0);
-    setTimeout(() => navigator.vibrate(pattern), 50);
-  }
-
-  log('Buzz: '+ans+' — '+label+' '+(ok?'✓':'retry'), 'dim');
+  fire(pattern);
+  log('Buzz: option ' + n + ' — ' + n + '×' + dur + 'ms', 'dim');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1935,7 +1923,7 @@ function repeatLastAnswer() {
   log('Repeat: ' + lastAnswerForRepeat, 'ok');
   const la = document.getElementById('lockAnswer');
   if (la) { la.style.opacity='0'; setTimeout(() => { la.textContent=lastAnswerForRepeat; la.className='ans-'+lastAnswerForRepeat; la.style.opacity='1'; }, 100); }
-  haptic(lastAnswerForRepeat, lastAnswerData?.options_visible);
+  haptic(lastAnswerForRepeat, lastAnswerData?.answer_position || 0);
 }
 
 function toggleAutoMode() {
@@ -2131,9 +2119,9 @@ function testBuzz() {
   log('Testing buzz: B = 2 pulses', 'info');
   const dur = parseInt(document.getElementById('buzzDur')?.value || 80);
   const gap = parseInt(document.getElementById('buzzGap')?.value || 120);
-  // Test: 3 buzzes = 3rd option
-  const td=parseInt(document.getElementById('buzzDur')?.value||150), tg=parseInt(document.getElementById('buzzGap')?.value||120);
-  navigator.vibrate && navigator.vibrate([0,td,tg,td,tg,td]);
+  // Test: 3 buzzes (3rd option)
+  const td=parseInt(document.getElementById('buzzDur')?.value||150), tg=parseInt(document.getElementById('buzzGap')?.value||180);
+  navigator.vibrate && navigator.vibrate(0); setTimeout(()=>navigator.vibrate([0,td,tg,td,tg,td]),30);
 }
 
 // ══════════════════════════════════════════════════════════
