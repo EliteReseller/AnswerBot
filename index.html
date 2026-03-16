@@ -20,11 +20,8 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 #lockScreen{position:fixed;inset:0;background:#000;z-index:9999;display:flex;align-items:center;justify-content:center;transition:opacity 0.3s;}
 #lockScreen.hidden{opacity:0;pointer-events:none;}
 #lockAnswer{position:absolute;bottom:28px;left:24px;font-family:'Bebas Neue';font-size:48px;line-height:1;opacity:0;transition:all 0.25s;letter-spacing:2px;}
-#lockAnswer.ans-A{opacity:1;color:var(--a);text-shadow:0 0 20px var(--a);}
-#lockAnswer.ans-B{opacity:1;color:var(--b);text-shadow:0 0 20px var(--b);}
-#lockAnswer.ans-C{opacity:1;color:var(--c);text-shadow:0 0 20px var(--c);}
-#lockAnswer.ans-D{opacity:1;color:var(--d);text-shadow:0 0 20px var(--d);}
-#lockAnswer.ans-E{opacity:1;color:var(--e);text-shadow:0 0 20px var(--e);}
+#lockAnswer.ans-1,#lockAnswer.ans-2,#lockAnswer.ans-3,
+#lockAnswer.ans-4,#lockAnswer.ans-5{opacity:1;color:var(--accent);text-shadow:0 0 20px var(--accent);}
 #lockAnswer.ans-WARN,#lockAnswer.ans-BLUR{opacity:1;color:var(--red);font-size:26px;animation:warnblink 0.4s infinite;}
 #lockAnswer.ans-UNCERTAIN{opacity:1;color:var(--amber);font-size:28px;}
 @keyframes warnblink{0%,100%{opacity:1}50%{opacity:0.1}}
@@ -181,22 +178,19 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px #e8ff47
 .answer-card::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 100%,#e8ff4708,transparent 70%);pointer-events:none;}
 .ans-pre{font-size:8px;letter-spacing:3px;color:var(--muted);margin-bottom:4px;}
 .ans-big{font-family:'Bebas Neue';font-size:88px;line-height:1;color:var(--accent);text-shadow:0 0 30px #e8ff4755;transition:all 0.25s;min-height:90px;display:flex;align-items:center;justify-content:center;}
-.ans-big.ans-A{color:var(--a);text-shadow:0 0 30px var(--a);}
-.ans-big.ans-B{color:var(--b);text-shadow:0 0 30px var(--b);}
-.ans-big.ans-C{color:var(--c);text-shadow:0 0 30px var(--c);}
-.ans-big.ans-D{color:var(--d);text-shadow:0 0 30px var(--d);}
-.ans-big.ans-E{color:var(--e);text-shadow:0 0 30px var(--e);}
+.ans-big.ans-1,.ans-big.ans-2,.ans-big.ans-3,
+.ans-big.ans-4,.ans-big.ans-5{color:var(--accent);text-shadow:0 0 30px var(--accent);}
 .ans-big.ans-WARN,.ans-big.ans-BLUR{color:var(--red);font-size:22px;font-family:'JetBrains Mono';text-shadow:0 0 15px var(--red);}
 .ans-big.ans-UNCERTAIN{color:var(--amber);text-shadow:0 0 20px var(--amber);}
 .ans-sub{font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:4px;min-height:14px;}
 #heldBadge{position:absolute;top:8px;right:8px;background:#1a1500;border:1px solid var(--amber);border-radius:3px;padding:2px 7px;font-size:7px;letter-spacing:2px;color:var(--amber);display:none;}
 .opt-chips{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin-bottom:6px;}
 .chip{width:30px;height:30px;border-radius:5px;border:1px solid var(--dim);color:var(--dim);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:16px;transition:all 0.2s;}
-.chip.act-A{background:#ff446622;border-color:var(--a);color:var(--a);box-shadow:0 0 8px var(--a);}
-.chip.act-B{background:#4488ff22;border-color:var(--b);color:var(--b);box-shadow:0 0 8px var(--b);}
-.chip.act-C{background:#ffcc0022;border-color:var(--c);color:var(--c);box-shadow:0 0 8px var(--c);}
-.chip.act-D{background:#44dd8822;border-color:var(--d);color:var(--d);box-shadow:0 0 8px var(--d);}
-.chip.act-E{background:#cc55ff22;border-color:var(--e);color:var(--e);box-shadow:0 0 8px var(--e);}
+.chip.act{background:#ff446622;border-color:var(--a);color:var(--a);box-shadow:0 0 8px var(--a);}
+.chip.act{background:#4488ff22;border-color:var(--b);color:var(--b);box-shadow:0 0 8px var(--b);}
+.chip.act{background:#ffcc0022;border-color:var(--c);color:var(--c);box-shadow:0 0 8px var(--c);}
+.chip.act{background:#44dd8822;border-color:var(--d);color:var(--d);box-shadow:0 0 8px var(--d);}
+.chip.act{background:#cc55ff22;border-color:var(--e);color:var(--e);box-shadow:0 0 8px var(--e);}
 
 /* History */
 .hist-strip{display:flex;gap:6px;margin-bottom:10px;padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:6px;align-items:center;}
@@ -287,6 +281,14 @@ body.cover-mode #coverScreen {
 #coverAnswer.ca-D { color: #44dd88; }
 #coverAnswer.ca-E { color: #cc55ff; }
 #coverAnswer.ca-R { color: #ff3355; font-size: 80px; }
+
+/* Cover screen — position numbers 1-5 */
+#coverAnswer.ca-1 { color: #ff4466; }
+#coverAnswer.ca-2 { color: #4488ff; }
+#coverAnswer.ca-3 { color: #ffcc00; }
+#coverAnswer.ca-4 { color: #44dd88; }
+#coverAnswer.ca-5 { color: #cc55ff; }
+
 #coverDot {
   width: 10px; height: 10px; border-radius: 50%;
   background: #3a4455; position: absolute; top: 12px; right: 12px;
@@ -641,7 +643,7 @@ body.cover-dim #dimBtn { color: #1a1a1a; }
   <!-- ANSWER -->
   <div class="answer-card">
     <div id="heldBadge">HELD</div>
-    <div class="ans-pre">◈ CORRECT ANSWER</div>
+    <div class="ans-pre">◈ OPTION NUMBER (1-5)</div>
     <div class="opt-chips" id="optChips"></div>
     <div class="ans-big" id="ansBig">—</div>
     <div class="ans-sub" id="ansSub"></div>
@@ -875,7 +877,7 @@ window.addEventListener('load', () => {
 
   wakeLock();
   initClickerWheel();
-  log('AnswerBot Pro v5 ready · Live stream mode', 'info');
+  log('AnswerBot v6.2 ready — press ring to scan', 'ok');
 });
 
 function loadToggles() {
@@ -957,17 +959,12 @@ function triggerSOS() {
 }
 
 function sosClose()    { document.getElementById('sosOverlay').classList.remove('on'); }
-function sosContinue() { sosClose(); if (lastAnswer) showAnswer(lastAnswer, {answer_text:'Held from last scan',question_summary:'',confidence:'medium',options_count:5,options_complete:true,question_complete:true,options_visible:['A','B','C','D','E']}, 80); }
+function sosContinue() { sosClose(); if (lastAnswer && lastAnswerData) showAnswer(lastAnswer, lastAnswerData, 80); }
 async function sosRecover() {
   sosClose();
   log('SOS: restarting systems…', 'warn');
-  stopLiveStream();
   scanning = false;
   await wakeLock();
-  if (camActive) {
-    await delay(500);
-    startLiveStream();
-  }
   log('SOS: recovery complete', 'ok');
 }
 
@@ -1180,8 +1177,8 @@ async function startCamera() {
   camActive = true;
   document.getElementById('camPermCard').style.display = 'none';
   document.getElementById('camWrap').style.display = 'block';
-  setBadge('LIVE', 'live');
-  setPill('CAM LIVE', true);
+  setBadge('CAM', 'ok');
+  setPill('CAM READY', true);
   log('Camera ready — point at quiz screen and press ring', 'ok');
 }
 
@@ -1528,39 +1525,39 @@ function resumeAudio() {
 }
 
 function haptic(ans, position) {
-  // ans     = the answer letter (A/B/C/D/E) or 'R'/'WARN'
-  // position = 1-5 (which option number it is on screen) — set by the calling code
   if (!tog('haptic')) return;
   resumeAudio();
-  if (!navigator.vibrate) { log('Vibration not supported', 'warn'); return; }
+  if (!navigator.vibrate) { log('Vibrate API not available', 'warn'); return; }
 
-  const dur = parseInt(document.getElementById('buzzDur')?.value || 150);
-  const gap = parseInt(document.getElementById('buzzGap')?.value || 180);
+  const dur = parseInt(document.getElementById('buzzDur')?.value) || 150;
+  const gap = parseInt(document.getElementById('buzzGap')?.value) || 200;
 
-  function fire(pattern) {
-    navigator.vibrate(0); // cancel any existing vibration first
-    setTimeout(() => {
-      const ok = navigator.vibrate(pattern);
-      if (!ok) setTimeout(() => navigator.vibrate(pattern), 100); // one retry
-    }, 30);
-  }
+  // Always cancel first — Samsung ignores new vibrate if one is running
+  navigator.vibrate(0);
 
-  if (ans === 'R' || ans === 'WARN') {
-    // REPOSITION: 3 long buzzes (500ms each, 200ms gap) — very distinct, not too long
-    fire([0, 500, 200, 500, 200, 500]);
-    log('Buzz: REPOSITION — 3 long buzzes', 'warn');
+  const n = (position >= 1 && position <= 5) ? position : 0;
+
+  if (!n || ans === 'R' || ans === 'WARN') {
+    // REPOSITION: 3 long buzzes — completely unmistakable
+    setTimeout(() => navigator.vibrate([0, 500, 200, 500, 200, 500]), 50);
+    log('Buzz: REPOSITION — 3×500ms', 'warn');
     return;
   }
 
-  // ANSWER: n buzzes where n = position on screen (1st=1, 2nd=2 ... 5th=5)
-  const n = (position >= 1 && position <= 5) ? position : 1;
+  // ANSWER: n short buzzes = option n
   const pattern = [];
   for (let i = 0; i < n; i++) {
     pattern.push(i === 0 ? 0 : gap);
     pattern.push(dur);
   }
-  fire(pattern);
-  log('Buzz: option ' + n + ' — ' + n + '×' + dur + 'ms', 'dim');
+
+  setTimeout(() => {
+    const ok = navigator.vibrate(pattern);
+    log('Buzz: option ' + n + ' — ' + n + '×' + dur + 'ms ' + (ok ? '✓' : '✗ (retrying)'), 'dim');
+    if (!ok) {
+      setTimeout(() => navigator.vibrate(pattern), 150);
+    }
+  }, 50);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1571,27 +1568,38 @@ function showAnswer(ans, data, conf) {
   lastAnswerForRepeat = ans;
   if (tog('hold')) { lastAnswer = ans; document.getElementById('heldBadge').style.display='none'; }
 
-  const ab = document.getElementById('ansBig');
-  ab.textContent = ans; ab.className = 'ans-big ans-'+ans;
-  document.getElementById('ansSub').textContent = (data.answer_text||'') + (conf ? '  ·  '+conf+'%' : '');
-  document.getElementById('optChips').innerHTML = ANSWERS.map(l =>
-    `<div class="chip ${l===ans?'act-'+ans:''}">${l}</div>`).join('');
+  // pos = position 1-5 on screen
+  const pos = data.answer_position || 0;
+  const n = (pos >= 1 && pos <= 5) ? pos : 0;
+  const display = n ? String(n) : '?';
+  const optText = data.answer_text || (data.options_ordered && data.options_ordered[n-1]) || '';
 
-  clearLEDs();
+  const ab = document.getElementById('ansBig');
+  ab.textContent = display;
+  ab.className = 'ans-big ans-' + (n || 'WARN');
+
+  document.getElementById('ansSub').textContent = optText + (conf ? '  ·  '+conf+'%' : '');
+
+  // Chips: 1 2 3 4 5 — highlight the correct position
+  document.getElementById('optChips').innerHTML = [1,2,3,4,5].map(i =>
+    `<div class="chip ${i===n?'act':''}">${i}</div>`).join('');
+
+  // LED row — highlight correct position
   ['a','b','c','d','e'].forEach((x,i) => {
-    document.getElementById('l'+x).className = 'led' + (ANSWERS[i]===ans?' '+ans:'');
-    document.getElementById('ll'+x).className = 'led-lbl' + (ANSWERS[i]===ans?' active':'');
+    const active = (i+1) === n;
+    document.getElementById('l'+x).className  = 'led'     + (active?' on':'');
+    document.getElementById('ll'+x).className = 'led-lbl' + (active?' active':'');
   });
 
   const la = document.getElementById('lockAnswer');
-  la.textContent = ans; la.className = 'ans-'+ans;
-  // Update cover screen if active
-  updateCoverScreen(ans, false);
+  la.textContent = display;
+  la.className = 'ans-' + (n || 'WARN');
 
+  updateCoverScreen(display, false);
   setConfBar(conf);
   document.getElementById('confPct').textContent = conf+'%';
-  setPill('ANSWER: '+ans, true);
-  addHistory(ans);
+  setPill('OPTION ' + display, true);
+  addHistory(display);
 }
 
 function showWarn(result) {
@@ -1808,7 +1816,12 @@ function demoWarn(){
   log('[DEMO] Reposition warning','warn');
 }
 function demoRandom(){
-  demoAnswer(ANSWERS[Math.floor(Math.random()*5)]);
+  const demoPos = Math.floor(Math.random()*5)+1;
+  const demoLetter = ANSWERS[demoPos-1];
+  const demoData = {status:'ok',options_count:5,answer_position:demoPos,answer:demoLetter,answer_text:'Demo option '+demoPos,question_summary:'[DEMO] Test question',confidence:'high',options_ordered:['Option 1','Option 2','Option 3','Option 4','Option 5']};
+  showAnswer(demoLetter, demoData, 90);
+  lightPhysLED(demoLetter);
+  haptic(demoLetter, demoPos);
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2044,8 +2057,9 @@ function updateCoverScreen(answer, isReposition) {
     cs.className = 'active';
     cd.className = 'warn';
   } else {
+    // answer is now a number (1-5) or letter fallback
     ca.textContent = answer;
-    ca.className = 'ca-' + answer;
+    ca.className = 'ca-' + answer; // works for ca-1 through ca-5
     cs.textContent = 'PRESS RING TO SCAN';
     cs.className = 'active';
     cd.className = 'ok';
