@@ -799,7 +799,9 @@ body.cover-dim #dimBtn { color: #1a1a1a; }
       </div>
     </div>
     <div style="margin-top:8px;">
-      <button class="btn btn-blue" style="width:100%;font-size:9px;" onclick="testBuzz()">TEST BUZZ (sends B = 2 pulses)</button>
+      <button class="btn btn-blue" style="width:100%;font-size:9px;margin-bottom:6px;" onclick="testBuzz()">TEST BUZZ (3 buzzes)</button>
+      <button class="btn" style="width:100%;font-size:9px;border-color:var(--red);color:var(--red);" onclick="rawBuzzTest()">🔴 RAW VIBRATE TEST (no conditions)</button>
+      <div style="font-size:7px;color:var(--muted);margin-top:4px;">Use RAW TEST first — if that works, regular buzz will work</div>
     </div>
   </div>
 
@@ -1307,6 +1309,24 @@ async function sendToGemini(canvas, retryCount = 0) {
 
     updateValidation(p1);
 
+    // Calculate position from correct_text + options_ordered
+    // This is done by US not Gemini — guaranteed correct
+    if (p1.status === 'ok' && p1.options_count === 5 && p1.correct_text && p1.options_ordered?.length === 5) {
+      const idx = p1.options_ordered.findIndex(t =>
+        t.trim().toLowerCase() === p1.correct_text.trim().toLowerCase()
+      );
+      p1.answer_position = idx >= 0 ? idx + 1 : 0;
+      if (p1.answer_position === 0) {
+        // Fuzzy match — try partial contains
+        const fuzzy = p1.options_ordered.findIndex(t =>
+          t.toLowerCase().includes(p1.correct_text.toLowerCase().slice(0,10)) ||
+          p1.correct_text.toLowerCase().includes(t.toLowerCase().slice(0,10))
+        );
+        p1.answer_position = fuzzy >= 0 ? fuzzy + 1 : 0;
+      }
+      log('Position calc: "'+p1.correct_text+'" → option '+p1.answer_position, 'dim');
+    }
+
     if (p1.status !== 'ok' || p1.options_count !== 5 || !p1.answer_position || p1.answer_position < 1 || p1.answer_position > 5) {
 
       // ── AUTO ZOOM RETRY ──
@@ -1322,11 +1342,15 @@ async function sendToGemini(canvas, retryCount = 0) {
         if (p1z.status === 'ok' && p1z.options_count === 5 && p1z.answer_position >= 1 && p1z.answer_position <= 5) {
           // Zoom retry succeeded — use this result
           log('✓ Zoom retry succeeded — option '+p1z.answer_position, 'ok');
-          const conf2 = scoreConfidence(p1z, {agree:true, final_answer:p1z.answer});
-          showAnswer(p1z.answer, p1z, conf2);
-          lightPhysLED(p1z.answer);
+          // Calculate position for zoom retry result
+          if (p1z.correct_text && p1z.options_ordered?.length===5) {
+            const zi = p1z.options_ordered.findIndex(t => t.trim().toLowerCase()===p1z.correct_text.trim().toLowerCase());
+            p1z.answer_position = zi >= 0 ? zi+1 : p1z.answer_position;
+          }
+          const conf2 = scoreConfidence(p1z, {agree:true});
+          showAnswer('POS', p1z, conf2);
           lastAnswerData = p1z;
-          haptic(p1z.answer, p1z.answer_position);
+          haptic('ANS', p1z.answer_position);
           statAnswers++;
           updateStats();
           setLockDot('ok'); setLockStatus('active');
@@ -1364,31 +1388,38 @@ async function sendToGemini(canvas, retryCount = 0) {
       return;
     }
 
+    // If P2 disagrees and gives different correct_text, recalculate position
+    if (p2.agree === false && p2.correct_text && p1.options_ordered?.length === 5) {
+      const idx2 = p1.options_ordered.findIndex(t =>
+        t.trim().toLowerCase() === p2.correct_text.trim().toLowerCase()
+      );
+      if (idx2 >= 0) {
+        p1.answer_position = idx2 + 1;
+        p1.correct_text = p2.correct_text;
+        log('P2 override → option '+p1.answer_position+': '+p2.correct_text, 'info');
+      }
+    }
+
+    const finalPos = p1.answer_position;
     const conf = scoreConfidence(p1, p2);
-    // Use position from p2 if it disagrees, otherwise p1
-    const finalPos = (p2.final_position >= 1 && p2.final_position <= 5)
-      ? p2.final_position : p1.answer_position;
 
     if (!finalPos || finalPos < 1 || finalPos > 5) {
-      log('ERROR: no valid position — pos='+finalPos, 'err');
-      showWarn({reason:'Could not determine option position', options_count:5});
+      log('ERROR: could not map answer to position — reposition', 'err');
+      showWarn({reason:'Could not map answer to option position', options_count:5});
       scanning = false; showOverlay(false); setLockDot('warn');
       return;
     }
 
-    // Pass position as the answer — showAnswer uses it for display
-    p1.answer_position = finalPos; // ensure p1 has final position
     showAnswer('POS', p1, conf);
     lastAnswerData = p1;
-    lightPhysLED(String(finalPos));
     haptic('ANS', finalPos);
     statAnswers++;
     updateStats();
     setLockDot('ok');
     setLockStatus('active');
     lastFrameData = null;
-    log('✓ OPTION '+finalPos+' | '+conf+'% | "'+(p1.question_summary||'')+'"', 'ok');
-    log('Text: "'+(p1.answer_text||p1.options_ordered?.[finalPos-1]||'')+'"', 'ok');
+    log('✓ OPTION '+finalPos+' | '+conf+'% | "'+p1.correct_text+'"', 'ok');
+    log('Options: '+JSON.stringify(p1.options_ordered), 'dim');
     log('API: gemini-3-flash-preview | '+(tog('speed')?'1-pass':'2-pass'), 'api');
 
   } catch(e) {
@@ -1443,39 +1474,39 @@ async function geminiCall(base64, prompt) {
 // PROMPTS
 // ══════════════════════════════════════════════════════════
 function buildPass1Prompt() {
-  return `You are reading a multiple choice quiz question from a photo. The image may be blurry or have glare — do your best.
+  return `You are reading a multiple choice quiz question from a photo. Image may be blurry or have glare — do your best.
 
-YOUR TASK:
-1. Find ALL answer options on screen. List them in order: first option at top/left = position 1, last = position 5.
-2. You MUST find exactly 5 options. If fewer than 5 visible → reposition.
-3. Decide which option is the correct answer to the question.
-4. Set answer_position to WHERE that option appears in the list (1, 2, 3, 4, or 5).
+STEP 1: Read the question text.
+STEP 2: List ALL 5 answer options exactly as they appear on screen, in order top-to-bottom (or left-to-right for grids). Label them 1 through 5.
+STEP 3: Using your knowledge, identify which option is the correct answer.
+STEP 4: Return the correct_text field as the EXACT text of the correct option (must match one of your options_ordered entries exactly).
 
-CRITICAL: answer_position is the POSITION ON SCREEN (1=topmost/leftmost option), NOT related to any letter label.
-Example: if the correct answer is the THIRD item in the list, answer_position=3 regardless of whether it says "A" "C" or anything else.
+If you cannot see all 5 options clearly, return status reposition.
 
-RESPOND ONLY WITH JSON — no markdown:
+RESPOND ONLY WITH JSON — no markdown, no extra text:
 
-Success (5 options visible):
-{"status":"ok","options_count":5,"answer_position":3,"answer_text":"exact text of correct option","options_ordered":["1st option text","2nd option text","3rd option text","4th option text","5th option text"],"question_summary":"brief question","confidence":"high"}
+If all 5 options visible:
+{"status":"ok","options_count":5,"correct_text":"exact text of correct answer","options_ordered":["text of option 1","text of option 2","text of option 3","text of option 4","text of option 5"],"question_summary":"the question","confidence":"high"}
 
-Fail (cannot see 5 options or cannot read question):
+If cannot see 5 options:
 {"status":"reposition","options_count":0,"reason":"specific reason"}`;
 }
 
+
 function buildPass2Prompt(p1) {
-  const opts = (p1.options_ordered||[]).map((t,i)=>(i+1)+'. '+t).join(', ');
-  return `Verify this quiz answer. Look at the image again independently.
+  const opts = (p1.options_ordered||[]).map((t,i) => (i+1)+'. '+t).join('\n');
+  return `Verify this quiz answer independently.
 
 Question: "${p1.question_summary}"
-Options in order: ${opts}
-Proposed correct position: ${p1.answer_position} (text: "${p1.answer_text}")
+Options as seen on screen:
+${opts}
 
-Do you agree that position ${p1.answer_position} is correct?
-If not, give the correct position number (1-5).
+The proposed correct answer is: "${p1.correct_text}"
+
+Do you agree this is correct? If not, give the exact text of the correct option.
 
 RESPOND ONLY WITH JSON:
-{"agree":true,"final_position":${p1.answer_position},"reason":"brief reason"}`;
+{"agree":true,"correct_text":"${p1.correct_text}","reason":"brief reason"}`;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1576,44 +1607,65 @@ function resumeAudio() {
 }
 
 function haptic(ans, position) {
-  if (!tog('haptic')) return;
-  resumeAudio();
-  if (!navigator.vibrate) { log('Vibrate API not available — try Chrome on Android', 'warn'); return; }
+  if (!tog('haptic')) { log('Haptic: toggle is OFF', 'warn'); return; }
 
   const dur = parseInt(document.getElementById('buzzDur')?.value) || 150;
   const gap = parseInt(document.getElementById('buzzGap')?.value) || 200;
 
-  const n = (position >= 1 && position <= 5) ? position : 0;
-
   let pattern;
   let label;
 
+  const n = (position >= 1 && position <= 5) ? position : 0;
+
   if (!n || ans === 'R' || ans === 'WARN') {
-    // REPOSITION: 3 long distinct buzzes
     pattern = [0, 500, 200, 500, 200, 500];
     label = 'REPOSITION 3×500ms';
   } else {
-    // ANSWER: n buzzes of dur ms each
     pattern = [];
     for (let i = 0; i < n; i++) {
       pattern.push(i === 0 ? 0 : gap);
       pattern.push(dur);
     }
-    label = 'option ' + n + ' (' + n + '×' + dur + 'ms)';
+    label = 'option '+n+' ('+n+'×'+dur+'ms gap:'+gap+'ms)';
   }
 
-  // Fire directly — we are in a user gesture chain (clicker press)
-  // No setTimeout, no cancel — just fire
-  const ok = navigator.vibrate(pattern);
-  log('Buzz: ' + label + ' ' + (ok ? '✓' : '✗'), ok ? 'dim' : 'warn');
+  log('Buzz firing: '+label, 'info');
+  log('Pattern: '+JSON.stringify(pattern), 'dim');
 
-  if (!ok) {
-    // Retry once after 200ms — only if first call failed
-    setTimeout(() => {
-      const ok2 = navigator.vibrate(pattern);
-      log('Buzz retry: ' + (ok2 ? '✓' : '✗ — check haptic toggle & Chrome Android'), ok2 ? 'dim' : 'err');
-    }, 200);
+  if (!('vibrate' in navigator)) {
+    log('vibrate() NOT in navigator — not supported on this browser/device', 'err');
+    return;
   }
+
+  resumeAudio();
+
+  // Try direct fire first (works if we are in/near a user gesture)
+  const ok1 = navigator.vibrate(pattern);
+  log('vibrate() returned: '+ok1, ok1 ? 'ok' : 'warn');
+
+  if (!ok1) {
+    // Retry 3 times with increasing delays
+    [100, 300, 600].forEach(delay => {
+      setTimeout(() => {
+        const ok = navigator.vibrate(pattern);
+        if (ok) log('Buzz OK after '+delay+'ms delay ✓', 'ok');
+      }, delay);
+    });
+  }
+}
+
+// RAW TEST — bypasses ALL checks, directly calls navigator.vibrate
+// Use this to verify vibration works on your device at all
+function rawBuzzTest() {
+  log('RAW TEST: calling navigator.vibrate([0,300,200,300]) directly...', 'info');
+  if (!('vibrate' in navigator)) {
+    log('FAIL: vibrate not in navigator', 'err');
+    return;
+  }
+  const ok = navigator.vibrate([0, 300, 200, 300]);
+  log('RAW TEST result: '+ok, ok ? 'ok' : 'err');
+  setTimeout(() => navigator.vibrate([0, 300, 200, 300, 200, 300]), 1000);
+  log('Scheduled second fire in 1s', 'dim');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2189,9 +2241,7 @@ function testBuzz() {
   log('Testing buzz: B = 2 pulses', 'info');
   const dur = parseInt(document.getElementById('buzzDur')?.value || 80);
   const gap = parseInt(document.getElementById('buzzGap')?.value || 120);
-  // Test: 3 buzzes (3rd option)
-  const td=parseInt(document.getElementById('buzzDur')?.value||150), tg=parseInt(document.getElementById('buzzGap')?.value||180);
-  navigator.vibrate && navigator.vibrate(0); setTimeout(()=>navigator.vibrate([0,td,tg,td,tg,td]),30);
+  haptic('ANS', 3); // test with 3 buzzes = option 3
 }
 
 // ══════════════════════════════════════════════════════════
