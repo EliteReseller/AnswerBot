@@ -1073,15 +1073,23 @@ function vibrate(posOrR) {
   let label;
 
   if (posOrR === 'R' || posOrR === 0) {
-    // Reposition: 3 long buzzes
-    pattern = [0, 500, 200, 500, 200, 500];
-    label   = 'REPOSITION 3×500ms';
+    // Reposition: 6 buzzes
+    // Pattern: [buzz, gap, buzz, gap, ...] — NO leading zero
+    pattern = [];
+    for (let i = 0; i < 6; i++) {
+      if (i > 0) pattern.push(150); // gap between buzzes
+      pattern.push(300);            // buzz duration
+    }
+    label = 'REPOSITION 6×300ms';
   } else {
     const n = parseInt(posOrR);
+    // Pattern: [buzz, gap, buzz, gap, ...] — NO leading zero
+    // navigator.vibrate([200]) = vibrate 200ms ✓
+    // navigator.vibrate([0, 200]) = vibrate 0ms, pause 200ms = NOTHING ✗
     pattern = [];
     for (let i = 0; i < n; i++) {
-      pattern.push(i === 0 ? 0 : gap);
-      pattern.push(dur);
+      if (i > 0) pattern.push(gap); // gap between buzzes
+      pattern.push(dur);            // buzz duration
     }
     label = `option ${n} (${n}×${dur}ms)`;
   }
@@ -1118,7 +1126,7 @@ function buzzTest(n) {
 function buzzRaw() {
   log('RAW TEST: navigator.vibrate([0,300,200,300,200,300])', 'info');
   if (!('vibrate' in navigator)) { log('NOT AVAILABLE', 'err'); return; }
-  const ok = navigator.vibrate([0, 300, 200, 300, 200, 300]);
+  const ok = navigator.vibrate([300, 200, 300, 200, 300]); // no leading zero
   log(`RAW result: ${ok}`, ok ? 'ok' : 'err');
 }
 
