@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>AnswerBot Pro v6.1 Alpha</title>
+<title>AnswerBot Pro v6.2 — Gemini 3 Flash</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700;800&family=Bebas+Neue&display=swap');
 :root{
@@ -301,6 +301,24 @@ body.cover-mode #coverScreen {
   transform: translateX(-50%); white-space: nowrap;
 }
 #coverStatus.active { color: #1a3a1a; }
+
+/* Dim mode — almost black, only a small dot visible */
+body.cover-dim #coverAnswer { display: none; }
+body.cover-dim #coverHist   { display: none; }
+body.cover-dim #coverStatus { display: none; }
+body.cover-dim #coverDot {
+  width: 14px; height: 14px;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+body.cover-dim #coverScreen { background: #000; }
+#dimBtn {
+  position: absolute; bottom: 8px; right: 36px;
+  font-size: 7px; letter-spacing: 2px; color: #111;
+  background: transparent; border: none; cursor: pointer;
+  font-family: 'JetBrains Mono', monospace; padding: 4px 6px;
+}
+body.cover-dim #dimBtn { color: #1a1a1a; }
 #coverExit {
   position: absolute; top: 8px; left: 8px;
   font-size: 8px; letter-spacing: 2px; color: #1a1a1a;
@@ -380,6 +398,7 @@ body.cover-mode #coverScreen {
     <span class="ch" id="ch3">—</span>
   </div>
   <div id="coverStatus">PRESS RING TO SCAN</div>
+  <button id="dimBtn" onclick="toggleDimMode()">DIM</button>
 </div>
 
 <div id="scanBar"><div id="scanFill"></div></div>
@@ -412,7 +431,7 @@ body.cover-mode #coverScreen {
     <div class="card-title">API Keys <span style="color:var(--accent);font-size:9px;margin-left:4px">2-KEY ROTATION</span></div>
     <div style="font-size:8px;color:var(--muted);margin-bottom:10px;line-height:1.8">
       Add keys from different Google accounts · <b style="color:var(--blue)">aistudio.google.com</b><br>
-      Rate limited? Switches instantly. Using <b style="color:var(--accent)">gemini-2.5-flash</b>
+      Rate limited? Switches instantly. Using <b style="color:var(--accent)">gemini-2.5-pro</b>
     </div>
     <div class="key-slot"><div class="key-num">KEY 1</div><input type="password" id="ki0" placeholder="AIza…" style="flex:1;font-size:10px;padding:7px 9px;"><div class="key-dot" id="kd0"></div></div>
     <div class="key-slot" style="margin-top:6px;"><div class="key-num">KEY 2</div><input type="password" id="ki1" placeholder="AIza…" style="flex:1;font-size:10px;padding:7px 9px;"><div class="key-dot" id="kd1"></div></div>
@@ -464,6 +483,19 @@ body.cover-mode #coverScreen {
     <div id="changeFlash"></div>
     <div id="qualityBar"><div id="qualityFill"></div></div>
     <div class="cam-badge" id="camBadge">STARTING…</div>
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:8px;margin-top:6px;">
+    <button class="btn btn-blue" style="flex:1;font-size:8px;" onclick="refocusCamera()">🎯 RE-FOCUS</button>
+    <button class="btn" style="flex:1;font-size:8px;" onclick="toggleAntiGlare()">🌟 ANTI-GLARE</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+    <span style="font-size:8px;color:var(--muted);letter-spacing:2px;">CAM ROTATION</span>
+    <select id="camRotation" onchange="saveCamRot()" style="flex:1;font-size:9px;padding:4px 8px;background:#060810;border:1px solid var(--border);color:var(--text);border-radius:4px;">
+      <option value="0">0° — Normal</option>
+      <option value="180" selected>180° — Folded Z Flip 4 ★</option>
+      <option value="90">90° — Rotated right</option>
+      <option value="270">270° — Rotated left</option>
+    </select>
   </div>
 
   <!-- LIVE STATS (shown when live stream active) -->
@@ -808,8 +840,6 @@ let lastAnswer   = null;
 let answerHistory = [];
 
 // Live stream state
-let liveActive      = false;
-let liveTimer       = null;
 let lastFrameData   = null;   // ImageData of last sent frame (for change detection)
 let lastApiCallTime = 0;
 let statFrames = 0, statPassed = 0, statSent = 0, statAnswers = 0;
@@ -1020,7 +1050,7 @@ async function testAllKeys() {
   const tiny = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
   for (let i = 0; i < apiKeys.length; i++) {
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKeys[i].key}`,
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${apiKeys[i].key}`,
         { method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({contents:[{parts:[{text:'Say OK'},{inline_data:{mime_type:'image/png',data:tiny}}]}],generationConfig:{maxOutputTokens:4}})});
       const dot = document.getElementById('kd'+i);
@@ -1066,15 +1096,31 @@ async function requestCam() {
 }
 
 async function startCamera() {
-  log('Starting camera…', 'info');
+  log('Starting camera with autofocus + anti-glare…', 'info');
   let stream;
+
+  // Try with ideal constraints first
+  const constraints = {
+    video: {
+      facingMode: { ideal: 'environment' },
+      width:  { ideal: 1920, min: 1280 },
+      height: { ideal: 1080, min: 720 },
+      frameRate: { ideal: 30, max: 30 },
+      // Focus on centre zone where quiz screen will be
+      focusMode: 'continuous',
+      whiteBalanceMode: 'continuous'
+    }
+  };
+
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode:{exact:'environment'}, width:{ideal:1920,min:1280}, height:{ideal:1080,min:720}, frameRate:{ideal:30,max:30} }
-    });
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
   } catch(e) {
-    try { stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}}); }
-    catch(e2) { log('Camera failed: '+e2.message,'err'); return; }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    } catch(e2) {
+      log('Camera failed: ' + e2.message, 'err');
+      return;
+    }
   }
 
   const v = document.getElementById('video');
@@ -1082,21 +1128,52 @@ async function startCamera() {
   await new Promise(r => { v.onloadedmetadata = r; });
   await v.play();
 
-  // Apply quality constraints
   const track = stream.getVideoTracks()[0];
   if (track) {
     const caps = track.getCapabilities ? track.getCapabilities() : {};
     const settings = {};
-    if (caps.torch !== undefined) settings.torch = false;
-    if (caps.exposureCompensation) settings.exposureCompensation = Math.max(caps.exposureCompensation.min||-2, -1.0);
-    if (caps.focusMode?.includes('continuous')) settings.focusMode = 'continuous';
-    if (caps.fillLightMode) settings.fillLightMode = 'off';
-    if (Object.keys(settings).length) {
-      try { await track.applyConstraints({advanced:[settings]}); log('Camera quality optimised ✓','ok'); }
-      catch(e) { log('Some camera constraints unsupported','warn'); }
+
+    // ── AUTOFOCUS — lock to centre of frame ──
+    if (caps.focusMode?.includes('continuous')) {
+      settings.focusMode = 'continuous';
     }
+    if (caps.pointsOfInterest) {
+      // Centre point — focus on where the quiz screen will be
+      settings.pointsOfInterest = [{ x: 0.5, y: 0.5 }];
+    }
+
+    // ── ANTI-GLARE — slightly underexpose to reduce screen glare ──
+    if (caps.exposureMode?.includes('continuous')) {
+      settings.exposureMode = 'continuous';
+    }
+    if (caps.exposureCompensation) {
+      // Slight underexposure reduces screen glare without losing readability
+      const min = caps.exposureCompensation.min || -2;
+      const max = caps.exposureCompensation.max || 2;
+      settings.exposureCompensation = Math.max(min, Math.min(-0.7, max));
+    }
+
+    // ── WHITE BALANCE — indoor/screen mode ──
+    if (caps.whiteBalanceMode?.includes('continuous')) {
+      settings.whiteBalanceMode = 'continuous';
+    }
+
+    // ── DISABLE TORCH (avoid reflections) ──
+    if (caps.torch !== undefined) settings.torch = false;
+
+    if (Object.keys(settings).length) {
+      try {
+        await track.applyConstraints({ advanced: [settings] });
+        log('Camera: autofocus + anti-glare applied ✓', 'ok');
+      } catch(e) {
+        log('Some camera constraints not supported: ' + e.message, 'warn');
+      }
+    }
+
     const applied = track.getSettings ? track.getSettings() : {};
-    log(`Camera: ${applied.width||'?'}×${applied.height||'?'} torch=${applied.torch??'n/a'}`, 'dim');
+    log('Camera: ' + (applied.width||'?') + '×' + (applied.height||'?') +
+        ' focus=' + (applied.focusMode||'?') +
+        ' exposure=' + (applied.exposureCompensation?.toFixed(1)||'?'), 'info');
   }
 
   camActive = true;
@@ -1104,123 +1181,7 @@ async function startCamera() {
   document.getElementById('camWrap').style.display = 'block';
   setBadge('LIVE', 'live');
   setPill('CAM LIVE', true);
-  log('Camera ready', 'ok');
-
-  // clicker-only mode — no auto-start
-}
-
-// ══════════════════════════════════════════════════════════
-// LIVE STREAM ENGINE
-// ══════════════════════════════════════════════════════════
-function toggleLiveStream() { log('Live mode removed — use clicker', 'warn'); }
-function startLiveStream() { log('Use clicker to snap', 'info'); }
-function stopLiveStream() {}
-function scheduleNextFrame() {}
-async function processLiveFrame() {}
-
-function stopLiveStream() {
-  liveActive = false;
-  clearTimeout(liveTimer);
-  
-  
-  
-  setBadge('LIVE', 'live');
-  setLockStatus('');
-  log('Live stream stopped', 'warn');
-}
-
-function scheduleNextFrame() {
-  if (!liveActive) return;
-  const interval = parseInt(document.getElementById('captureInterval').value) || 600;
-  liveTimer = setTimeout(processLiveFrame, interval);
-}
-
-async function processLiveFrame() {
-  if (!liveActive || !camActive) return;
-  statFrames++;
-  updateStats();
-
-  const canvas = captureFrame();
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height;
-  const currentData = ctx.getImageData(0, 0, w, h);
-
-  let motionOk = true, blurOk = true, changeOk = true;
-
-  // ── Motion filter ──
-  if (tog('motion') && prevFrameData) {
-    const diff = frameDiff(prevFrameData, currentData);
-    motionOk = diff < 8; // less than 8% pixel change = camera is still
-    setFsPill('fs-motion', motionOk ? 'pass' : 'fail', motionOk ? 'STILL' : 'MOVING');
-    setLfbDot('lfb-motion', motionOk);
-  } else {
-    setFsPill('fs-motion', 'pass', 'STILL');
-  }
-  prevFrameData = currentData;
-
-  // ── Blur filter ──
-  if (tog('blur')) {
-    const blurScore = measureBlur(canvas);
-    blurOk = blurScore > 45;
-    const pct = Math.min(100, blurScore / 5);
-    document.getElementById('qualityFill').style.width = pct + '%';
-    document.getElementById('qualityFill').style.background = blurOk ? 'var(--green)' : 'var(--red)';
-    setFsPill('fs-blur', blurOk ? 'pass' : 'fail', blurOk ? 'SHARP' : 'BLUR');
-    setLfbDot('lfb-blur', blurOk);
-  } else {
-    setFsPill('fs-blur', 'pass', 'SHARP');
-  }
-
-  // Brightness check
-  const brightness = measureBrightness(canvas);
-  if (brightness < 20 || brightness > 240) { blurOk = false; setFsPill('fs-blur', 'fail', brightness < 20 ? 'DARK' : 'BRIGHT'); }
-
-  // ── Change detection ──
-  if (tog('change') && lastFrameData) {
-    const changePct = frameDiff(lastFrameData, currentData);
-    const threshold = parseInt(document.getElementById('changeSens').value) || 15;
-    changeOk = changePct > threshold;
-    setFsPill('fs-change', changeOk ? 'pass' : 'skip', changeOk ? 'NEW Q' : 'SAME');
-    setLfbDot('lfb-change', changeOk);
-  } else {
-    setFsPill('fs-change', 'pass', 'NEW Q');
-    changeOk = true;
-  }
-
-  // ── Cooldown check ──
-  const cooldown = (parseInt(document.getElementById('cooldownSecs').value) || 4) * 1000;
-  const timeSinceLast = Date.now() - lastApiCallTime;
-  const cooldownOk = timeSinceLast >= cooldown;
-  setFsPill('fs-cooldown', cooldownOk ? 'pass' : 'skip',
-    cooldownOk ? 'READY' : Math.ceil((cooldown - timeSinceLast)/1000) + 's');
-
-  // ── Decision ──
-  if (motionOk && blurOk && changeOk && cooldownOk) {
-    statPassed++;
-    updateStats();
-    // Flash the frame to show we're sending
-    const cf = document.getElementById('changeFlash');
-    cf.className = ''; void cf.offsetWidth; cf.className = 'flash';
-    setLockStatus('scanning');
-    await sendToGemini(canvas);
-  }
-
-  scheduleNextFrame();
-}
-
-// ── Frame comparison (returns % pixels changed) ──
-function frameDiff(a, b) {
-  if (!a || !b || a.data.length !== b.data.length) return 100;
-  const d1 = a.data, d2 = b.data;
-  let diff = 0;
-  // Sample every 16th pixel for speed
-  for (let i = 0; i < d1.length; i += 64) {
-    const dr = Math.abs(d1[i]-d2[i]);
-    const dg = Math.abs(d1[i+1]-d2[i+1]);
-    const db = Math.abs(d1[i+2]-d2[i+2]);
-    if ((dr+dg+db) > 30) diff++;
-  }
-  return (diff / (d1.length / 64)) * 100;
+  log('Camera ready — point at quiz screen and press ring', 'ok');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1232,7 +1193,18 @@ function captureFrame() {
   c.width  = v.videoWidth  || 1280;
   c.height = v.videoHeight || 720;
   const ctx = c.getContext('2d');
-  ctx.drawImage(v, 0, 0);
+
+  // Rotation support — folded Z Flip 4 camera is upside down
+  const rot = parseInt(document.getElementById('camRotation')?.value || 0);
+  if (rot === 0) {
+    ctx.drawImage(v, 0, 0);
+  } else {
+    ctx.save();
+    ctx.translate(c.width/2, c.height/2);
+    ctx.rotate(rot * Math.PI / 180);
+    ctx.drawImage(v, -c.width/2, -c.height/2);
+    ctx.restore();
+  }
 
   // Post-process: contrast boost + brightness correction
   try {
@@ -1366,7 +1338,7 @@ async function sendToGemini(canvas, retryCount = 0) {
     setLockStatus('active');
     lastFrameData = null; // answer lock reset — next question triggers immediately
     log('✓ ANSWER: '+finalAns+' | '+conf+'% | "'+(p1.question_summary||'')+'"', 'ok');
-    log('API: gemini-2.5-flash | speed='+(tog('speed')?'1-pass':'2-pass'), 'api');
+    log('API: gemini-3-flash | speed='+(tog('speed')?'1-pass':'2-pass'), 'api');
 
   } catch(e) {
     markKeyFailed(e.message);
@@ -1391,7 +1363,7 @@ async function geminiCall(base64, prompt) {
   }
   log('Using key ' + (activeKeyIdx+1), 'dim');
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${keyObj.key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${keyObj.key}`,
     { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:base64}}]}],
@@ -1420,33 +1392,36 @@ async function geminiCall(base64, prompt) {
 // PROMPTS
 // ══════════════════════════════════════════════════════════
 function buildPass1Prompt() {
-  return `You are analysing a photo of a multiple choice question from a pub quiz or game show screen. The image may be slightly blurry, at an angle, or have imperfect lighting — this is expected and normal. Do your best to read it.
+  return `You are reading a multiple choice question from a pub quiz screen. The photo may be taken through a small hole in a bottle, at an angle, with slight blur or screen glare — this is expected. Use every clue available to read it.
 
-Count ALL distinct answer options visible (letters A-E, numbers, coloured tiles, bullets, etc).
+IMPORTANT RULES:
+- You MUST see exactly 5 answer options to return status ok
+- Blur, glare, slight angle or imperfect lighting is NOT a reason to reposition — do your best to read through it
+- Only return reposition if you genuinely cannot identify the question text OR cannot find 5 options at all
+- Screen glare, reflections and colour casts are normal — look past them
 
-If EXACTLY 5 options are visible AND you can make out the question text (even if slightly blurry or angled):
+If you can see the question and all 5 options (even if slightly blurry or glary):
 - Determine the correct answer using your full knowledge
-- A slightly blurry image is fine — if you can read the words, answer it
-- Only return status reposition if you truly cannot read the question or options at all
+- Return status ok
 
 RESPOND ONLY WITH JSON — no markdown, no explanation:
 
-If you can answer:
-{"status":"ok","options_count":5,"answer":"A","answer_text":"exact text of correct option","question_summary":"the question","question_complete":true,"options_complete":true,"confidence":"high","options_visible":["A","B","C","D","E"],"format":"kahoot|exam|slides|other"}
+If ready (5 options visible, question readable):
+{"status":"ok","options_count":5,"answer":"B","answer_text":"exact text of correct option","question_summary":"the question in brief","question_complete":true,"options_complete":true,"confidence":"high","options_visible":["A","B","C","D","E"],"format":"kahoot|pub|slides|other"}
 
-If you genuinely cannot read it:
-{"status":"reposition","options_count":0,"question_complete":false,"options_complete":false,"reason":"specific reason you cannot read it"}`;
+If genuinely cannot read (not just blurry — truly unreadable or fewer than 5 options):
+{"status":"reposition","options_count":0,"question_complete":false,"options_complete":false,"reason":"SPECIFIC reason — e.g. only 4 options visible, or text completely obscured"}`;
 }
 
 function buildPass2Prompt(p1) {
-  return `Independently verify this multiple choice answer. Look at the image fresh.
+  return `Verify this multiple choice answer independently. The image may be blurry or have glare — look past it.
 
-Previous analysis: question="${p1.question_summary}" proposed answer="${p1.answer}" text="${p1.answer_text}"
+Previous reading: question="${p1.question_summary}" proposed answer="${p1.answer}" text="${p1.answer_text}"
 
-Do you agree? What is YOUR independent answer?
+Do you agree? Give YOUR independent answer.
 
 RESPOND ONLY WITH JSON:
-{"agree":true,"final_answer":"A","your_answer":"A","reason":"brief reason"}`;
+{"agree":true,"final_answer":"B","your_answer":"B","reason":"brief reason"}`;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1490,16 +1465,45 @@ function scoreConfidence(p1, p2) {
 // ══════════════════════════════════════════════════════════
 // HAPTIC
 // ══════════════════════════════════════════════════════════
+// Audio context keepalive — prevents browser from suspending vibration when screen dims
+let _audioCtx = null;
+let _keepAliveNode = null;
+
+function initAudioKeepalive() {
+  try {
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Create a silent oscillator — keeps audio context alive = keeps page active
+    const osc = _audioCtx.createOscillator();
+    const gain = _audioCtx.createGain();
+    gain.gain.value = 0.0001; // near-silent
+    osc.connect(gain);
+    gain.connect(_audioCtx.destination);
+    osc.start();
+    _keepAliveNode = osc;
+    log('Audio keepalive active — buzz works screen-off', 'ok');
+  } catch(e) {
+    log('Audio keepalive failed: '+e.message, 'warn');
+  }
+}
+
+function resumeAudio() {
+  if (_audioCtx && _audioCtx.state === 'suspended') {
+    _audioCtx.resume().catch(()=>{});
+  }
+}
+
 function haptic(ans) {
-  if (!tog('haptic') || !navigator.vibrate) return;
+  if (!tog('haptic')) return;
+  resumeAudio(); // ensure audio context is running first
+  if (!navigator.vibrate) { log('Vibration not supported on this browser', 'warn'); return; }
   const dur = parseInt(document.getElementById('buzzDur')?.value || 80);
   const gap = parseInt(document.getElementById('buzzGap')?.value || 120);
   const counts = {A:1,B:2,C:3,D:4,E:5};
   const n = (ans==='WARN'||ans==='R') ? 10 : (counts[ans]||1);
   const pattern = [];
   for (let i=0; i<n; i++) { pattern.push(i===0?0:gap); pattern.push(dur); }
-  navigator.vibrate(pattern);
-  log('Buzz: '+ans+' ('+n+' pulse'+(n>1?'s':'')+', '+dur+'ms)', 'dim');
+  const ok = navigator.vibrate(pattern);
+  log('Buzz: '+ans+' ('+n+' pulse'+(n>1?'s':'')+', '+dur+'ms) '+(ok?'✓':'✗'), 'dim');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1798,6 +1802,8 @@ let autoTimer = null;
 let lastAnswerForRepeat = null;
 
 function initClickerWheel() {
+  // Init audio keepalive on first user interaction — required by browser policy
+  initAudioKeepalive();
   upMode   = localStorage.getItem('ab_upmode')   || 'snap';
   downMode = localStorage.getItem('ab_downmode') || 'repeat';
   setUpMode(upMode, true);
@@ -1833,6 +1839,7 @@ function handleMediaKey(e) {
 }
 
 function fireClickerAction(direction) {
+  resumeAudio(); // keep audio context alive
   const pill = document.getElementById('clickerPill');
   const col  = direction==='up' ? 'var(--accent)' : direction==='down' ? 'var(--blue)' : 'var(--green)';
   if (pill) { pill.style.borderColor = col; setTimeout(() => { pill.style.borderColor = 'var(--dim)'; }, 300); }
@@ -1940,6 +1947,7 @@ function initCoverScreenMode() {
   if (g) document.getElementById('buzzGap').value = g;
   updateBuzzLabels();
   setBuzzMode(m, true);
+  loadCamRot();
 }
 
 function enterCoverMode() {
@@ -1947,6 +1955,15 @@ function enterCoverMode() {
   document.body.classList.add('cover-mode');
   document.getElementById('coverScreen').style.display = 'flex';
   log('Cover mode ON — minimal UI for Z Flip 4', 'ok');
+}
+
+let dimMode = false;
+function toggleDimMode() {
+  dimMode = !dimMode;
+  document.body.classList.toggle('cover-dim', dimMode);
+  const btn = document.getElementById('dimBtn');
+  if (btn) btn.textContent = dimMode ? 'BRIGHT' : 'DIM';
+  log('Cover screen: '+(dimMode?'DIM mode — tiny dot only':'BRIGHT mode'), 'info');
 }
 
 function exitCoverMode() {
@@ -1999,6 +2016,18 @@ function setCoverDot(state) {
 // ══════════════════════════════════════════════════════════
 // BUZZ CONTROLS
 // ══════════════════════════════════════════════════════════
+function saveCamRot() {
+  const v = document.getElementById('camRotation')?.value || '180';
+  localStorage.setItem('ab_camrot', v);
+  log('Camera rotation set to '+v+'°', 'info');
+}
+
+function loadCamRot() {
+  const v = localStorage.getItem('ab_camrot') || '180';
+  const el = document.getElementById('camRotation');
+  if (el) el.value = v;
+}
+
 function updateBuzzLabels() {
   const d = document.getElementById('buzzDur');
   const g = document.getElementById('buzzGap');
@@ -2046,6 +2075,57 @@ function copyLog() {
   navigator.clipboard?.writeText(text).then(() => {
     log('Log copied to clipboard', 'ok');
   }).catch(() => log('Copy failed — select manually', 'warn'));
+}
+
+
+// ══════════════════════════════════════════════════════════
+// CAMERA CONTROLS
+// ══════════════════════════════════════════════════════════
+let antiGlareOn = true;
+
+async function refocusCamera() {
+  const v = document.getElementById('video');
+  if (!v || !v.srcObject) { log('No camera active', 'warn'); return; }
+  const track = v.srcObject.getVideoTracks()[0];
+  if (!track) return;
+  const caps = track.getCapabilities ? track.getCapabilities() : {};
+  try {
+    // Trigger a refocus by momentarily switching to manual then back
+    if (caps.focusMode?.includes('single-shot')) {
+      await track.applyConstraints({ advanced: [{ focusMode: 'single-shot', pointsOfInterest: [{ x: 0.5, y: 0.5 }] }] });
+      await new Promise(r => setTimeout(r, 400));
+    }
+    if (caps.focusMode?.includes('continuous')) {
+      await track.applyConstraints({ advanced: [{ focusMode: 'continuous', pointsOfInterest: [{ x: 0.5, y: 0.5 }] }] });
+    }
+    log('Re-focused on centre ✓', 'ok');
+  } catch(e) {
+    log('Refocus failed: ' + e.message, 'warn');
+  }
+}
+
+async function toggleAntiGlare() {
+  antiGlareOn = !antiGlareOn;
+  const v = document.getElementById('video');
+  if (!v || !v.srcObject) { log('No camera active', 'warn'); return; }
+  const track = v.srcObject.getVideoTracks()[0];
+  if (!track) return;
+  const caps = track.getCapabilities ? track.getCapabilities() : {};
+  try {
+    if (caps.exposureCompensation) {
+      const ev = antiGlareOn ? -0.7 : 0;
+      await track.applyConstraints({ advanced: [{ exposureCompensation: ev }] });
+      log('Anti-glare: ' + (antiGlareOn ? 'ON (EV -0.7)' : 'OFF (EV 0)'), 'info');
+    }
+  } catch(e) {
+    log('Anti-glare toggle failed: ' + e.message, 'warn');
+  }
+  const btn = document.querySelector('[onclick="toggleAntiGlare()"]');
+  if (btn) {
+    btn.style.borderColor = antiGlareOn ? 'var(--accent)' : 'var(--border)';
+    btn.style.color       = antiGlareOn ? 'var(--accent)' : 'var(--muted)';
+    btn.textContent       = antiGlareOn ? '🌟 GLARE OFF' : '🌟 ANTI-GLARE';
+  }
 }
 
 </script>
