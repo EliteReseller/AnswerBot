@@ -173,10 +173,16 @@ body.cover-dim #coverDot{width:16px;height:16px;top:50%;left:50%;transform:trans
     <div class="cam-overlay" id="camOverlay">tap START CAMERA</div>
     <div class="cam-label" id="camLabel"></div>
   </div>
+  <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">
+    <select id="camSelect" style="flex:1;padding:7px 8px;background:#060810;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:8px;outline:none;" onchange="onCamSelectChange()">
+      <option value="">— tap SCAN CAMERAS first —</option>
+    </select>
+    <button class="cam-btn" style="flex-shrink:0;white-space:nowrap;" onclick="scanCameras()">🔍 SCAN</button>
+  </div>
   <div class="cam-controls">
-    <button class="cam-btn" onclick="startCamera()">▶ START CAMERA</button>
+    <button class="cam-btn" onclick="startCamera()">▶ START</button>
     <button class="cam-btn" onclick="refocus()">🎯 REFOCUS</button>
-    <button class="cam-btn" onclick="enterCover()">📱 COVER MODE</button>
+    <button class="cam-btn" onclick="enterCover()">📱 COVER</button>
   </div>
   <button class="snap-btn" id="snapBtn" onclick="triggerScan()" disabled>SNAP (or press ring clicker)</button>
 </div>
@@ -441,13 +447,21 @@ async function startCamera() {
     if (prefocusTimer) { clearInterval(prefocusTimer); prefocusTimer = null; }
     if (camStream) { camStream.getTracks().forEach(t => t.stop()); }
 
-    camStream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: 'environment' },
-        width:  { ideal: 1920, min: 1280 },
-        height: { ideal: 1080, min: 720 },
-      }
-    });
+    const selectedId = document.getElementById('camSelect').value;
+    const videoConstraints = selectedId
+      ? {
+          deviceId: { exact: selectedId },
+          width:  { ideal: 3840 },
+          height: { ideal: 2160 },
+        }
+      : {
+          facingMode: { ideal: 'environment' },
+          width:  { ideal: 1920, min: 1280 },
+          height: { ideal: 1080, min: 720 },
+        };
+
+    log('Using ' + (selectedId ? 'selected device: '+selectedId.slice(0,16)+'…' : 'default rear camera'), 'info');
+    camStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
 
     const video = document.getElementById('video');
     video.srcObject = camStream;
@@ -1436,6 +1450,71 @@ function showDebug() {
 
 function hideDebug() {
   document.getElementById('debugOverlay').style.display = 'none';
+}
+
+
+// ═══════════════════════════════════════════════════════
+// CAMERA ENUMERATION
+// ═══════════════════════════════════════════════════════
+async function scanCameras() {
+  log('Scanning cameras…', 'info');
+  try {
+    // Must request permission first to get labels
+    const tmp = await navigator.mediaDevices.getUserMedia({ video: true });
+    tmp.getTracks().forEach(t => t.stop());
+  } catch(e) {
+    log('Camera permission needed: '+e.message, 'warn');
+  }
+
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter(d => d.kind === 'videoinput');
+
+    const sel = document.getElementById('camSelect');
+    sel.innerHTML = '';
+
+    if (cams.length === 0) {
+      sel.innerHTML = '<option value="">No cameras found</option>';
+      log('No cameras detected', 'warn');
+      return;
+    }
+
+    cams.forEach((cam, i) => {
+      const opt = document.createElement('option');
+      opt.value = cam.deviceId;
+      // Label examples: "Back Camera (SAMSUNG)", "USB Camera", "0, facing back"
+      const label = cam.label || `Camera ${i+1}`;
+      const isOTG  = label.toLowerCase().includes('usb') || label.toLowerCase().includes('otg') || label.toLowerCase().includes('external');
+      const isBack = label.toLowerCase().includes('back') || label.toLowerCase().includes('environment') || label.toLowerCase().includes('rear');
+      const tag    = isOTG ? ' 🔌 OTG' : isBack ? ' 📷 REAR' : '';
+      opt.textContent = label + tag;
+      // Default select: prefer OTG if present, else rear
+      if (isOTG && !sel.dataset.otgFound) {
+        opt.selected = true;
+        sel.dataset.otgFound = '1';
+      } else if (isBack && !sel.dataset.otgFound && !sel.dataset.rearFound) {
+        opt.selected = true;
+        sel.dataset.rearFound = '1';
+      }
+      sel.appendChild(opt);
+    });
+
+    log(`Found ${cams.length} camera(s): ${cams.map(c=>c.label||'unnamed').join(', ')}`, 'ok');
+    log('Select camera then tap START', 'info');
+  } catch(e) {
+    log('Scan failed: '+e.message, 'err');
+  }
+}
+
+function onCamSelectChange() {
+  const sel = document.getElementById('camSelect');
+  const label = sel.options[sel.selectedIndex]?.text || '';
+  log('Camera selected: '+label, 'info');
+  // If camera already running, restart with new device
+  if (camStream) {
+    log('Restarting camera with new selection…', 'info');
+    startCamera();
+  }
 }
 
 </script>
