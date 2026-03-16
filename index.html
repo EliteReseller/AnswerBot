@@ -318,12 +318,14 @@ body.cover-dim #coverDot{width:16px;height:16px;top:50%;left:50%;transform:trans
 // ═══════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════
-let scanning   = false;
-let camStream  = null;
-let camTrack   = null;
-let lastScanMs = 0;
-let audioCtx   = null;
-let pingTimer  = null;
+let scanning      = false;
+let camStream     = null;
+let camTrack      = null;
+let imageCapture  = null;   // ImageCapture API for full-res photos
+let lastScanMs    = 0;
+let audioCtx      = null;
+let pingTimer     = null;
+let prefocusTimer = null;
 
 const MODEL = 'gemini-3-flash-preview';
 const API   = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
@@ -431,6 +433,7 @@ async function startCamera() {
   setStatus('STARTING', 'scanning');
 
   try {
+    if (prefocusTimer) { clearInterval(prefocusTimer); prefocusTimer = null; }
     if (camStream) { camStream.getTracks().forEach(t => t.stop()); }
 
     camStream = await navigator.mediaDevices.getUserMedia({
@@ -454,17 +457,44 @@ async function startCamera() {
     document.getElementById('camLabel').textContent = `${s.width||'?'}×${s.height||'?'}`;
     log(`Camera: ${s.width||'?'}×${s.height||'?'}`, 'ok');
 
+    // Create ImageCapture for full-resolution stills
+    if ('ImageCapture' in window) {
+      imageCapture = new ImageCapture(camTrack);
+      log('ImageCapture API available ✓ — full resolution enabled', 'ok');
+    } else {
+      log('ImageCapture not available — using video frame fallback', 'warn');
+    }
+
     await applyCamSettings();
+    startPrefocusLoop();
     setStatus('READY', 'ready');
     log('Camera ready — press ring or SNAP', 'ok');
 
-    // Init audio keepalive
     initAudio();
 
   } catch(e) {
     log('Camera failed: ' + e.message, 'err');
     setStatus('ERROR', 'error');
   }
+}
+
+// Pre-focus loop — pulses AF every 4s while idle so camera
+// is already sharp when clicker is pressed
+function startPrefocusLoop() {
+  if (prefocusTimer) clearInterval(prefocusTimer);
+  prefocusTimer = setInterval(async () => {
+    if (scanning || !camTrack) return;
+    const caps = camTrack.getCapabilities?.() || {};
+    try {
+      if (caps.focusMode?.includes('single-shot')) {
+        await camTrack.applyConstraints({ advanced:[{ focusMode:'single-shot', pointsOfInterest:[{x:.5,y:.5}] }] });
+        await new Promise(r => setTimeout(r, 250));
+        if (caps.focusMode?.includes('continuous')) {
+          await camTrack.applyConstraints({ advanced:[{ focusMode:'continuous', pointsOfInterest:[{x:.5,y:.5}] }] });
+        }
+      }
+    } catch(e) {}
+  }, 4000);
 }
 
 async function applyCamSettings() {
@@ -511,36 +541,128 @@ async function refocus() {
 // ═══════════════════════════════════════════════════════
 // FRAME CAPTURE & SCORING
 // ═══════════════════════════════════════════════════════
-function captureFrame() {
-  const video   = document.getElementById('video');
-  const canvas  = document.getElementById('canvas');
-  const rot     = parseInt(document.getElementById('camRot').value) || 0;
-  const W = video.videoWidth  || 1280;
-  const H = video.videoHeight || 720;
 
-  canvas.width  = W;
-  canvas.height = H;
-  const ctx = canvas.getContext('2d');
+// Auto-exposure: sample centre brightness, adjust EV if needed
+async function autoExposure() {
+  if (!camTrack) return;
+  const caps = camTrack.getCapabilities?.() || {};
+  if (!caps.exposureCompensation) return;
 
-  if (rot === 0) {
-    ctx.drawImage(video, 0, 0);
-  } else {
-    ctx.save();
-    ctx.translate(W/2, H/2);
-    ctx.rotate(rot * Math.PI / 180);
-    ctx.drawImage(video, -W/2, -H/2);
-    ctx.restore();
+  // Sample centre of video frame
+  const video  = document.getElementById('video');
+  const tmp    = document.createElement('canvas');
+  tmp.width = 80; tmp.height = 60;
+  tmp.getContext('2d').drawImage(video, 0, 0, 80, 60);
+  const d = tmp.getContext('2d').getImageData(20, 15, 40, 30).data;
+  let sum = 0;
+  for (let i=0; i<d.length; i+=4) sum += (d[i]+d[i+1]+d[i+2])/3;
+  const avgBrightness = sum / (d.length/4);
+
+  // Adjust EV based on brightness
+  let ev = 0;
+  if (avgBrightness > 210) ev = -1.2;      // very bright/glary screen
+  else if (avgBrightness > 170) ev = -0.7;  // bright screen
+  else if (avgBrightness < 60)  ev = +0.7;  // dark room
+  else if (avgBrightness < 40)  ev = +1.2;  // very dark
+
+  const min = caps.exposureCompensation.min || -2;
+  const max = caps.exposureCompensation.max || 2;
+  const clamped = Math.max(min, Math.min(max, ev));
+
+  try {
+    await camTrack.applyConstraints({ advanced:[{ exposureCompensation: clamped }] });
+    log(`Auto-EV: brightness=${avgBrightness.toFixed(0)} → EV ${clamped.toFixed(1)}`, 'dim');
+    // Wait for exposure to settle
+    await new Promise(r => setTimeout(r, 300));
+  } catch(e) {}
+}
+
+async function captureHighRes() {
+  const rot = parseInt(document.getElementById('camRot').value) || 0;
+
+  let blob = null;
+
+  // Try ImageCapture.takePhoto() first — full sensor resolution
+  if (imageCapture) {
+    try {
+      blob = await imageCapture.takePhoto({ imageWidth: 2000 });
+      log(`takePhoto: ${(blob.size/1024).toFixed(0)}KB`, 'dim');
+    } catch(e) {
+      log('takePhoto failed: '+e.message+' — fallback to video', 'warn');
+    }
   }
 
-  // Contrast boost
+  // Convert blob to canvas (for rotation + processing)
+  const canvas = document.getElementById('canvas');
+  const ctx    = canvas.getContext('2d');
+
+  if (blob) {
+    const img = new Image();
+    await new Promise((res, rej) => {
+      img.onload = res; img.onerror = rej;
+      img.src = URL.createObjectURL(blob);
+    });
+    URL.revokeObjectURL(img.src);
+
+    canvas.width  = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+
+    if (rot === 0) {
+      ctx.drawImage(img, 0, 0);
+    } else {
+      ctx.save();
+      ctx.translate(canvas.width/2, canvas.height/2);
+      ctx.rotate(rot * Math.PI / 180);
+      ctx.drawImage(img, -canvas.width/2, -canvas.height/2);
+      ctx.restore();
+    }
+  } else {
+    // Fallback — video frame
+    const video = document.getElementById('video');
+    const W = video.videoWidth || 1280;
+    const H = video.videoHeight || 720;
+    canvas.width = W; canvas.height = H;
+
+    if (rot === 0) {
+      ctx.drawImage(video, 0, 0);
+    } else {
+      ctx.save();
+      ctx.translate(W/2, H/2);
+      ctx.rotate(rot * Math.PI / 180);
+      ctx.drawImage(video, -W/2, -H/2);
+      ctx.restore();
+    }
+  }
+
+  // Contrast + sharpness enhancement
   const tmp = document.createElement('canvas');
-  tmp.width = W; tmp.height = H;
+  tmp.width = canvas.width; tmp.height = canvas.height;
   const tctx = tmp.getContext('2d');
-  tctx.filter = 'contrast(1.2) brightness(0.95) saturate(1.1)';
+  tctx.filter = 'contrast(1.25) brightness(0.95) saturate(1.1)';
   tctx.drawImage(canvas, 0, 0);
-  ctx.clearRect(0,0,W,H);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(tmp, 0, 0);
 
+  return canvas;
+}
+
+function captureFrame() {
+  // Sync fallback for burst scoring — video frame only
+  const video  = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const rot    = parseInt(document.getElementById('camRot').value) || 0;
+  const W = video.videoWidth || 1280;
+  const H = video.videoHeight || 720;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (rot === 0) { ctx.drawImage(video, 0, 0); }
+  else {
+    ctx.save();
+    ctx.translate(W/2,H/2);
+    ctx.rotate(rot*Math.PI/180);
+    ctx.drawImage(video,-W/2,-H/2);
+    ctx.restore();
+  }
   return canvas;
 }
 
@@ -570,44 +692,64 @@ function scoreFrame(canvas) {
 }
 
 function frameToB64(canvas) {
-  // Downscale to 800px wide for API efficiency
-  const maxW = 800;
-  if (canvas.width <= maxW) return canvas.toDataURL('image/jpeg', 0.70).split(',')[1];
-  const sc  = maxW / canvas.width;
-  const out = document.createElement('canvas');
-  out.width  = maxW;
-  out.height = Math.round(canvas.height * sc);
+  // 1200px wide — good balance: readable text, reasonable token cost
+  const maxW = 1200;
+  const out  = document.createElement('canvas');
+  if (canvas.width <= maxW) {
+    out.width  = canvas.width;
+    out.height = canvas.height;
+  } else {
+    const sc   = maxW / canvas.width;
+    out.width  = maxW;
+    out.height = Math.round(canvas.height * sc);
+  }
   out.getContext('2d').drawImage(canvas, 0, 0, out.width, out.height);
-  return out.toDataURL('image/jpeg', 0.70).split(',')[1];
+  const b64 = out.toDataURL('image/jpeg', 0.82).split(',')[1];
+  return b64;
 }
 
 async function captureFrames() {
   const burst = document.getElementById('togBurst').checked;
+
+  // Auto-exposure: adjust EV before capturing
+  await autoExposure();
+
   if (!burst) {
-    // Single frame
-    const c = captureFrame();
+    // Single high-res frame via ImageCapture.takePhoto()
+    const c     = await captureHighRes();
     const score = scoreFrame(c);
-    log(`Single frame — sharpness: ${score.toFixed(1)}`, 'dim');
-    return [frameToB64(c)];
+    const b64   = frameToB64(c);
+    log(`Single frame — ${c.width}×${c.height} sharpness:${score.toFixed(1)} size:${(b64.length*0.75/1024).toFixed(0)}KB`, 'dim');
+    return [b64];
   }
 
-  // Burst: 5 frames over 500ms
-  log('Burst: capturing 5 frames…', 'info');
+  // Burst: 5 video frames (fast), score them, then take high-res of best timing
+  log('Burst: capturing 5 frames to find sharpest moment…', 'info');
   const frames = [];
   for (let i = 0; i < 5; i++) {
-    const c = captureFrame();
+    const c     = captureFrame(); // fast video frame for scoring
     const score = scoreFrame(c);
-    frames.push({ b64: frameToB64(c), score });
+    frames.push({ score, index: i });
     log(`Frame ${i+1} sharpness: ${score.toFixed(1)}`, 'dim');
     if (i < 4) await new Promise(r => setTimeout(r, 100));
   }
 
-  // Sort by score descending, take top N
   frames.sort((a,b) => b.score - a.score);
   const n = parseInt(document.getElementById('burstSend').value) || 3;
-  const best = frames.slice(0, n);
-  log(`Burst done — sending ${n} sharpest frames`, 'ok');
-  return best.map(f => f.b64);
+  log(`Best sharpness scores: ${frames.slice(0,n).map(f=>'#'+(f.index+1)+':'+f.score.toFixed(1)).join(', ')}`, 'dim');
+
+  // Now take N high-res photos
+  const results = [];
+  for (let i = 0; i < Math.min(n, 3); i++) {
+    const c   = await captureHighRes();
+    const b64 = frameToB64(c);
+    results.push(b64);
+    log(`High-res frame ${i+1}: ${c.width}×${c.height}`, 'dim');
+    if (i < n-1) await new Promise(r => setTimeout(r, 80));
+  }
+
+  log(`Burst done — sending ${results.length} frames`, 'ok');
+  return results;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -701,8 +843,29 @@ async function callGemini(frames, key) {
   }
 
   const data = await res.json();
-  const raw  = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  log('Raw response: '+raw.slice(0,120), 'dim');
+
+  // Gemini thinking models put reasoning in part[0] (type=thought)
+  // and the actual JSON response in a later part — iterate all parts
+  const resParts = data.candidates?.[0]?.content?.parts || [];
+  let raw = '';
+  for (const part of resParts) {
+    if (part.text && !part.thought) {
+      raw = part.text;
+      break;
+    }
+  }
+  // Fallback: just grab all text parts concatenated
+  if (!raw) {
+    raw = resParts.filter(p => p.text).map(p => p.text).join('');
+  }
+
+  log('Parts: '+resParts.length+' | Raw (200): '+raw.slice(0,200), 'dim');
+
+  if (!raw) {
+    log('Empty response — full data: '+JSON.stringify(data).slice(0,300), 'warn');
+    return { status:'reposition', options_count:0, reason:'Empty response from Gemini' };
+  }
+
   return parseGeminiResponse(raw);
 }
 
