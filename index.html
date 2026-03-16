@@ -241,31 +241,67 @@ body.cover-dim #coverDot{width:16px;height:16px;top:50%;left:50%;transform:trans
 
   <!-- BUZZ -->
   <div class="card">
-    <div class="card-title">VIBRATION · 1 buzz=option1, 5 buzzes=option5, 3 long=reposition</div>
+    <div class="card-title">VIBRATION · 1 buzz=opt1 · 5 buzzes=opt5 · 6=reposition</div>
+
+    <!-- Silent mode + enabled row -->
     <div class="row">
       <div class="row-label">Vibration enabled</div>
-      <label class="toggle"><input type="checkbox" id="togHaptic" checked onchange="saveSetting('haptic',this.checked)"><div class="toggle-track"></div></label>
+      <label class="toggle"><input type="checkbox" id="togHaptic" checked onchange="onHapticToggle()"><div class="toggle-track"></div></label>
     </div>
     <div class="row">
-      <div class="row-label">Buzz duration (ms)
-        <span class="row-sub">How long each pulse lasts</span>
+      <div class="row-label">Silent mode
+        <span class="row-sub">Vibrate silently — felt through clothing, not heard</span>
       </div>
-      <input type="range" id="buzzDur" min="50" max="400" step="10" value="200" style="width:100px;" oninput="document.getElementById('buzzDurVal').textContent=this.value+'ms'">
-      <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="buzzDurVal">200ms</span>
+      <label class="toggle"><input type="checkbox" id="togSilent" onchange="onSilentToggle()"><div class="toggle-track"></div></label>
     </div>
-    <div class="row">
-      <div class="row-label">Gap between buzzes
-        <span class="row-sub">Pause between each pulse</span>
+
+    <!-- Silent mode indicator banner -->
+    <div id="silentBanner" style="display:none;background:#1a1a0a;border:1px solid var(--amber);border-radius:5px;padding:6px 10px;margin-bottom:8px;font-size:8px;color:var(--amber);letter-spacing:1px;">
+      🤫 SILENT — 80ms pulses, felt not heard
+    </div>
+
+    <!-- Tuner (hidden when silent mode active) -->
+    <div id="vibTuner">
+      <div class="row" style="margin-top:4px;">
+        <div class="row-label">Buzz duration (ms)
+          <span class="row-sub">Shorter = quieter. 80ms = barely audible</span>
+        </div>
+        <input type="range" id="buzzDur" min="40" max="400" step="10" value="200" style="width:90px;"
+          oninput="document.getElementById('buzzDurVal').textContent=this.value+'ms';saveSetting('buzzDur',this.value)">
+        <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="buzzDurVal">200ms</span>
       </div>
-      <input type="range" id="buzzGap" min="100" max="500" step="10" value="250" style="width:100px;" oninput="document.getElementById('buzzGapVal').textContent=this.value+'ms'">
-      <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="buzzGapVal">250ms</span>
+      <div class="row">
+        <div class="row-label">Gap between buzzes
+          <span class="row-sub">Tighter gaps = harder to hear</span>
+        </div>
+        <input type="range" id="buzzGap" min="60" max="500" step="10" value="250" style="width:90px;"
+          oninput="document.getElementById('buzzGapVal').textContent=this.value+'ms';saveSetting('buzzGap',this.value)">
+        <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="buzzGapVal">250ms</span>
+      </div>
+
+      <!-- Presets -->
+      <div style="display:flex;gap:6px;margin-top:8px;margin-bottom:8px;">
+        <button class="btn btn-full" onclick="applyPreset('standard')" style="font-size:8px;letter-spacing:0.5px;">⚡ STANDARD<br><span style="font-size:7px;color:var(--muted);">200ms / 250ms</span></button>
+        <button class="btn btn-full" onclick="applyPreset('stealth')" style="font-size:8px;letter-spacing:0.5px;">🤫 STEALTH<br><span style="font-size:7px;color:var(--muted);">80ms / 120ms</span></button>
+        <button class="btn btn-full" onclick="applyPreset('strong')" style="font-size:8px;letter-spacing:0.5px;">💪 STRONG<br><span style="font-size:7px;color:var(--muted);">350ms / 200ms</span></button>
+      </div>
     </div>
-    <div style="display:flex;gap:8px;margin-top:8px;">
-      <button class="btn btn-full" onclick="buzzTest(1)">TEST 1</button>
-      <button class="btn btn-full" onclick="buzzTest(3)">TEST 3</button>
-      <button class="btn btn-red btn-full" onclick="buzzRaw()">RAW TEST</button>
+
+    <!-- Test buttons — all 5 options + reposition -->
+    <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">
+      <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">PATTERN TESTER — feel each option</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px;">
+        <button class="btn" onclick="buzzTest(1)" style="font-size:9px;padding:8px 0;font-weight:700;color:#ff4466;border-color:#ff4466;">1</button>
+        <button class="btn" onclick="buzzTest(2)" style="font-size:9px;padding:8px 0;font-weight:700;color:#4db8ff;border-color:#4db8ff;">2</button>
+        <button class="btn" onclick="buzzTest(3)" style="font-size:9px;padding:8px 0;font-weight:700;color:#e8ff47;border-color:#e8ff47;">3</button>
+        <button class="btn" onclick="buzzTest(4)" style="font-size:9px;padding:8px 0;font-weight:700;color:#39ff85;border-color:#39ff85;">4</button>
+        <button class="btn" onclick="buzzTest(5)" style="font-size:9px;padding:8px 0;font-weight:700;color:#cc55ff;border-color:#cc55ff;">5</button>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-red btn-full" onclick="buzzTest('R')" style="font-size:8px;">↩ REPOSITION</button>
+        <button class="btn btn-full" onclick="buzzRaw()" style="font-size:8px;">RAW TEST</button>
+      </div>
     </div>
-    <div style="font-size:7px;color:var(--muted);margin-top:6px;">RAW TEST bypasses all conditions — use this to verify vibration works on your phone</div>
   </div>
 
   <!-- CAMERA SETTINGS -->
@@ -379,6 +415,7 @@ function loadSettings() {
   s('togBurst','burst',    false);
   s('burstSend','burstSend',3);
   s('togHaptic','haptic',  true);
+  s('togSilent','silent',  false);
   s('buzzDur', 'buzzDur',  200);
   s('buzzGap', 'buzzGap',  250);
   s('togGlare','glare',    true);
@@ -1153,74 +1190,90 @@ function showReposition(reason) {
 // ═══════════════════════════════════════════════════════
 // VIBRATION — clean simple implementation
 // ═══════════════════════════════════════════════════════
+// ── Vibration settings — silent mode overrides sliders ──────────────────────
+function getVibSettings() {
+  const silent = document.getElementById('togSilent')?.checked;
+  if (silent) return { dur: 80, gap: 120 };
+  return {
+    dur: parseInt(document.getElementById('buzzDur').value) || 200,
+    gap: parseInt(document.getElementById('buzzGap').value) || 250
+  };
+}
+
 function vibrate(posOrR) {
-  if (!document.getElementById('togHaptic').checked) {
-    log('Vibrate: toggled OFF', 'dim');
-    return;
-  }
+  if (!document.getElementById('togHaptic').checked) { log('Vibrate: OFF','dim'); return; }
 
-  const dur = parseInt(document.getElementById('buzzDur').value) || 200;
-  const gap = parseInt(document.getElementById('buzzGap').value) || 250;
+  const { dur, gap } = getVibSettings();
+  const silent = document.getElementById('togSilent')?.checked;
 
-  let pattern;
-  let label;
-
+  // Build pattern — NO leading zero, pattern[0] is always a vibration duration
+  let pattern = [];
   if (posOrR === 'R' || posOrR === 0) {
-    // Reposition: 6 buzzes
-    // Pattern: [buzz, gap, buzz, gap, ...] — NO leading zero
-    pattern = [];
-    for (let i = 0; i < 6; i++) {
-      if (i > 0) pattern.push(150); // gap between buzzes
-      pattern.push(300);            // buzz duration
-    }
-    label = 'REPOSITION 6×300ms';
+    // Reposition: 6 buzzes — shorter in silent mode
+    const d = silent ? 80 : 300, g = silent ? 100 : 150;
+    for (let i = 0; i < 6; i++) { if (i > 0) pattern.push(g); pattern.push(d); }
   } else {
     const n = parseInt(posOrR);
-    // Pattern: [buzz, gap, buzz, gap, ...] — NO leading zero
-    // navigator.vibrate([200]) = vibrate 200ms ✓
-    // navigator.vibrate([0, 200]) = vibrate 0ms, pause 200ms = NOTHING ✗
-    pattern = [];
-    for (let i = 0; i < n; i++) {
-      if (i > 0) pattern.push(gap); // gap between buzzes
-      pattern.push(dur);            // buzz duration
-    }
-    label = `option ${n} (${n}×${dur}ms)`;
+    for (let i = 0; i < n; i++) { if (i > 0) pattern.push(gap); pattern.push(dur); }
   }
 
-  log(`Vibrate: ${label}`, 'info');
-  log(`Pattern: ${JSON.stringify(pattern)}`, 'dim');
+  const label = (posOrR === 'R' || posOrR === 0)
+    ? `REPOSITION 6×${silent?80:300}ms`
+    : `opt${posOrR} ${posOrR}×${dur}ms${silent?' [silent]':''}`;
+  log(`Vibrate: ${label} → ${JSON.stringify(pattern)}`, 'dim');
 
-  if (!('vibrate' in navigator)) {
-    log('navigator.vibrate NOT available — use Chrome on Android', 'err');
-    return;
-  }
-
+  if (!('vibrate' in navigator)) { log('navigator.vibrate not available','err'); return; }
   const ok = navigator.vibrate(pattern);
-  log(`navigator.vibrate() → ${ok}`, ok ? 'ok' : 'warn');
-
+  log(`vibrate() → ${ok}`, ok ? 'ok' : 'warn');
   if (!ok) {
-    // Retry twice with delays
-    setTimeout(() => {
-      const ok2 = navigator.vibrate(pattern);
-      log(`Retry 1 → ${ok2}`, ok2 ? 'ok' : 'warn');
-    }, 300);
-    setTimeout(() => {
-      const ok3 = navigator.vibrate(pattern);
-      log(`Retry 2 → ${ok3}`, ok3 ? 'ok' : 'warn');
-    }, 700);
+    setTimeout(() => navigator.vibrate(pattern), 300);
+    setTimeout(() => navigator.vibrate(pattern), 700);
   }
 }
 
-function buzzTest(n) {
-  log(`Buzz test: ${n} buzzes`, 'info');
-  vibrate(n);
+// Test button: always fires even if haptic toggled off, so you can feel while tuning
+function buzzTest(posOrR) {
+  const label = (posOrR === 'R' || posOrR === 0) ? 'REPOSITION' : `opt${posOrR}`;
+  log(`Test: ${label}`, 'info');
+  const el = document.getElementById('togHaptic');
+  const was = el.checked; el.checked = true;
+  vibrate(posOrR);
+  el.checked = was;
 }
 
 function buzzRaw() {
-  log('RAW TEST: navigator.vibrate([0,300,200,300,200,300])', 'info');
-  if (!('vibrate' in navigator)) { log('NOT AVAILABLE', 'err'); return; }
-  const ok = navigator.vibrate([300, 200, 300, 200, 300]); // no leading zero
-  log(`RAW result: ${ok}`, ok ? 'ok' : 'err');
+  log('RAW TEST: [80,80,80,80,80]', 'info');
+  if (!('vibrate' in navigator)) { log('NOT AVAILABLE','err'); return; }
+  const ok = navigator.vibrate([80,80,80,80,80]);
+  log(`RAW → ${ok}`, ok ? 'ok' : 'err');
+}
+
+function onHapticToggle() {
+  saveSetting('haptic', document.getElementById('togHaptic').checked);
+}
+
+function onSilentToggle() {
+  const on = document.getElementById('togSilent').checked;
+  saveSetting('silent', on);
+  document.getElementById('silentBanner').style.display = on ? 'block' : 'none';
+  document.getElementById('vibTuner').style.opacity = on ? '0.35' : '1';
+  document.getElementById('vibTuner').style.pointerEvents = on ? 'none' : 'auto';
+  log(`Silent mode ${on ? 'ON (80ms / 120ms)' : 'OFF'}`, 'info');
+}
+
+function applyPreset(name) {
+  const p = { standard:{dur:200,gap:250}, stealth:{dur:80,gap:120}, strong:{dur:350,gap:200} }[name];
+  if (!p) return;
+  document.getElementById('buzzDur').value = p.dur;
+  document.getElementById('buzzGap').value = p.gap;
+  document.getElementById('buzzDurVal').textContent = p.dur+'ms';
+  document.getElementById('buzzGapVal').textContent = p.gap+'ms';
+  saveSetting('buzzDur', p.dur);
+  saveSetting('buzzGap', p.gap);
+  // Applying a manual preset turns off silent mode
+  document.getElementById('togSilent').checked = false;
+  onSilentToggle();
+  log(`Preset: ${name} — ${p.dur}ms buzz / ${p.gap}ms gap`, 'ok');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1362,6 +1415,12 @@ window.addEventListener('load', () => {
       enterCover();
       log('Small screen detected — cover mode auto-enabled', 'info');
     }, 500);
+  }
+
+  // Apply silent mode UI state on load
+  if (getSetting('silent', false)) {
+    document.getElementById('togSilent').checked = true;
+    onSilentToggle();
   }
 
   log('AnswerBot v7.0 ready', 'ok');
