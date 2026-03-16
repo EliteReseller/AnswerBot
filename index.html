@@ -1050,7 +1050,7 @@ async function testAllKeys() {
   const tiny = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
   for (let i = 0; i < apiKeys.length; i++) {
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${apiKeys[i].key}`,
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKeys[i].key}`,
         { method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({contents:[{parts:[{text:'Say OK'},{inline_data:{mime_type:'image/png',data:tiny}}]}],generationConfig:{maxOutputTokens:4}})});
       const dot = document.getElementById('kd'+i);
@@ -1338,7 +1338,7 @@ async function sendToGemini(canvas, retryCount = 0) {
     setLockStatus('active');
     lastFrameData = null; // answer lock reset — next question triggers immediately
     log('✓ ANSWER: '+finalAns+' | '+conf+'% | "'+(p1.question_summary||'')+'"', 'ok');
-    log('API: gemini-3-flash | speed='+(tog('speed')?'1-pass':'2-pass'), 'api');
+    log('API: gemini-3-flash-preview | speed='+(tog('speed')?'1-pass':'2-pass'), 'api');
 
   } catch(e) {
     markKeyFailed(e.message);
@@ -1363,7 +1363,7 @@ async function geminiCall(base64, prompt) {
   }
   log('Using key ' + (activeKeyIdx+1), 'dim');
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${keyObj.key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${keyObj.key}`,
     { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:base64}}]}],
