@@ -576,11 +576,18 @@ body.cover-dim #dimBtn { color: #1a1a1a; }
       <label class="toggle"><input type="checkbox" id="tog-haptic" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
 
-    <div class="toggle-row" style="border-bottom:none;">
+    <div class="toggle-row">
       <div class="toggle-label">Answer History
         <span class="toggle-sub">Show last 5 answers</span>
       </div>
       <label class="toggle"><input type="checkbox" id="tog-history" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
+    </div>
+
+    <div class="toggle-row" style="border-bottom:none;border-top:1px solid var(--accent);opacity:0.8;padding-top:10px;margin-top:4px;">
+      <div class="toggle-label" style="color:var(--accent);">🔍 Auto Zoom Retry
+        <span class="toggle-sub">If unclear — crops &amp; enhances image, tries again before repositioning</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tog-autozoom" checked onchange="saveToggles()"><div class="toggle-track"></div></label>
     </div>
 
     <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
@@ -896,7 +903,7 @@ function loadToggles() {
 }
 
 function saveToggles() {
-  const keys = ['autosnap','motion','blur','change','protect','speed','hold','haptic','history'];
+  const keys = ['autosnap','motion','blur','change','protect','speed','hold','haptic','history','autozoom'];
   const obj = {};
   keys.forEach(k => { obj[k] = document.getElementById('tog-'+k)?.checked ?? false; });
   localStorage.setItem('ab_toggles', JSON.stringify(obj));
@@ -1301,8 +1308,41 @@ async function sendToGemini(canvas, retryCount = 0) {
     updateValidation(p1);
 
     if (p1.status !== 'ok' || p1.options_count !== 5 || !p1.answer_position || p1.answer_position < 1 || p1.answer_position > 5) {
-      const visible = p1.options_count || 0;
-      showWarn(p1);
+
+      // ── AUTO ZOOM RETRY ──
+      // If toggle on: crop + enhance the image and try once more before giving up
+      if (tog('autozoom')) {
+        log('Pass 1 unclear — auto zoom retry: cropping + enhancing…', 'warn');
+        showOverlay(true, 'ZOOM RETRY…');
+
+        const zoomB64 = buildZoomCrop(imgB64);
+        const p1z = await geminiCall(zoomB64, buildZoomPrompt());
+        log('Zoom retry→ status:'+p1z.status+' options:'+p1z.options_count+' pos:'+p1z.answer_position, 'dim');
+
+        if (p1z.status === 'ok' && p1z.options_count === 5 && p1z.answer_position >= 1 && p1z.answer_position <= 5) {
+          // Zoom retry succeeded — use this result
+          log('✓ Zoom retry succeeded — option '+p1z.answer_position, 'ok');
+          const conf2 = scoreConfidence(p1z, {agree:true, final_answer:p1z.answer});
+          showAnswer(p1z.answer, p1z, conf2);
+          lightPhysLED(p1z.answer);
+          lastAnswerData = p1z;
+          haptic(p1z.answer, p1z.answer_position);
+          statAnswers++;
+          updateStats();
+          setLockDot('ok'); setLockStatus('active');
+          lastFrameData = null;
+          log('API: gemini-3-flash-preview | zoom-retry', 'api');
+          scanning = false; showOverlay(false);
+          return;
+        }
+
+        // Zoom retry also failed — now reposition
+        log('Zoom retry also unclear — reposition needed', 'warn');
+        showWarn(p1z.options_count > 0 ? p1z : p1);
+      } else {
+        showWarn(p1);
+      }
+
       scanning = false; showOverlay(false); setLockDot('warn'); setLockStatus('active');
       return;
     }
@@ -2200,6 +2240,66 @@ async function toggleAntiGlare() {
     btn.style.color       = antiGlareOn ? 'var(--accent)' : 'var(--muted)';
     btn.textContent       = antiGlareOn ? '🌟 GLARE OFF' : '🌟 ANTI-GLARE';
   }
+}
+
+
+// ══════════════════════════════════════════════════════════
+// AUTO ZOOM RETRY — crop centre + enhance + retry prompt
+// ══════════════════════════════════════════════════════════
+function buildZoomCrop(originalB64) {
+  // Decode base64 → draw on canvas → crop centre 65% → boost contrast → re-encode
+  // This simulates zooming in on the quiz screen (which is in the centre of the frame)
+  try {
+    const img = new Image();
+    img.src = 'data:image/jpeg;base64,' + originalB64;
+
+    // Create off-screen canvas
+    const src = document.createElement('canvas');
+    src.width  = 1280;
+    src.height = 720;
+    const sctx = src.getContext('2d');
+    sctx.drawImage(img, 0, 0, 1280, 720);
+
+    // Crop: take centre 65% horizontally, centre 70% vertically
+    // This cuts out bottle edges, hands, background — focuses on screen
+    const cw = Math.round(1280 * 0.65);
+    const ch = Math.round(720  * 0.70);
+    const cx = Math.round((1280 - cw) / 2);
+    const cy = Math.round((720  - ch) / 2);
+
+    const out = document.createElement('canvas');
+    out.width  = 1280; // upscale crop back to full size = zoom effect
+    out.height = 720;
+    const octx = out.getContext('2d');
+
+    // Draw cropped region scaled up to full canvas = digital zoom
+    octx.drawImage(src, cx, cy, cw, ch, 0, 0, 1280, 720);
+
+    // Boost contrast and sharpness
+    octx.filter = 'contrast(1.5) brightness(1.05) saturate(1.2)';
+    octx.drawImage(out, 0, 0);
+
+    return out.toDataURL('image/jpeg', 0.80).split(',')[1];
+  } catch(e) {
+    log('Zoom crop failed: '+e.message+' — using original', 'warn');
+    return originalB64;
+  }
+}
+
+function buildZoomPrompt() {
+  return `This is a cropped and enhanced centre section of a quiz screen photo.
+The image has been digitally zoomed in and contrast-boosted to help you read it.
+
+Count ALL visible answer options carefully (1st, 2nd, 3rd, 4th, 5th from top or left).
+You MUST find exactly 5 options — if you see fewer, return reposition.
+
+RESPOND ONLY WITH JSON:
+
+If 5 options visible:
+{"status":"ok","options_count":5,"answer_position":2,"answer":"B","answer_text":"exact text","options_ordered":["1st option text","2nd option text","3rd option text","4th option text","5th option text"],"question_summary":"brief question","confidence":"medium"}
+
+If still cannot see 5 options:
+{"status":"reposition","options_count":0,"reason":"specific reason"}`;
 }
 
 </script>
