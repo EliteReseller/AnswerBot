@@ -2,26 +2,27 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#08090c">
+<meta name="theme-color" content="#06070a">
 <link rel="manifest" href="data:application/json,{
   &quot;name&quot;:&quot;AnswerBot&quot;,
   &quot;short_name&quot;:&quot;AnswerBot&quot;,
   &quot;display&quot;:&quot;standalone&quot;,
   &quot;start_url&quot;:&quot;.&quot;,
-  &quot;background_color&quot;:&quot;#08090c&quot;,
-  &quot;theme_color&quot;:&quot;#08090c&quot;,
-  &quot;icons&quot;:[{&quot;src&quot;:&quot;https://via.placeholder.com/192x192/08090c/e8ff47?text=A&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/png&quot;}]
+  &quot;background_color&quot;:&quot;#06070a&quot;,
+  &quot;theme_color&quot;:&quot;#06070a&quot;,
+  &quot;icons&quot;:[{&quot;src&quot;:&quot;https://via.placeholder.com/192x192/06070a/e8ff47?text=A&quot;,&quot;sizes&quot;:&quot;192x192&quot;,&quot;type&quot;:&quot;image/png&quot;}]
 }">
 <title>AnswerBot</title>
 <style>
 :root {
-  --bg:      #08090c;
-  --surface: #0f1117;
-  --border:  #1e2530;
+  --bg:      #06070a;
+  --surface: #0d0f14;
+  --surface2:#13161e;
+  --border:  #1a1f2a;
   --accent:  #e8ff47;
   --red:     #ff3355;
   --green:   #39ff85;
@@ -29,95 +30,220 @@
   --amber:   #ffaa00;
   --muted:   #4a5568;
   --text:    #c8d8e8;
-  --dim:     #2a3444;
+  --dim:     #222a36;
+  --radius:  10px;
+  --safe-b:  env(safe-area-inset-bottom, 0px);
 }
-*{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;min-height:100vh;overflow-x:hidden;}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{height:100%;overflow:hidden;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+  font-size:13px;height:100%;overflow:hidden;
+  overscroll-behavior:none;
+  -webkit-user-select:none;user-select:none;
+  touch-action:manipulation;
+}
+
+/* ── Scrollable main ── */
+#mainApp{
+  height:100%;overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  scroll-behavior:smooth;
+  padding-bottom:calc(70px + var(--safe-b));
+}
 
 /* ── HEADER ── */
-.header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface);}
-.logo{font-size:18px;font-weight:700;letter-spacing:3px;color:var(--accent);}
-.logo span{color:var(--muted);font-size:9px;display:block;letter-spacing:1px;margin-top:1px;}
-.status-pill{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--border);border-radius:20px;font-size:9px;letter-spacing:2px;}
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.logo{font-size:15px;font-weight:800;letter-spacing:2.5px;color:var(--accent);}
+.logo span{color:var(--muted);font-size:8px;display:block;letter-spacing:1px;margin-top:1px;font-weight:400;}
+.hdr-actions{display:flex;gap:6px;align-items:center;}
+.hdr-btn{
+  background:transparent;border:1px solid var(--border);color:var(--muted);
+  font-size:8px;padding:5px 8px;border-radius:6px;cursor:pointer;
+  letter-spacing:1px;font-weight:600;font-family:inherit;
+  transition:all .15s;
+}
+.hdr-btn:active{border-color:var(--accent);color:var(--accent);transform:scale(.95);}
+.status-pill{
+  display:flex;align-items:center;gap:5px;
+  padding:4px 10px;border:1px solid var(--border);border-radius:20px;
+  font-size:8px;letter-spacing:2px;font-weight:600;
+}
 .status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:.3s;}
 .status-dot.ready{background:var(--green);box-shadow:0 0 8px var(--green);}
 .status-dot.scanning{background:var(--amber);animation:pulse .6s infinite;}
-.status-dot.error{background:var(--red);}
+.status-dot.error{background:var(--red);box-shadow:0 0 6px var(--red);}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* ── ANSWER DISPLAY ── */
-.answer-panel{background:var(--surface);border-bottom:1px solid var(--border);padding:20px 16px;text-align:center;}
-.answer-number{font-size:96px;font-weight:700;line-height:1;color:var(--accent);letter-spacing:-2px;transition:.2s;font-family:system-ui,sans-serif;}
+.answer-panel{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding:16px 14px 14px;text-align:center;
+  position:relative;
+}
+.answer-number{
+  font-size:88px;font-weight:800;line-height:1;
+  color:var(--accent);letter-spacing:-3px;
+  transition:all .25s cubic-bezier(.4,0,.2,1);
+  font-variant-numeric:tabular-nums;
+}
 .answer-number.pos-1{color:#ff4466;}
 .answer-number.pos-2{color:#4db8ff;}
 .answer-number.pos-3{color:#e8ff47;}
 .answer-number.pos-4{color:#39ff85;}
 .answer-number.pos-5{color:#cc55ff;}
-.answer-number.reposition{color:var(--red);font-size:32px;letter-spacing:1px;}
-.answer-text{font-size:11px;color:var(--muted);margin-top:6px;min-height:16px;letter-spacing:.5px;}
-.option-row{display:flex;gap:8px;justify-content:center;margin-top:12px;}
-.opt{width:36px;height:36px;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--muted);transition:.2s;}
-.opt.active-1{border-color:#ff4466;background:#ff446622;color:#ff4466;}
-.opt.active-2{border-color:#4db8ff;background:#4db8ff22;color:#4db8ff;}
-.opt.active-3{border-color:#e8ff47;background:#e8ff4722;color:#e8ff47;}
-.opt.active-4{border-color:#39ff85;background:#39ff8522;color:#39ff85;}
-.opt.active-5{border-color:#cc55ff;background:#cc55ff22;color:#cc55ff;}
-.conf-bar-wrap{margin-top:10px;}
+.answer-number.reposition{color:var(--red);font-size:28px;letter-spacing:1px;font-weight:700;}
+.answer-text{font-size:10px;color:var(--muted);margin-top:5px;min-height:14px;letter-spacing:.3px;line-height:1.4;padding:0 8px;}
+.option-row{display:flex;gap:6px;justify-content:center;margin-top:10px;}
+.opt{
+  width:40px;height:40px;border-radius:8px;
+  border:1.5px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:700;color:var(--muted);
+  transition:all .2s cubic-bezier(.4,0,.2,1);
+  cursor:pointer;
+}
+.opt:active{transform:scale(.9);}
+.opt.active-1{border-color:#ff4466;background:#ff446618;color:#ff4466;box-shadow:0 0 12px #ff446622;}
+.opt.active-2{border-color:#4db8ff;background:#4db8ff18;color:#4db8ff;box-shadow:0 0 12px #4db8ff22;}
+.opt.active-3{border-color:#e8ff47;background:#e8ff4718;color:#e8ff47;box-shadow:0 0 12px #e8ff4722;}
+.opt.active-4{border-color:#39ff85;background:#39ff8518;color:#39ff85;box-shadow:0 0 12px #39ff8522;}
+.opt.active-5{border-color:#cc55ff;background:#cc55ff18;color:#cc55ff;box-shadow:0 0 12px #cc55ff22;}
+.conf-bar-wrap{margin-top:8px;}
 .conf-bar{height:3px;background:var(--dim);border-radius:2px;overflow:hidden;}
-.conf-fill{height:100%;width:0%;background:var(--green);transition:.4s;}
-.conf-label{font-size:8px;color:var(--muted);margin-top:3px;letter-spacing:1px;}
+.conf-fill{height:100%;width:0%;transition:width .5s cubic-bezier(.4,0,.2,1),background .3s;}
+.conf-label{font-size:8px;color:var(--muted);margin-top:3px;letter-spacing:.5px;}
 
 /* ── CAMERA ── */
-.cam-section{padding:12px 16px;border-bottom:1px solid var(--border);}
-.cam-wrap{position:relative;border-radius:8px;overflow:hidden;background:#000;margin-bottom:10px;}
-video{width:100%;display:block;max-height:180px;object-fit:cover;}
-.cam-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#000;font-size:10px;color:var(--muted);}
-.cam-label{position:absolute;bottom:6px;left:8px;font-size:8px;color:rgba(255,255,255,.5);letter-spacing:1px;}
-.snap-btn{width:100%;padding:14px;background:var(--accent);color:#000;border:none;border-radius:8px;font-family:inherit;font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:.15s;}
-.snap-btn:active{transform:scale(.97);opacity:.85;}
-.snap-btn:disabled{background:var(--dim);color:var(--muted);cursor:not-allowed;}
-.cam-controls{display:flex;gap:8px;margin-bottom:10px;}
-.cam-btn{flex:1;padding:8px 4px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-family:inherit;font-size:8px;cursor:pointer;letter-spacing:1px;transition:.15s;}
-.cam-btn:active{border-color:var(--accent);color:var(--accent);}
+.cam-section{padding:10px 14px;border-bottom:1px solid var(--border);}
+.cam-wrap{
+  position:relative;border-radius:var(--radius);overflow:hidden;
+  background:#000;margin-bottom:8px;
+  aspect-ratio:16/9;
+}
+video{width:100%;height:100%;display:block;object-fit:cover;}
+.cam-overlay{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:#000;font-size:10px;color:var(--muted);letter-spacing:1px;
+}
+.cam-label{
+  position:absolute;bottom:6px;left:8px;
+  font-size:7px;color:rgba(255,255,255,.4);letter-spacing:1px;
+  background:#0008;padding:2px 6px;border-radius:4px;
+}
+
+/* SNAP button — fixed at bottom */
+.snap-dock{
+  position:fixed;bottom:0;left:0;right:0;
+  padding:10px 14px calc(10px + var(--safe-b));
+  background:linear-gradient(transparent,var(--bg) 30%);
+  z-index:90;
+  pointer-events:none;
+}
+.snap-btn{
+  width:100%;padding:16px;
+  background:var(--accent);color:#000;border:none;border-radius:var(--radius);
+  font-family:inherit;font-size:12px;font-weight:800;letter-spacing:2px;
+  cursor:pointer;transition:all .12s;
+  pointer-events:all;
+  box-shadow:0 4px 20px #e8ff4733;
+}
+.snap-btn:active{transform:scale(.97);opacity:.85;box-shadow:none;}
+.snap-btn:disabled{background:var(--dim);color:var(--muted);cursor:not-allowed;box-shadow:none;}
+
+.cam-controls{display:flex;gap:6px;margin-bottom:8px;}
+.cam-btn{
+  flex:1;padding:10px 4px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:inherit;font-size:9px;font-weight:600;
+  cursor:pointer;letter-spacing:.5px;transition:all .12s;
+  text-align:center;
+}
+.cam-btn:active{border-color:var(--accent);color:var(--accent);transform:scale(.96);}
 
 /* ── CARDS ── */
-.cards{padding:12px 16px;display:flex;flex-direction:column;gap:10px;}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;}
-.card-title{font-size:8px;letter-spacing:2px;color:var(--muted);margin-bottom:10px;}
+.cards{padding:10px 14px;display:flex;flex-direction:column;gap:8px;}
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:12px;
+  transition:border-color .2s;
+}
+.card-title{
+  font-size:8px;letter-spacing:2px;color:var(--muted);
+  margin-bottom:10px;font-weight:700;
+}
 .row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
 .row:last-child{margin-bottom:0;}
-.row-label{flex:1;font-size:9px;color:var(--text);}
-.row-sub{font-size:7px;color:var(--muted);display:block;margin-top:2px;}
+.row-label{flex:1;font-size:10px;color:var(--text);}
+.row-sub{font-size:8px;color:var(--muted);display:block;margin-top:2px;}
 
 /* ── INPUT ── */
-input[type=text],input[type=password]{width:100%;padding:8px 10px;background:#060810;border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:inherit;font-size:10px;outline:none;}
+input[type=text],input[type=password]{
+  width:100%;padding:10px 12px;
+  background:#050710;border:1.5px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:inherit;font-size:11px;outline:none;
+  transition:border-color .2s;
+}
 input[type=text]:focus,input[type=password]:focus{border-color:var(--accent);}
-input[type=range]{accent-color:var(--accent);}
-select{width:100%;padding:6px 8px;background:#060810;border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:inherit;font-size:9px;outline:none;}
+input[type=range]{accent-color:var(--accent);height:4px;}
+select{
+  width:100%;padding:8px 10px;
+  background:#050710;border:1.5px solid var(--border);border-radius:8px;
+  color:var(--text);font-family:inherit;font-size:10px;outline:none;
+}
 
 /* ── TOGGLE ── */
-.toggle{position:relative;width:36px;height:20px;flex-shrink:0;}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0;}
 .toggle input{opacity:0;width:0;height:0;}
-.toggle-track{position:absolute;inset:0;background:var(--dim);border-radius:20px;transition:.2s;cursor:pointer;}
+.toggle-track{
+  position:absolute;inset:0;background:var(--dim);border-radius:22px;
+  transition:.2s;cursor:pointer;
+}
 .toggle input:checked + .toggle-track{background:var(--accent);}
-.toggle-track::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.2s;}
-.toggle input:checked + .toggle-track::after{left:19px;}
+.toggle-track::after{
+  content:'';position:absolute;width:16px;height:16px;border-radius:50%;
+  background:#fff;top:3px;left:3px;transition:.2s cubic-bezier(.4,0,.2,1);
+}
+.toggle input:checked + .toggle-track::after{left:21px;}
 
 /* ── BUTTONS ── */
-.btn{padding:7px 14px;background:transparent;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-family:inherit;font-size:8px;letter-spacing:1px;cursor:pointer;transition:.15s;}
-.btn:active{border-color:var(--accent);color:var(--accent);}
+.btn{
+  padding:8px 14px;background:transparent;border:1.5px solid var(--border);
+  border-radius:8px;color:var(--muted);font-family:inherit;font-size:9px;
+  letter-spacing:.5px;cursor:pointer;transition:all .12s;font-weight:600;
+}
+.btn:active{border-color:var(--accent);color:var(--accent);transform:scale(.96);}
 .btn-accent{border-color:var(--accent);color:var(--accent);}
 .btn-red{border-color:var(--red);color:var(--red);}
 .btn-full{width:100%;}
 
 /* ── LOG ── */
-.log-wrap{padding:0 16px 16px;}
-.log-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
-.log-title{font-size:8px;letter-spacing:2px;color:var(--muted);flex:1;}
-.log-box{background:#030508;border:1px solid var(--dim);border-radius:6px;padding:8px;height:160px;overflow-y:auto;font-size:8px;line-height:1.7;}
-.log-entry{display:flex;gap:6px;border-bottom:1px solid #0a0f18;padding:1px 0;}
-.log-time{color:var(--dim);flex-shrink:0;width:54px;}
-.log-badge{flex-shrink:0;width:28px;text-align:center;border-radius:2px;font-size:7px;font-weight:700;}
+.log-wrap{padding:0 14px 16px;}
+.log-header{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.log-title{font-size:8px;letter-spacing:2px;color:var(--muted);flex:1;font-weight:700;}
+.log-box{
+  background:#030508;border:1px solid var(--dim);border-radius:8px;
+  padding:8px;height:140px;overflow-y:auto;font-size:8px;line-height:1.8;
+  font-family:'SF Mono',SFMono-Regular,'Cascadia Code',Menlo,monospace;
+  -webkit-overflow-scrolling:touch;
+}
+.log-entry{display:flex;gap:5px;border-bottom:1px solid #080d16;padding:1px 0;}
+.log-time{color:var(--dim);flex-shrink:0;width:52px;}
+.log-badge{
+  flex-shrink:0;width:28px;text-align:center;border-radius:3px;
+  font-size:7px;font-weight:700;
+}
 .lb-ok{background:#0a2214;color:var(--green);}
 .lb-err{background:#2a0a0a;color:var(--red);}
 .lb-warn{background:#2a1800;color:var(--amber);}
@@ -126,46 +252,157 @@ select{width:100%;padding:6px 8px;background:#060810;border:1px solid var(--bord
 .log-msg{flex:1;color:var(--text);word-break:break-all;}
 
 /* ── COVER SCREEN ── */
-#coverScreen{display:none;position:fixed;inset:0;background:#000;z-index:9999;flex-direction:column;align-items:center;justify-content:center;}
+#coverScreen{
+  display:none;position:fixed;inset:0;background:#000;z-index:9999;
+  flex-direction:column;align-items:center;justify-content:center;
+  touch-action:manipulation;
+}
 body.cover-mode #coverScreen{display:flex;}
-body.cover-mode .header,body.cover-mode .answer-panel,body.cover-mode .cam-section,body.cover-mode .cards,body.cover-mode .log-wrap{display:none;}
-#coverNum{font-size:150px;font-weight:700;line-height:1;font-family:system-ui,sans-serif;color:var(--accent);}
+body.cover-mode #mainApp{display:none;}
+body.cover-mode .snap-dock{display:none;}
+
+#coverNum{
+  font-size:min(50vw, 160px);font-weight:800;line-height:1;
+  color:var(--accent);transition:all .3s;
+}
 #coverNum.c1{color:#ff4466;}#coverNum.c2{color:#4db8ff;}#coverNum.c3{color:#e8ff47;}
-#coverNum.c4{color:#39ff85;}#coverNum.c5{color:#cc55ff;}#coverNum.cR{color:var(--red);font-size:40px;}
-#coverDot{position:absolute;top:14px;right:14px;width:10px;height:10px;border-radius:50%;background:var(--dim);}
-#coverDot.ready{background:var(--green);}#coverDot.scanning{background:var(--amber);animation:pulse .6s infinite;}
-#coverExit{position:absolute;top:10px;left:10px;background:transparent;border:none;color:var(--dim);font-family:inherit;font-size:8px;cursor:pointer;letter-spacing:1px;}
-#coverHint{position:absolute;bottom:14px;font-size:9px;color:var(--dim);letter-spacing:2px;}
-#coverText{font-size:11px;color:var(--muted);margin-top:8px;max-width:200px;text-align:center;}
-body.cover-dim #coverNum{display:none;}body.cover-dim #coverText{display:none;}
-body.cover-dim #coverDot{width:16px;height:16px;top:50%;left:50%;transform:translate(-50%,-50%);}
+#coverNum.c4{color:#39ff85;}#coverNum.c5{color:#cc55ff;}#coverNum.cR{color:var(--red);font-size:min(12vw,36px);}
+
+.cover-top{
+  position:absolute;top:0;left:0;right:0;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px;
+}
+#coverDot{width:8px;height:8px;border-radius:50%;background:var(--dim);transition:.3s;}
+#coverDot.ready{background:var(--green);box-shadow:0 0 6px var(--green);}
+#coverDot.scanning{background:var(--amber);animation:pulse .6s infinite;}
+#coverExit{
+  background:transparent;border:1px solid #333;color:#666;
+  font-family:inherit;font-size:8px;cursor:pointer;letter-spacing:1px;
+  padding:4px 10px;border-radius:6px;font-weight:600;
+}
+#coverHint{
+  position:absolute;bottom:12px;font-size:9px;color:#333;
+  letter-spacing:2px;font-weight:600;
+}
+#coverText{font-size:10px;color:var(--muted);margin-top:6px;max-width:200px;text-align:center;line-height:1.3;}
+
+/* Cover control bar */
+.cover-controls{
+  position:absolute;bottom:40px;left:0;right:0;
+  display:flex;justify-content:center;gap:12px;
+  padding:0 16px;
+}
+.cover-ctrl-btn{
+  width:44px;height:44px;border-radius:50%;
+  border:1.5px solid #333;background:#111;
+  color:#888;font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+.cover-ctrl-btn:active{transform:scale(.9);border-color:var(--accent);}
+.cover-ctrl-btn.active{border-color:var(--green);color:var(--green);}
+
+/* Cover dim mode */
+body.cover-dim #coverNum{display:none;}
+body.cover-dim #coverText{display:none;}
+body.cover-dim .cover-controls{display:none;}
+body.cover-dim #coverDot{width:16px;height:16px;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);}
+
+/* ── FOLD MODE indicator ── */
+.fold-indicator{
+  display:none;padding:6px 14px;
+  background:#1a1400;border-bottom:1px solid #3a2a00;
+  font-size:8px;color:var(--amber);letter-spacing:1px;
+  text-align:center;font-weight:600;
+}
+body.folded .fold-indicator{display:block;}
+
+/* ── Vibration mode buttons ── */
+.vib-mode-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;}
+.vib-mode-btn{
+  padding:8px 2px;border-radius:8px;border:1.5px solid var(--border);
+  background:transparent;color:var(--text);font-family:inherit;
+  font-size:8px;cursor:pointer;line-height:1.4;font-weight:600;
+  transition:all .15s;text-align:center;
+}
+.vib-mode-btn:active{transform:scale(.95);}
+.vib-mode-btn.active{background:var(--accent);color:#000;border-color:var(--accent);}
+.vib-mode-btn.active .vib-sub{color:#00000066;}
+.vib-sub{font-size:7px;color:var(--muted);display:block;margin-top:2px;}
+
+/* ── Debug overlay ── */
+#debugOverlay{
+  display:none;position:fixed;inset:0;background:var(--bg);
+  z-index:99998;overflow-y:auto;padding:0 0 40px 0;
+  -webkit-overflow-scrolling:touch;
+}
+
+/* ── Scan animation ── */
+@keyframes scanPulse{
+  0%{box-shadow:inset 0 0 0 2px transparent;}
+  50%{box-shadow:inset 0 0 0 2px var(--amber);}
+  100%{box-shadow:inset 0 0 0 2px transparent;}
+}
+.cam-wrap.scanning-anim{animation:scanPulse 1s infinite;}
+
+/* ── Section collapse ── */
+.section-toggle{
+  display:flex;align-items:center;gap:6px;cursor:pointer;
+  padding:3px 0;margin-bottom:8px;
+}
+.section-toggle .arrow{
+  transition:transform .2s;font-size:8px;color:var(--muted);
+}
+.section-toggle.collapsed .arrow{transform:rotate(-90deg);}
+.section-body{overflow:hidden;transition:max-height .3s;max-height:800px;}
+.section-body.collapsed{max-height:0;}
+
+/* Smooth performance */
+*{will-change:auto;}
+.answer-number,.opt,.snap-btn{will-change:transform,opacity;}
 </style>
 </head>
 <body>
 
 <!-- COVER SCREEN -->
 <div id="coverScreen">
-  <button id="coverExit" onclick="exitCover()">EXIT</button>
-  <div id="coverDot"></div>
+  <div class="cover-top">
+    <button id="coverExit" onclick="exitCover()">✕ EXIT</button>
+    <div id="coverDot"></div>
+  </div>
   <div id="coverNum">—</div>
   <div id="coverText"></div>
-  <div id="coverHint">PRESS RING TO SCAN</div>
+  <div class="cover-controls">
+    <button class="cover-ctrl-btn" id="coverScanBtn" onclick="triggerScan()" title="Scan">📷</button>
+    <button class="cover-ctrl-btn" id="coverVibBtn" onclick="toggleCoverVib()" title="Vibration">📳</button>
+    <button class="cover-ctrl-btn" id="coverCamBtn" onclick="toggleCoverCam()" title="Camera">🔴</button>
+  </div>
+  <div id="coverHint">TAP 📷 OR PRESS RING</div>
 </div>
+
+<!-- MAIN APP -->
+<div id="mainApp">
+
+<!-- FOLD INDICATOR -->
+<div class="fold-indicator" id="foldIndicator">📱 FOLD MODE — app continues running</div>
 
 <!-- HEADER -->
 <div class="header">
-  <div class="logo">ANSWERBOT <span>v7.0 · GEMINI 3 FLASH</span></div>
-  <button onclick="showDebug()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:8px;padding:5px 10px;border-radius:5px;cursor:pointer;letter-spacing:1px;">🔍 DEBUG</button>
-  <div class="status-pill">
-    <div class="status-dot" id="statusDot"></div>
-    <span id="statusText">IDLE</span>
+  <div class="logo">ANSWERBOT <span>v8 · GEMINI FLASH</span></div>
+  <div class="hdr-actions">
+    <button class="hdr-btn" onclick="showDebug()">🔍</button>
+    <div class="status-pill">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">IDLE</span>
+    </div>
   </div>
 </div>
 
 <!-- ANSWER DISPLAY -->
-<div class="answer-panel">
+<div class="answer-panel" id="answerPanel">
   <div class="answer-number" id="answerNum">—</div>
-  <div class="answer-text" id="answerText">press ring or snap button</div>
+  <div class="answer-text" id="answerText">start camera → press ring or snap</div>
   <div class="option-row" id="optionRow">
     <div class="opt" id="opt1">1</div>
     <div class="opt" id="opt2">2</div>
@@ -186,18 +423,17 @@ body.cover-dim #coverDot{width:16px;height:16px;top:50%;left:50%;transform:trans
     <div class="cam-overlay" id="camOverlay">tap START CAMERA</div>
     <div class="cam-label" id="camLabel"></div>
   </div>
-  <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">
-    <select id="camSelect" style="flex:1;padding:7px 8px;background:#060810;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:8px;outline:none;" onchange="onCamSelectChange()">
-      <option value="">— tap SCAN CAMERAS first —</option>
+  <div style="display:flex;gap:5px;margin-bottom:6px;align-items:center;">
+    <select id="camSelect" style="flex:1;padding:8px 10px;background:#050710;border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;font-size:9px;outline:none;" onchange="onCamSelectChange()">
+      <option value="">— tap SCAN first —</option>
     </select>
-    <button class="cam-btn" style="flex-shrink:0;white-space:nowrap;" onclick="scanCameras()">🔍 SCAN</button>
+    <button class="cam-btn" style="flex:0 0 auto;width:68px;" onclick="scanCameras()">🔍 SCAN</button>
   </div>
   <div class="cam-controls">
     <button class="cam-btn" onclick="startCamera()">▶ START</button>
-    <button class="cam-btn" onclick="refocus()">🎯 REFOCUS</button>
+    <button class="cam-btn" onclick="refocus()">🎯 FOCUS</button>
     <button class="cam-btn" onclick="enterCover()">📱 COVER</button>
   </div>
-  <button class="snap-btn" id="snapBtn" onclick="triggerScan()" disabled>SNAP (or press ring clicker)</button>
 </div>
 
 <!-- SETTINGS CARDS -->
@@ -205,195 +441,169 @@ body.cover-dim #coverDot{width:16px;height:16px;top:50%;left:50%;transform:trans
 
   <!-- API KEY -->
   <div class="card">
-    <div class="card-title">GEMINI API KEY</div>
+    <div class="card-title">🔑 GEMINI API KEY</div>
     <div class="row">
       <input type="password" id="apiKey" placeholder="AIza... paste key here">
     </div>
-    <div style="display:flex;gap:8px;">
-      <button class="btn btn-accent btn-full" onclick="saveKey()">SAVE KEY</button>
+    <div style="display:flex;gap:6px;margin-top:6px;">
+      <button class="btn btn-accent btn-full" onclick="saveKey()">SAVE</button>
       <button class="btn btn-full" onclick="testKey()">TEST</button>
+    </div>
+  </div>
+
+  <!-- VIBRATION -->
+  <div class="card">
+    <div class="card-title">📳 VIBRATION FEEDBACK</div>
+    <div style="font-size:8px;color:var(--dim);margin-bottom:8px;letter-spacing:.3px;">1 buzz = opt 1 · 5 buzzes = opt 5 · 6 rapid = reposition</div>
+
+    <!-- Enabled -->
+    <div class="row">
+      <div class="row-label">Haptics enabled</div>
+      <label class="toggle"><input type="checkbox" id="togHaptic" checked onchange="onHapticToggle()"><div class="toggle-track"></div></label>
+    </div>
+
+    <!-- 4 Mode selector -->
+    <div style="margin:8px 0 6px;">
+      <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;font-weight:600;">MODE</div>
+      <div class="vib-mode-grid">
+        <button class="vib-mode-btn" id="modeBtn_off" onclick="setVibMode('off')">
+          🔇 OFF<span class="vib-sub">silent</span>
+        </button>
+        <button class="vib-mode-btn" id="modeBtn_quiet" onclick="setVibMode('quiet')">
+          🤫 QUIET<span class="vib-sub">10ms taps</span>
+        </button>
+        <button class="vib-mode-btn active" id="modeBtn_normal" onclick="setVibMode('normal')">
+          ⚡ NORMAL<span class="vib-sub">200ms buzz</span>
+        </button>
+        <button class="vib-mode-btn" id="modeBtn_strong" onclick="setVibMode('strong')">
+          💪 STRONG<span class="vib-sub">400ms buzz</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mode banner -->
+    <div id="modeBanner" style="border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:8px;letter-spacing:.3px;display:none;line-height:1.4;"></div>
+
+    <!-- Quiet tuner -->
+    <div id="quietTuner" style="display:none;">
+      <div class="row">
+        <div class="row-label">Tap width<span class="row-sub">8–15ms = felt not heard</span></div>
+        <input type="range" id="quietPulse" min="5" max="25" step="1" value="10" style="width:80px;"
+          oninput="document.getElementById('quietPulseVal').textContent=this.value+'ms';saveSetting('quietPulse',this.value)">
+        <span style="font-size:9px;color:var(--accent);min-width:32px;text-align:right;" id="quietPulseVal">10ms</span>
+      </div>
+      <div class="row">
+        <div class="row-label">Tap gap<span class="row-sub">Gap between micro-taps in a cluster</span></div>
+        <input type="range" id="quietGap" min="80" max="250" step="10" value="140" style="width:80px;"
+          oninput="document.getElementById('quietGapVal').textContent=this.value+'ms';saveSetting('quietGap',this.value)">
+        <span style="font-size:9px;color:var(--accent);min-width:32px;text-align:right;" id="quietGapVal">140ms</span>
+      </div>
+      <div class="row">
+        <div class="row-label">Cluster pause<span class="row-sub">Gap between counts</span></div>
+        <input type="range" id="quietPause" min="100" max="400" step="10" value="200" style="width:80px;"
+          oninput="document.getElementById('quietPauseVal').textContent=this.value+'ms';saveSetting('quietPause',this.value)">
+        <span style="font-size:9px;color:var(--accent);min-width:32px;text-align:right;" id="quietPauseVal">200ms</span>
+      </div>
+    </div>
+
+    <!-- Normal tuner -->
+    <div id="vibTuner">
+      <div class="row" style="margin-top:2px;">
+        <div class="row-label">Buzz duration<span class="row-sub">Shorter = quieter</span></div>
+        <input type="range" id="buzzDur" min="20" max="400" step="5" value="200" style="width:80px;"
+          oninput="document.getElementById('buzzDurVal').textContent=this.value+'ms';saveSetting('buzzDur',this.value)">
+        <span style="font-size:9px;color:var(--accent);min-width:32px;text-align:right;" id="buzzDurVal">200ms</span>
+      </div>
+      <div class="row">
+        <div class="row-label">Gap between buzzes<span class="row-sub">Timing between pulses</span></div>
+        <input type="range" id="buzzGap" min="60" max="500" step="10" value="250" style="width:80px;"
+          oninput="document.getElementById('buzzGapVal').textContent=this.value+'ms';saveSetting('buzzGap',this.value)">
+        <span style="font-size:9px;color:var(--accent);min-width:32px;text-align:right;" id="buzzGapVal">250ms</span>
+      </div>
+    </div>
+
+    <!-- Cooldown -->
+    <div class="row" style="margin-top:4px;">
+      <div class="row-label">Vibration cooldown<span class="row-sub">Min delay between vibration events</span></div>
+      <input type="range" id="vibCooldown" min="500" max="5000" step="100" value="1500" style="width:80px;"
+        oninput="document.getElementById('vibCooldownVal').textContent=(this.value/1000).toFixed(1)+'s';saveSetting('vibCooldown',this.value)">
+      <span style="font-size:9px;color:var(--accent);min-width:32px;text-align:right;" id="vibCooldownVal">1.5s</span>
+    </div>
+
+    <!-- Test buttons -->
+    <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:8px;">
+      <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;font-weight:600;">TEST EACH OPTION</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:6px;">
+        <button class="btn" onclick="buzzTest(1)" style="font-size:11px;padding:10px 0;font-weight:700;color:#ff4466;border-color:#ff4466;">1</button>
+        <button class="btn" onclick="buzzTest(2)" style="font-size:11px;padding:10px 0;font-weight:700;color:#4db8ff;border-color:#4db8ff;">2</button>
+        <button class="btn" onclick="buzzTest(3)" style="font-size:11px;padding:10px 0;font-weight:700;color:#e8ff47;border-color:#e8ff47;">3</button>
+        <button class="btn" onclick="buzzTest(4)" style="font-size:11px;padding:10px 0;font-weight:700;color:#39ff85;border-color:#39ff85;">4</button>
+        <button class="btn" onclick="buzzTest(5)" style="font-size:11px;padding:10px 0;font-weight:700;color:#cc55ff;border-color:#cc55ff;">5</button>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-red btn-full" onclick="buzzTest('R')">↩ REPOSITION</button>
+        <button class="btn btn-full" onclick="buzzRaw()">RAW PULSE</button>
+      </div>
     </div>
   </div>
 
   <!-- FRAME MODE -->
   <div class="card">
-    <div class="card-title">FRAME CAPTURE MODE</div>
+    <div class="card-title">🎞 CAPTURE MODE</div>
     <div class="row">
-      <div class="row-label">Multi-frame burst
-        <span class="row-sub">Capture 5 frames, send 3 sharpest to Gemini</span>
-      </div>
+      <div class="row-label">Multi-frame burst<span class="row-sub">Capture 5 frames, send sharpest to Gemini</span></div>
       <label class="toggle"><input type="checkbox" id="togBurst" onchange="saveSetting('burst',this.checked)"><div class="toggle-track"></div></label>
     </div>
     <div id="burstSettings" style="display:none;padding-top:8px;border-top:1px solid var(--border);margin-top:4px;">
       <div class="row">
-        <div class="row-label">Frames to send to Gemini
-          <span class="row-sub">From the 5 captured, send best N</span>
-        </div>
+        <div class="row-label">Frames to send<span class="row-sub">From 5 captured, send best N</span></div>
         <select id="burstSend" onchange="saveSetting('burstSend',this.value)" style="width:60px;">
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3" selected>3</option>
-          <option value="5">5</option>
+          <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="5">5</option>
         </select>
-      </div>
-    </div>
-  </div>
-
-  <!-- BUZZ -->
-  <div class="card">
-    <div class="card-title">VIBRATION · 1 buzz=opt1 · 5=opt5 · 6=reposition</div>
-
-    <!-- Enabled -->
-    <div class="row">
-      <div class="row-label">Vibration enabled</div>
-      <label class="toggle"><input type="checkbox" id="togHaptic" checked onchange="onHapticToggle()"><div class="toggle-track"></div></label>
-    </div>
-
-    <!-- Mode selector — three radio-style buttons -->
-    <div style="margin:10px 0 6px;">
-      <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">VIBRATION MODE</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
-        <button id="modeBtn_normal" onclick="setVibMode('normal')"
-          style="padding:8px 4px;border-radius:6px;border:1px solid var(--border);background:var(--dim);color:var(--text);font-family:inherit;font-size:8px;cursor:pointer;line-height:1.4;">
-          ⚡ NORMAL<br><span style="font-size:7px;color:var(--muted);">200ms / 250ms</span>
-        </button>
-        <button id="modeBtn_silent" onclick="setVibMode('silent')"
-          style="padding:8px 4px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:inherit;font-size:8px;cursor:pointer;line-height:1.4;">
-          🤫 SILENT<br><span style="font-size:7px;color:var(--muted);">80ms / 120ms</span>
-        </button>
-        <button id="modeBtn_micro" onclick="setVibMode('micro')"
-          style="padding:8px 4px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:inherit;font-size:8px;cursor:pointer;line-height:1.4;">
-          🫥 MICRO<br><span style="font-size:7px;color:var(--muted);">25ms clusters</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Mode description banner -->
-    <div id="modeBanner" style="border-radius:5px;padding:6px 10px;margin-bottom:8px;font-size:8px;letter-spacing:0.5px;display:none;"></div>
-
-    <!-- Manual tuner — visible in normal/silent, hidden in micro -->
-    <div id="vibTuner">
-      <div class="row" style="margin-top:2px;">
-        <div class="row-label">Buzz duration
-          <span class="row-sub">Shorter = quieter</span>
-        </div>
-        <input type="range" id="buzzDur" min="20" max="400" step="5" value="200" style="width:90px;"
-          oninput="document.getElementById('buzzDurVal').textContent=this.value+'ms';saveSetting('buzzDur',this.value)">
-        <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="buzzDurVal">200ms</span>
-      </div>
-      <div class="row">
-        <div class="row-label">Gap between buzzes
-          <span class="row-sub">Tighter = harder to hear</span>
-        </div>
-        <input type="range" id="buzzGap" min="60" max="500" step="10" value="250" style="width:90px;"
-          oninput="document.getElementById('buzzGapVal').textContent=this.value+'ms';saveSetting('buzzGap',this.value)">
-        <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="buzzGapVal">250ms</span>
-      </div>
-    </div>
-
-    <!-- Micro-burst tuner — visible in micro mode only -->
-    <div id="microTuner" style="display:none;">
-      <div class="row" style="margin-top:2px;">
-        <div class="row-label">Pulse width (ms)
-          <span class="row-sub">25ms = motor fires but can't resonate</span>
-        </div>
-        <input type="range" id="microPulse" min="10" max="60" step="5" value="25" style="width:90px;"
-          oninput="document.getElementById('microPulseVal').textContent=this.value+'ms';saveSetting('microPulse',this.value)">
-        <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="microPulseVal">25ms</span>
-      </div>
-      <div class="row">
-        <div class="row-label">Pulse gap (ms)
-          <span class="row-sub">Gap inside each cluster</span>
-        </div>
-        <input type="range" id="microGap" min="10" max="60" step="5" value="25" style="width:90px;"
-          oninput="document.getElementById('microGapVal').textContent=this.value+'ms';saveSetting('microGap',this.value)">
-        <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="microGapVal">25ms</span>
-      </div>
-      <div class="row">
-        <div class="row-label">Cluster pause (ms)
-          <span class="row-sub">Gap between clusters = pause between counts</span>
-        </div>
-        <input type="range" id="microPause" min="80" max="400" step="10" value="160" style="width:90px;"
-          oninput="document.getElementById('microPauseVal').textContent=this.value+'ms';saveSetting('microPause',this.value)">
-        <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="microPauseVal">160ms</span>
-      </div>
-      <div class="row">
-        <div class="row-label">Pulses per cluster
-          <span class="row-sub">Taps per count — 3 feels like one solid beat</span>
-        </div>
-        <select id="microCount" onchange="saveSetting('microCount',this.value)" style="width:60px;">
-          <option value="2">2</option>
-          <option value="3" selected>3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Test buttons — always visible -->
-    <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:8px;">
-      <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">TEST EACH OPTION</div>
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px;">
-        <button class="btn" onclick="buzzTest(1)" style="font-size:10px;padding:9px 0;font-weight:700;color:#ff4466;border-color:#ff4466;">1</button>
-        <button class="btn" onclick="buzzTest(2)" style="font-size:10px;padding:9px 0;font-weight:700;color:#4db8ff;border-color:#4db8ff;">2</button>
-        <button class="btn" onclick="buzzTest(3)" style="font-size:10px;padding:9px 0;font-weight:700;color:#e8ff47;border-color:#e8ff47;">3</button>
-        <button class="btn" onclick="buzzTest(4)" style="font-size:10px;padding:9px 0;font-weight:700;color:#39ff85;border-color:#39ff85;">4</button>
-        <button class="btn" onclick="buzzTest(5)" style="font-size:10px;padding:9px 0;font-weight:700;color:#cc55ff;border-color:#cc55ff;">5</button>
-      </div>
-      <div style="display:flex;gap:6px;">
-        <button class="btn btn-red btn-full" onclick="buzzTest('R')" style="font-size:8px;">↩ REPOSITION</button>
-        <button class="btn btn-full" onclick="buzzRaw()" style="font-size:8px;">RAW TEST</button>
       </div>
     </div>
   </div>
 
   <!-- CAMERA SETTINGS -->
   <div class="card">
-    <div class="card-title">CAMERA</div>
+    <div class="card-title">📷 CAMERA</div>
     <div class="row">
-      <div class="row-label">Rotation
-        <span class="row-sub">180° = folded Z Flip 4</span>
-      </div>
+      <div class="row-label">Rotation<span class="row-sub">180° = folded Z Flip</span></div>
       <select id="camRot" onchange="saveSetting('camRot',this.value)" style="width:80px;">
-        <option value="0">0°</option>
-        <option value="90">90°</option>
-        <option value="180" selected>180°</option>
-        <option value="270">270°</option>
+        <option value="0">0°</option><option value="90">90°</option>
+        <option value="180" selected>180°</option><option value="270">270°</option>
       </select>
     </div>
     <div class="row">
-      <div class="row-label">Anti-glare (EV -0.7)
-        <span class="row-sub">Reduces screen reflections</span>
-      </div>
+      <div class="row-label">Anti-glare (EV -0.7)<span class="row-sub">Reduces screen reflections</span></div>
       <label class="toggle"><input type="checkbox" id="togGlare" checked onchange="applyGlare()"><div class="toggle-track"></div></label>
     </div>
   </div>
 
   <!-- ADVANCED -->
   <div class="card">
-    <div class="card-title">ADVANCED</div>
+    <div class="card-title">⚙️ ADVANCED</div>
     <div class="row">
-      <div class="row-label">Auto zoom retry
-        <span class="row-sub">If unclear: crop centre and retry</span>
-      </div>
+      <div class="row-label">Auto zoom retry<span class="row-sub">If unclear: crop centre and retry</span></div>
       <label class="toggle"><input type="checkbox" id="togZoom" checked onchange="saveSetting('zoom',this.checked)"><div class="toggle-track"></div></label>
     </div>
     <div class="row">
-      <div class="row-label">Speed mode (1 pass)
-        <span class="row-sub">Skip verification — faster, cheaper</span>
-      </div>
+      <div class="row-label">Speed mode (1 pass)<span class="row-sub">Skip verification — faster</span></div>
       <label class="toggle"><input type="checkbox" id="togSpeed" onchange="saveSetting('speed',this.checked)"><div class="toggle-track"></div></label>
     </div>
     <div class="row">
-      <div class="row-label">Cover screen dim mode
-        <span class="row-sub">Show tiny dot only when folded</span>
-      </div>
+      <div class="row-label">Cover dim mode<span class="row-sub">Show tiny dot only when folded</span></div>
       <label class="toggle"><input type="checkbox" id="togDim" onchange="toggleDim()"><div class="toggle-track"></div></label>
     </div>
     <div class="row">
       <div class="row-label">API cooldown (s)</div>
-      <input type="range" id="cooldown" min="3" max="20" step="1" value="6" style="width:100px;" oninput="document.getElementById('cooldownVal').textContent=this.value+'s'">
-      <span style="font-size:9px;color:var(--accent);min-width:32px;text-align:right;" id="cooldownVal">6s</span>
+      <input type="range" id="cooldown" min="3" max="20" step="1" value="6" style="width:80px;"
+        oninput="document.getElementById('cooldownVal').textContent=this.value+'s'">
+      <span style="font-size:9px;color:var(--accent);min-width:28px;text-align:right;" id="cooldownVal">6s</span>
+    </div>
+    <div class="row">
+      <div class="row-label">Wake Lock<span class="row-sub">Keep screen on & app alive</span></div>
+      <label class="toggle"><input type="checkbox" id="togWakeLock" checked onchange="toggleWakeLock()"><div class="toggle-track"></div></label>
     </div>
   </div>
 
@@ -403,10 +613,17 @@ body.cover-dim #coverDot{width:16px;height:16px;top:50%;left:50%;transform:trans
 <div class="log-wrap">
   <div class="log-header">
     <span class="log-title">SYSTEM LOG</span>
-    <button class="btn" onclick="clearLog()">CLR</button>
-    <button class="btn" onclick="copyLog()">COPY</button>
+    <button class="btn" onclick="clearLog()" style="padding:4px 8px;">CLR</button>
+    <button class="btn" onclick="copyLog()" style="padding:4px 8px;">COPY</button>
   </div>
   <div class="log-box" id="logBox"></div>
+</div>
+
+</div><!-- end mainApp -->
+
+<!-- FIXED SNAP BUTTON -->
+<div class="snap-dock" id="snapDock">
+  <button class="snap-btn" id="snapBtn" onclick="triggerScan()" disabled>SNAP · or press ring clicker</button>
 </div>
 
 <canvas id="canvas" style="display:none;"></canvas>
@@ -420,27 +637,36 @@ body.cover-dim #coverDot{width:16px;height:16px;top:50%;left:50%;transform:trans
 let scanning      = false;
 let camStream     = null;
 let camTrack      = null;
-let imageCapture  = null;   // ImageCapture API for full-res photos
+let imageCapture  = null;
 let lastScanMs    = 0;
+let lastVibMs     = 0;
+let lastAnswer    = null;
 let audioCtx      = null;
 let pingTimer     = null;
 let prefocusTimer = null;
+let wakeLock      = null;
+let logDirty      = false;
+let logRafPending = false;
 
-const MODEL = 'gemini-3-flash-preview';
+const MODEL = 'gemini-2.5-flash-preview-04-17';
 const API   = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 // ═══════════════════════════════════════════════════════
-// SETTINGS — localStorage
+// SETTINGS — localStorage with batched reads
 // ═══════════════════════════════════════════════════════
+const _cache = {};
 function getSetting(k, def) {
-  const v = localStorage.getItem('ab7_'+k);
-  if (v === null) return def;
-  if (v === 'true') return true;
-  if (v === 'false') return false;
+  if (k in _cache) return _cache[k];
+  const v = localStorage.getItem('ab8_'+k);
+  if (v === null) { _cache[k] = def; return def; }
+  if (v === 'true') { _cache[k] = true; return true; }
+  if (v === 'false') { _cache[k] = false; return false; }
+  _cache[k] = v;
   return v;
 }
 function saveSetting(k, v) {
-  localStorage.setItem('ab7_'+k, v);
+  _cache[k] = v;
+  localStorage.setItem('ab8_'+k, v);
   if (k === 'burst') {
     document.getElementById('burstSettings').style.display = v ? 'block' : 'none';
   }
@@ -454,71 +680,82 @@ function loadSettings() {
     if (el.type === 'checkbox') el.checked = v;
     else el.value = v;
   };
-  s('apiKey',  'apiKey',   '');
-  s('togBurst','burst',    false);
+  s('apiKey','apiKey','');
+  s('togBurst','burst',false);
   s('burstSend','burstSend',3);
-  s('togHaptic',  'haptic',     true);
-  s('buzzDur',    'buzzDur',    200);
-  s('buzzGap',    'buzzGap',    250);
-  s('microPulse', 'microPulse', 25);
-  s('microGap',   'microGap',   25);
-  s('microPause', 'microPause', 160);
-  s('microCount', 'microCount', 3);
-  s('togGlare','glare',    true);
-  s('camRot',  'camRot',   '180');
-  s('togZoom', 'zoom',     true);
-  s('togSpeed','speed',    false);
-  s('togDim',  'dim',      false);
-  s('cooldown','cooldown', 6);
+  s('togHaptic','haptic',true);
+  s('buzzDur','buzzDur',200);
+  s('buzzGap','buzzGap',250);
+  s('quietPulse','quietPulse',10);
+  s('quietGap','quietGap',140);
+  s('quietPause','quietPause',200);
+  s('vibCooldown','vibCooldown',1500);
+  s('togGlare','glare',true);
+  s('camRot','camRot','180');
+  s('togZoom','zoom',true);
+  s('togSpeed','speed',false);
+  s('togDim','dim',false);
+  s('cooldown','cooldown',6);
+  s('togWakeLock','wakeLock',true);
 
-  // Update display labels
-  const dur = document.getElementById('buzzDur').value;
-  const gap = document.getElementById('buzzGap').value;
-  const cd  = document.getElementById('cooldown').value;
-  document.getElementById('buzzDurVal').textContent = dur+'ms';
-  document.getElementById('buzzGapVal').textContent = gap+'ms';
-  document.getElementById('cooldownVal').textContent = cd+'s';
+  // Update labels
+  document.getElementById('buzzDurVal').textContent = document.getElementById('buzzDur').value+'ms';
+  document.getElementById('buzzGapVal').textContent = document.getElementById('buzzGap').value+'ms';
+  document.getElementById('cooldownVal').textContent = document.getElementById('cooldown').value+'s';
+  document.getElementById('quietPulseVal').textContent = document.getElementById('quietPulse').value+'ms';
+  document.getElementById('quietGapVal').textContent = document.getElementById('quietGap').value+'ms';
+  document.getElementById('quietPauseVal').textContent = document.getElementById('quietPause').value+'ms';
+  document.getElementById('vibCooldownVal').textContent = (document.getElementById('vibCooldown').value/1000).toFixed(1)+'s';
 
-  // Burst settings visibility
   document.getElementById('burstSettings').style.display =
     document.getElementById('togBurst').checked ? 'block' : 'none';
 
-  // Dim mode
   if (getSetting('dim', false)) document.body.classList.add('cover-dim');
 }
 
 // ═══════════════════════════════════════════════════════
-// LOG
+// LOG — batched DOM updates via rAF
 // ═══════════════════════════════════════════════════════
 const logLines = [];
+const fullLog  = [];
+
 function log(msg, level='dim') {
   const t = new Date().toTimeString().slice(0,8);
   const badges = {ok:'OK',err:'ERR',warn:'WARN',info:'INFO',dim:'·'};
-  const badge = badges[level] || '·';
-  logLines.unshift({t, badge, level, msg});
-  if (logLines.length > 200) logLines.pop();
-  renderLog();
-  // Also store in fullLog for debug panel (no override needed)
-  fullLog.push({ t, msg, level });
+  logLines.unshift({t, badge:badges[level]||'·', level, msg});
+  if (logLines.length > 150) logLines.length = 150;
+  fullLog.push({t, msg, level});
+
+  // Batch render via rAF
+  if (!logRafPending) {
+    logRafPending = true;
+    requestAnimationFrame(flushLog);
+  }
+}
+
+function flushLog() {
+  logRafPending = false;
+  const box = document.getElementById('logBox');
+  if (!box) return;
+  // Build HTML in one pass, show last 40
+  const html = [];
+  const slice = logLines.length > 40 ? logLines.slice(0,40) : logLines;
+  for (let i = 0; i < slice.length; i++) {
+    const l = slice[i];
+    html.push('<div class="log-entry"><span class="log-time">',l.t,
+      '</span><span class="log-badge lb-',l.level,'">',l.badge,
+      '</span><span class="log-msg">',l.msg,'</span></div>');
+  }
+  box.innerHTML = html.join('');
+
   const fc = document.getElementById('fullLogCount');
   if (fc) fc.textContent = fullLog.length;
 }
 
-function renderLog() {
-  const box = document.getElementById('logBox');
-  box.innerHTML = logLines.slice(0, 60).map(l =>
-    `<div class="log-entry">
-      <span class="log-time">${l.t}</span>
-      <span class="log-badge lb-${l.level}">${l.badge}</span>
-      <span class="log-msg">${l.msg}</span>
-    </div>`
-  ).join('');
-}
-
-function clearLog() { logLines.length = 0; renderLog(); }
+function clearLog() { logLines.length = 0; flushLog(); }
 function copyLog() {
-  navigator.clipboard?.writeText(logLines.map(l => `[${l.t}] ${l.msg}`).join('\n'))
-    .then(() => log('Log copied', 'ok'));
+  navigator.clipboard?.writeText(logLines.map(l=>`[${l.t}] ${l.msg}`).join('\n'))
+    .then(()=>log('Log copied','ok'));
 }
 
 // ═══════════════════════════════════════════════════════
@@ -526,92 +763,174 @@ function copyLog() {
 // ═══════════════════════════════════════════════════════
 function setStatus(text, state='ready') {
   document.getElementById('statusText').textContent = text;
-  const dot = document.getElementById('statusDot');
-  dot.className = 'status-dot ' + state;
+  document.getElementById('statusDot').className = 'status-dot ' + state;
   const cd = document.getElementById('coverDot');
-  cd.className = state;
+  if (cd) cd.className = state;
+}
+
+// ═══════════════════════════════════════════════════════
+// WAKE LOCK — prevents screen off & tab suspension
+// ═══════════════════════════════════════════════════════
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator)) { log('Wake Lock API not supported','warn'); return; }
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => {
+      log('Wake Lock released','warn');
+      // Re-acquire on visibility change
+    });
+    log('Wake Lock acquired ✓','ok');
+  } catch(e) { log('Wake Lock failed: '+e.message,'warn'); }
+}
+
+async function toggleWakeLock() {
+  const on = document.getElementById('togWakeLock').checked;
+  saveSetting('wakeLock', on);
+  if (on) { await acquireWakeLock(); }
+  else if (wakeLock) { await wakeLock.release(); wakeLock = null; log('Wake Lock released','info'); }
+}
+
+// Re-acquire on visibility change (tab comes back, phone unfolds)
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible') {
+    log('Page visible — restoring…','info');
+    if (getSetting('wakeLock',true) && (!wakeLock || wakeLock.released)) {
+      await acquireWakeLock();
+    }
+    // Resume audio context
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+      log('Audio context resumed','ok');
+    }
+    // Reconnect camera if lost
+    if (camTrack && camTrack.readyState === 'ended') {
+      log('Camera lost — reconnecting…','warn');
+      setTimeout(startCamera, 500);
+    }
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+// FOLD DETECTION — Screen Fold API + heuristic
+// ═══════════════════════════════════════════════════════
+let isFolded = false;
+
+function initFoldDetection() {
+  // Method 1: Screen Fold API (Chrome on Samsung)
+  if ('screen' in window && 'fold' in screen) {
+    try {
+      const foldQuery = window.matchMedia('(screen-fold-posture: folded)');
+      foldQuery.addEventListener('change', e => {
+        handleFoldChange(e.matches);
+      });
+      if (foldQuery.matches) handleFoldChange(true);
+    } catch(e) {}
+  }
+
+  // Method 2: Device Posture API
+  if ('DevicePosture' in window || navigator.devicePosture) {
+    try {
+      const posture = navigator.devicePosture;
+      posture.addEventListener('change', () => {
+        handleFoldChange(posture.type === 'folded');
+      });
+    } catch(e) {}
+  }
+
+  // Method 3: Viewport heuristic — Z Flip cover screen is ~260x512
+  window.addEventListener('resize', () => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const coverScreen = (w < 320 && h < 600) || (w < 400 && h < 520);
+    if (coverScreen && !isFolded) handleFoldChange(true);
+    else if (!coverScreen && isFolded) handleFoldChange(false);
+  });
+}
+
+function handleFoldChange(folded) {
+  isFolded = folded;
+  document.body.classList.toggle('folded', folded);
+  if (folded) {
+    log('Fold detected — cover mode activated','info');
+    enterCover();
+  } else {
+    log('Unfold detected','info');
+  }
 }
 
 // ═══════════════════════════════════════════════════════
 // CAMERA
 // ═══════════════════════════════════════════════════════
 async function startCamera() {
-  log('Starting camera…', 'info');
-  setStatus('STARTING', 'scanning');
+  log('Starting camera…','info');
+  setStatus('STARTING','scanning');
 
   try {
     if (prefocusTimer) { clearInterval(prefocusTimer); prefocusTimer = null; }
-    if (camStream) { camStream.getTracks().forEach(t => t.stop()); }
+    if (camStream) { camStream.getTracks().forEach(t=>t.stop()); }
 
     const selectedId = document.getElementById('camSelect').value;
     const videoConstraints = selectedId
-      ? {
-          deviceId: { exact: selectedId },
-          width:  { ideal: 3840 },
-          height: { ideal: 2160 },
-        }
-      : {
-          facingMode: { ideal: 'environment' },
-          width:  { ideal: 1920, min: 1280 },
-          height: { ideal: 1080, min: 720 },
-        };
+      ? { deviceId:{exact:selectedId}, width:{ideal:3840}, height:{ideal:2160} }
+      : { facingMode:{ideal:'environment'}, width:{ideal:1920,min:1280}, height:{ideal:1080,min:720} };
 
-    log('Using ' + (selectedId ? 'selected device: '+selectedId.slice(0,16)+'…' : 'default rear camera'), 'info');
-    camStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
+    log('Using '+(selectedId?'device: '+selectedId.slice(0,16)+'…':'default rear'),'info');
+    camStream = await navigator.mediaDevices.getUserMedia({video:videoConstraints});
 
     const video = document.getElementById('video');
     video.srcObject = camStream;
-    await new Promise(r => { video.onloadedmetadata = r; });
+    await new Promise(r=>{video.onloadedmetadata=r;});
     await video.play();
 
     camTrack = camStream.getVideoTracks()[0];
     document.getElementById('camOverlay').style.display = 'none';
     document.getElementById('snapBtn').disabled = false;
 
-    // Auto-reconnect if Android drops the stream (common on Samsung when screen dims)
+    // Auto-reconnect
     camTrack.onended = () => {
-      log('Camera stream ended — auto-reconnecting…', 'warn');
-      setTimeout(() => startCamera(), 1000);
+      log('Camera ended — reconnecting…','warn');
+      setTimeout(startCamera, 800);
     };
 
     const s = camTrack.getSettings();
     document.getElementById('camLabel').textContent = `${s.width||'?'}×${s.height||'?'}`;
-    log(`Camera: ${s.width||'?'}×${s.height||'?'}`, 'ok');
+    log(`Camera: ${s.width||'?'}×${s.height||'?'}`,'ok');
 
-    // Create ImageCapture for full-resolution stills
     if ('ImageCapture' in window) {
       imageCapture = new ImageCapture(camTrack);
-      log('ImageCapture API available ✓ — full resolution enabled', 'ok');
+      log('ImageCapture API ✓','ok');
     } else {
-      log('ImageCapture not available — using video frame fallback', 'warn');
+      log('ImageCapture unavailable — video fallback','warn');
     }
 
     await applyCamSettings();
     startPrefocusLoop();
-    setStatus('READY', 'ready');
-    log('Camera ready — press ring or SNAP', 'ok');
+    setStatus('READY','ready');
+    log('Camera ready','ok');
+
+    // Update cover cam button
+    const ccb = document.getElementById('coverCamBtn');
+    if (ccb) { ccb.classList.add('active'); ccb.textContent = '🟢'; }
 
     initAudio();
 
   } catch(e) {
-    log('Camera failed: ' + e.message, 'err');
-    setStatus('ERROR', 'error');
+    log('Camera failed: '+e.message,'err');
+    setStatus('ERROR','error');
   }
 }
 
-// Pre-focus loop — pulses AF every 4s while idle so camera
-// is already sharp when clicker is pressed
 function startPrefocusLoop() {
   if (prefocusTimer) clearInterval(prefocusTimer);
   prefocusTimer = setInterval(async () => {
-    if (scanning || !camTrack) return;
+    if (scanning || !camTrack || camTrack.readyState === 'ended') return;
     const caps = camTrack.getCapabilities?.() || {};
     try {
       if (caps.focusMode?.includes('single-shot')) {
-        await camTrack.applyConstraints({ advanced:[{ focusMode:'single-shot', pointsOfInterest:[{x:.5,y:.5}] }] });
-        await new Promise(r => setTimeout(r, 250));
+        await camTrack.applyConstraints({advanced:[{focusMode:'single-shot',pointsOfInterest:[{x:.5,y:.5}]}]});
+        await new Promise(r=>setTimeout(r,200));
         if (caps.focusMode?.includes('continuous')) {
-          await camTrack.applyConstraints({ advanced:[{ focusMode:'continuous', pointsOfInterest:[{x:.5,y:.5}] }] });
+          await camTrack.applyConstraints({advanced:[{focusMode:'continuous',pointsOfInterest:[{x:.5,y:.5}]}]});
         }
       }
     } catch(e) {}
@@ -622,256 +941,189 @@ async function applyCamSettings() {
   if (!camTrack) return;
   const caps = camTrack.getCapabilities?.() || {};
   const settings = {};
-
   if (caps.focusMode?.includes('continuous')) settings.focusMode = 'continuous';
-  if (caps.pointsOfInterest) settings.pointsOfInterest = [{x:0.5, y:0.5}];
+  if (caps.pointsOfInterest) settings.pointsOfInterest = [{x:0.5,y:0.5}];
   if (caps.exposureMode?.includes('continuous')) settings.exposureMode = 'continuous';
-
   if (document.getElementById('togGlare').checked && caps.exposureCompensation) {
-    const min = caps.exposureCompensation.min || -2;
-    settings.exposureCompensation = Math.max(min, -0.7);
+    settings.exposureCompensation = Math.max(caps.exposureCompensation.min||-2, -0.7);
   }
   if (caps.torch !== undefined) settings.torch = false;
-
   if (Object.keys(settings).length) {
-    try { await camTrack.applyConstraints({ advanced: [settings] }); log('Cam settings applied', 'ok'); }
-    catch(e) { log('Cam settings partial: '+e.message, 'warn'); }
+    try { await camTrack.applyConstraints({advanced:[settings]}); }
+    catch(e) { log('Cam settings partial: '+e.message,'warn'); }
   }
 }
 
 async function applyGlare() {
-  saveSetting('glare', document.getElementById('togGlare').checked);
+  saveSetting('glare',document.getElementById('togGlare').checked);
   await applyCamSettings();
 }
 
 async function refocus() {
-  if (!camTrack) { log('No camera active', 'warn'); return; }
+  if (!camTrack) { log('No camera','warn'); return; }
   const caps = camTrack.getCapabilities?.() || {};
   try {
     if (caps.focusMode?.includes('single-shot')) {
-      await camTrack.applyConstraints({ advanced: [{ focusMode:'single-shot', pointsOfInterest:[{x:.5,y:.5}] }] });
-      await new Promise(r => setTimeout(r, 300));
+      await camTrack.applyConstraints({advanced:[{focusMode:'single-shot',pointsOfInterest:[{x:.5,y:.5}]}]});
+      await new Promise(r=>setTimeout(r,250));
     }
     if (caps.focusMode?.includes('continuous')) {
-      await camTrack.applyConstraints({ advanced: [{ focusMode:'continuous', pointsOfInterest:[{x:.5,y:.5}] }] });
+      await camTrack.applyConstraints({advanced:[{focusMode:'continuous',pointsOfInterest:[{x:.5,y:.5}]}]});
     }
-    log('Refocused ✓', 'ok');
-  } catch(e) { log('Refocus: '+e.message, 'warn'); }
+    log('Refocused ✓','ok');
+  } catch(e) { log('Refocus: '+e.message,'warn'); }
 }
 
 // ═══════════════════════════════════════════════════════
-// FRAME CAPTURE & SCORING
+// FRAME CAPTURE — optimized with offscreen canvas
 // ═══════════════════════════════════════════════════════
-
-// Auto-exposure: sample centre brightness, adjust EV if needed
 async function autoExposure() {
   if (!camTrack) return;
   const caps = camTrack.getCapabilities?.() || {};
   if (!caps.exposureCompensation) return;
 
-  // Sample centre of video frame
-  const video  = document.getElementById('video');
-  const tmp    = document.createElement('canvas');
-  tmp.width = 80; tmp.height = 60;
-  tmp.getContext('2d').drawImage(video, 0, 0, 80, 60);
-  const d = tmp.getContext('2d').getImageData(20, 15, 40, 30).data;
+  const video = document.getElementById('video');
+  // Use small offscreen canvas for sampling
+  const tmp = new OffscreenCanvas(80,60);
+  const tctx = tmp.getContext('2d');
+  tctx.drawImage(video,0,0,80,60);
+  const d = tctx.getImageData(20,15,40,30).data;
   let sum = 0;
-  for (let i=0; i<d.length; i+=4) sum += (d[i]+d[i+1]+d[i+2])/3;
-  const avgBrightness = sum / (d.length/4);
+  for (let i=0;i<d.length;i+=4) sum+=(d[i]+d[i+1]+d[i+2])/3;
+  const avg = sum/(d.length/4);
 
-  // Adjust EV based on brightness
   let ev = 0;
-  if (avgBrightness > 210) ev = -1.2;      // very bright/glary screen
-  else if (avgBrightness > 170) ev = -0.7;  // bright screen
-  else if (avgBrightness < 60)  ev = +0.7;  // dark room
-  else if (avgBrightness < 40)  ev = +1.2;  // very dark
+  if (avg>210) ev=-1.2; else if (avg>170) ev=-0.7;
+  else if (avg<60) ev=0.7; else if (avg<40) ev=1.2;
 
-  const min = caps.exposureCompensation.min || -2;
-  const max = caps.exposureCompensation.max || 2;
-  const clamped = Math.max(min, Math.min(max, ev));
-
+  const clamped = Math.max(caps.exposureCompensation.min||-2, Math.min(caps.exposureCompensation.max||2, ev));
   try {
-    await camTrack.applyConstraints({ advanced:[{ exposureCompensation: clamped }] });
-    log(`Auto-EV: brightness=${avgBrightness.toFixed(0)} → EV ${clamped.toFixed(1)}`, 'dim');
-    // Wait for exposure to settle
-    await new Promise(r => setTimeout(r, 300));
+    await camTrack.applyConstraints({advanced:[{exposureCompensation:clamped}]});
+    await new Promise(r=>setTimeout(r,250));
   } catch(e) {}
 }
 
 async function captureHighRes() {
-  const rot = parseInt(document.getElementById('camRot').value) || 0;
-
+  const rot = parseInt(document.getElementById('camRot').value)||0;
   let blob = null;
 
-  // Try ImageCapture.takePhoto() first — full sensor resolution
   if (imageCapture) {
-    try {
-      blob = await imageCapture.takePhoto(); // full sensor resolution — Z Flip 4 = 50MP
-      log(`takePhoto: ${(blob.size/1024).toFixed(0)}KB`, 'dim');
-    } catch(e) {
-      log('takePhoto failed: '+e.message+' — fallback to video', 'warn');
-    }
+    try { blob = await imageCapture.takePhoto(); }
+    catch(e) { log('takePhoto fail: '+e.message,'warn'); }
   }
 
-  // Convert blob to canvas (for rotation + processing)
   const canvas = document.getElementById('canvas');
-  const ctx    = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d');
 
   if (blob) {
-    const img = new Image();
-    const blobUrl = URL.createObjectURL(blob);
-    await new Promise((res, rej) => {
-      img.onload = res; img.onerror = rej;
-      img.src = blobUrl;
-    });
-    URL.revokeObjectURL(blobUrl); // revoke after image fully loaded
-
-    canvas.width  = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-
-    if (rot === 0) {
-      ctx.drawImage(img, 0, 0);
-    } else {
-      ctx.save();
-      ctx.translate(canvas.width/2, canvas.height/2);
-      ctx.rotate(rot * Math.PI / 180);
-      ctx.drawImage(img, -canvas.width/2, -canvas.height/2);
+    const bmp = await createImageBitmap(blob);
+    canvas.width = bmp.width; canvas.height = bmp.height;
+    if (rot===0) { ctx.drawImage(bmp,0,0); }
+    else {
+      ctx.save(); ctx.translate(canvas.width/2,canvas.height/2);
+      ctx.rotate(rot*Math.PI/180); ctx.drawImage(bmp,-canvas.width/2,-canvas.height/2);
       ctx.restore();
     }
+    bmp.close();
   } else {
-    // Fallback — video frame
     const video = document.getElementById('video');
-    const W = video.videoWidth || 1280;
-    const H = video.videoHeight || 720;
-    canvas.width = W; canvas.height = H;
-
-    if (rot === 0) {
-      ctx.drawImage(video, 0, 0);
-    } else {
-      ctx.save();
-      ctx.translate(W/2, H/2);
-      ctx.rotate(rot * Math.PI / 180);
-      ctx.drawImage(video, -W/2, -H/2);
+    const W = video.videoWidth||1280, H = video.videoHeight||720;
+    canvas.width=W; canvas.height=H;
+    if (rot===0) { ctx.drawImage(video,0,0); }
+    else {
+      ctx.save(); ctx.translate(W/2,H/2);
+      ctx.rotate(rot*Math.PI/180); ctx.drawImage(video,-W/2,-H/2);
       ctx.restore();
     }
   }
-
-  // Skip canvas filter — applying filters re-encodes and adds compression
-  // artifacts on top of full-res photo. Send clean image to Gemini.
   return canvas;
 }
 
 function captureFrame() {
-  // Sync fallback for burst scoring — video frame only
-  const video  = document.getElementById('video');
+  const video = document.getElementById('video');
   const canvas = document.getElementById('canvas');
-  const rot    = parseInt(document.getElementById('camRot').value) || 0;
-  const W = video.videoWidth || 1280;
-  const H = video.videoHeight || 720;
-  canvas.width = W; canvas.height = H;
+  const rot = parseInt(document.getElementById('camRot').value)||0;
+  const W = video.videoWidth||1280, H = video.videoHeight||720;
+  canvas.width=W; canvas.height=H;
   const ctx = canvas.getContext('2d');
-  if (rot === 0) { ctx.drawImage(video, 0, 0); }
-  else {
-    ctx.save();
-    ctx.translate(W/2,H/2);
-    ctx.rotate(rot*Math.PI/180);
-    ctx.drawImage(video,-W/2,-H/2);
-    ctx.restore();
-  }
+  if (rot===0) ctx.drawImage(video,0,0);
+  else { ctx.save();ctx.translate(W/2,H/2);ctx.rotate(rot*Math.PI/180);ctx.drawImage(video,-W/2,-H/2);ctx.restore(); }
   return canvas;
 }
 
 function scoreFrame(canvas) {
-  // Laplacian blur score — higher = sharper
-  const W = Math.min(canvas.width, 320);
-  const H = Math.min(canvas.height, 240);
-  const tmp = document.createElement('canvas');
-  tmp.width = W; tmp.height = H;
-  tmp.getContext('2d').drawImage(canvas, 0, 0, W, H);
-  const data = tmp.getContext('2d').getImageData(0, 0, W, H).data;
-
-  let sum = 0, count = 0;
-  for (let y = 1; y < H-1; y++) {
-    for (let x = 1; x < W-1; x++) {
-      const i = (y*W+x)*4;
-      const gray = (data[i]+data[i+1]+data[i+2])/3;
-      const n    = (data[((y-1)*W+x)*4]+data[((y-1)*W+x)*4+1]+data[((y-1)*W+x)*4+2])/3;
-      const s    = (data[((y+1)*W+x)*4]+data[((y+1)*W+x)*4+1]+data[((y+1)*W+x)*4+2])/3;
-      const e    = (data[(y*W+x+1)*4]+data[(y*W+x+1)*4+1]+data[(y*W+x+1)*4+2])/3;
-      const w    = (data[(y*W+x-1)*4]+data[(y*W+x-1)*4+1]+data[(y*W+x-1)*4+2])/3;
-      const lap  = Math.abs(4*gray - n - s - e - w);
-      sum += lap; count++;
+  const W = Math.min(canvas.width,320), H = Math.min(canvas.height,240);
+  let tmp;
+  try { tmp = new OffscreenCanvas(W,H); } catch(e) { tmp = document.createElement('canvas'); tmp.width=W; tmp.height=H; }
+  tmp.getContext('2d').drawImage(canvas,0,0,W,H);
+  const data = tmp.getContext('2d').getImageData(0,0,W,H).data;
+  let sum=0,count=0;
+  // Stride by 2 for speed on mobile
+  for (let y=1;y<H-1;y+=2) {
+    for (let x=1;x<W-1;x+=2) {
+      const i=(y*W+x)*4;
+      const gray=(data[i]+data[i+1]+data[i+2])/3;
+      const n=(data[((y-1)*W+x)*4]+data[((y-1)*W+x)*4+1]+data[((y-1)*W+x)*4+2])/3;
+      const s2=(data[((y+1)*W+x)*4]+data[((y+1)*W+x)*4+1]+data[((y+1)*W+x)*4+2])/3;
+      const e2=(data[(y*W+x+1)*4]+data[(y*W+x+1)*4+1]+data[(y*W+x+1)*4+2])/3;
+      const w2=(data[(y*W+x-1)*4]+data[(y*W+x-1)*4+1]+data[(y*W+x-1)*4+2])/3;
+      sum+=Math.abs(4*gray-n-s2-e2-w2); count++;
     }
   }
-  return count > 0 ? sum/count : 0;
+  return count>0?sum/count:0;
 }
 
 function frameToB64(canvas) {
-  // For medical text: 1920px wide at high quality
-  // Gemini can read fine text well at this resolution
-  // Z Flip 4 full res ~8160px → scaled to 1920 = still very detailed
   const maxW = 1920;
-  const out  = document.createElement('canvas');
-  if (canvas.width <= maxW) {
-    out.width  = canvas.width;
-    out.height = canvas.height;
-  } else {
-    const sc   = maxW / canvas.width;
-    out.width  = maxW;
-    out.height = Math.round(canvas.height * sc);
-  }
-  // Use high quality rendering
+  let out;
+  try { out = new OffscreenCanvas(1,1); } catch(e) { out = document.createElement('canvas'); }
+  if (canvas.width<=maxW) { out.width=canvas.width; out.height=canvas.height; }
+  else { const sc=maxW/canvas.width; out.width=maxW; out.height=Math.round(canvas.height*sc); }
   const ctx = out.getContext('2d');
-  ctx.imageSmoothingEnabled  = true;
-  ctx.imageSmoothingQuality  = 'high';
-  ctx.drawImage(canvas, 0, 0, out.width, out.height);
-  const b64 = out.toDataURL('image/jpeg', 0.92).split(',')[1];
-  const kb  = Math.round(b64.length * 0.75 / 1024);
-  log(`Image: ${out.width}×${out.height} — ${kb}KB`, 'dim');
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+  ctx.drawImage(canvas,0,0,out.width,out.height);
+  // Use regular canvas for toDataURL (OffscreenCanvas may not support it)
+  let b64;
+  if (out instanceof OffscreenCanvas) {
+    // Fallback: draw to regular canvas
+    const tmp = document.createElement('canvas');
+    tmp.width=out.width; tmp.height=out.height;
+    tmp.getContext('2d').drawImage(out,0,0);
+    b64 = tmp.toDataURL('image/jpeg',0.90).split(',')[1];
+  } else {
+    b64 = out.toDataURL('image/jpeg',0.90).split(',')[1];
+  }
+  const kb = Math.round(b64.length*0.75/1024);
+  log(`Image: ${out.width}×${out.height} ${kb}KB`,'dim');
   return b64;
 }
 
 async function captureFrames() {
   const burst = document.getElementById('togBurst').checked;
-
-  // Auto-exposure: adjust EV before capturing
   await autoExposure();
 
   if (!burst) {
-    // Single high-res frame via ImageCapture.takePhoto()
-    const c     = await captureHighRes();
-    const score = scoreFrame(c);
-    const b64   = frameToB64(c);
-    log(`Single frame — ${c.width}×${c.height} sharpness:${score.toFixed(1)} size:${(b64.length*0.75/1024).toFixed(0)}KB`, 'dim');
+    const c = await captureHighRes();
+    const b64 = frameToB64(c);
     return [b64];
   }
 
-  // Burst: 5 video frames (fast), score them, then take high-res of best timing
-  log('Burst: capturing 5 frames to find sharpest moment…', 'info');
+  log('Burst: 5 frames…','info');
   const frames = [];
-  for (let i = 0; i < 5; i++) {
-    const c     = captureFrame(); // fast video frame for scoring
-    const score = scoreFrame(c);
-    frames.push({ score, index: i });
-    log(`Frame ${i+1} sharpness: ${score.toFixed(1)}`, 'dim');
-    if (i < 4) await new Promise(r => setTimeout(r, 100));
+  for (let i=0;i<5;i++) {
+    const c = captureFrame();
+    frames.push({score:scoreFrame(c),index:i});
+    if (i<4) await new Promise(r=>setTimeout(r,80));
   }
-
-  frames.sort((a,b) => b.score - a.score);
-  const n = parseInt(document.getElementById('burstSend').value) || 3;
-  log(`Best sharpness scores: ${frames.slice(0,n).map(f=>'#'+(f.index+1)+':'+f.score.toFixed(1)).join(', ')}`, 'dim');
-
-  // Now take N high-res photos
+  frames.sort((a,b)=>b.score-a.score);
+  const n = parseInt(document.getElementById('burstSend').value)||3;
   const results = [];
-  for (let i = 0; i < Math.min(n, 3); i++) {
-    const c   = await captureHighRes();
-    const b64 = frameToB64(c);
-    results.push(b64);
-    log(`High-res frame ${i+1}: ${c.width}×${c.height}`, 'dim');
-    if (i < n-1) await new Promise(r => setTimeout(r, 80));
+  for (let i=0;i<Math.min(n,3);i++) {
+    const c = await captureHighRes();
+    results.push(frameToB64(c));
+    if (i<n-1) await new Promise(r=>setTimeout(r,60));
   }
-
-  log(`Burst done — sending ${results.length} frames`, 'ok');
+  log(`Burst done — ${results.length} frames`,'ok');
   return results;
 }
 
@@ -879,158 +1131,130 @@ async function captureFrames() {
 // SCAN TRIGGER
 // ═══════════════════════════════════════════════════════
 async function triggerScan() {
-  if (scanning) { log('Already scanning', 'warn'); return; }
-  if (!camStream) { log('Start camera first', 'warn'); return; }
-
-  const cd = parseInt(document.getElementById('cooldown').value) * 1000;
-  const elapsed = Date.now() - lastScanMs;
-  if (elapsed < cd) {
-    log(`Cooldown: ${((cd-elapsed)/1000).toFixed(1)}s remaining`, 'warn');
-    return;
+  if (scanning) { log('Already scanning','warn'); return; }
+  if (!camStream || !camTrack || camTrack.readyState==='ended') {
+    log('Start camera first','warn'); return;
   }
 
+  const cd = parseInt(document.getElementById('cooldown').value)*1000;
+  const elapsed = Date.now()-lastScanMs;
+  if (elapsed<cd) { log(`Cooldown: ${((cd-elapsed)/1000).toFixed(1)}s`,'warn'); return; }
+
   const key = document.getElementById('apiKey').value.trim();
-  if (!key) { log('No API key — add key first', 'err'); return; }
+  if (!key) { log('No API key','err'); return; }
 
   scanning = true;
   lastScanMs = Date.now();
-  setStatus('SCANNING', 'scanning');
+  setStatus('SCANNING','scanning');
   setCoverScanning();
+  document.getElementById('camWrap').classList.add('scanning-anim');
 
   try {
     const frames = await captureFrames();
-    setStatus('SENDING', 'scanning');
+    setStatus('SENDING','scanning');
     const result = await callGemini(frames, key);
     await handleResult(result, frames, key);
   } catch(e) {
-    log('Error: '+e.message, 'err');
-    setStatus('ERROR', 'error');
+    log('Error: '+e.message,'err');
+    setStatus('ERROR','error');
   }
 
+  document.getElementById('camWrap').classList.remove('scanning-anim');
   scanning = false;
-  setStatus('READY', 'ready');
+  setStatus('READY','ready');
 }
 
 // ═══════════════════════════════════════════════════════
 // GEMINI API
 // ═══════════════════════════════════════════════════════
 function buildPrompt(nFrames) {
-  const frameNote = nFrames > 1
-    ? `You have been given ${nFrames} images of the same quiz screen taken milliseconds apart. Use whichever is clearest. Ignore blurry frames.`
-    : `You have been given 1 image of a quiz screen.`;
+  const frameNote = nFrames>1
+    ? `You have ${nFrames} images of the same quiz screen. Use the clearest.`
+    : `You have 1 image of a quiz screen.`;
 
   return `${frameNote}
 
-CONTEXT: This is a UK medical school multiple choice question (MCQ). Questions cover clinical medicine, pharmacology, anatomy, physiology, pathology, microbiology, and surgery following UK clinical guidelines (NICE, BNF, Oxford Handbook). Answer as a UK foundation doctor would.
-
-Common question formats you may see:
-- Clinical scenarios: "A 45-year-old presents with chest pain..." → identify diagnosis or management
-- Drug of choice: "First-line treatment for..." → use UK BNF/NICE guidelines
-- Anatomy/physiology: nerve supplies, dermatomes, blood supply, embryology
-- Investigations: most appropriate next test, gold standard diagnosis
-- Emergency management: ABCDE approach, sepsis 6, ALS protocols
-- Statistics/evidence: sensitivity, specificity, NNT, p-values
+CONTEXT: UK medical school MCQ. Cover clinical medicine, pharmacology, anatomy, physiology, pathology, microbiology, surgery following UK guidelines (NICE, BNF, Oxford Handbook). Answer as a UK foundation doctor.
 
 TASK:
-1. Read the full question carefully including any clinical scenario.
-2. List ALL 5 answer options EXACTLY as shown, in screen order top-to-bottom.
+1. Read the full question including any clinical scenario.
+2. List ALL 5 answer options EXACTLY as shown, top-to-bottom order.
 3. Apply UK medical knowledge to identify the single best answer.
-4. Set "correct_text" to the EXACT text of the correct option — must match your options_ordered word for word.
+4. Set "correct_text" to the EXACT text of the correct option.
 
 IMAGE RULES:
-- You MUST see exactly 5 options to answer. Fewer than 5 → reposition.
-- Blur and glare alone are NOT reasons to reposition — read through them.
-- Only reposition if options are genuinely missing or question is completely unreadable.
+- MUST see exactly 5 options to answer. Fewer → reposition.
+- Blur/glare alone are NOT reasons to reposition — read through them.
+- Only reposition if options genuinely missing or completely unreadable.
 
-RESPOND WITH JSON ONLY — no markdown, no preamble:
+JSON ONLY — no markdown:
 
 If 5 options visible:
-{"status":"ok","options_count":5,"correct_text":"exact text of correct answer","options_ordered":["option 1","option 2","option 3","option 4","option 5"],"question_summary":"brief clinical question","confidence":"high","reasoning":"one sentence why this answer is correct"}
+{"status":"ok","options_count":5,"correct_text":"exact text","options_ordered":["opt1","opt2","opt3","opt4","opt5"],"question_summary":"brief question","confidence":"high","reasoning":"why"}
 
-If cannot see all 5 options:
+If cannot see all 5:
 {"status":"reposition","options_count":0,"reason":"specific reason"}`;
 }
 
 async function callGemini(frames, key) {
-  const parts = [{ text: buildPrompt(frames.length) }];
+  const parts = [{text:buildPrompt(frames.length)}];
   for (const b64 of frames) {
-    parts.push({ inline_data: { mime_type: 'image/jpeg', data: b64 } });
+    parts.push({inline_data:{mime_type:'image/jpeg',data:b64}});
   }
 
   const body = {
-    contents: [{ parts }],
-    generationConfig: {
-      temperature: 0.05,
-      maxOutputTokens: 2048,
-      // Disable thinking mode — we need fast clean JSON, not reasoning
-      thinkingConfig: { thinkingBudget: 0 }
+    contents:[{parts}],
+    generationConfig:{
+      temperature:0.05, maxOutputTokens:2048,
+      thinkingConfig:{thinkingBudget:0}
     }
   };
 
   const res = await fetch(`${API}?key=${key}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
   });
 
   if (!res.ok) {
     const err = await res.text();
     let msg = `HTTP ${res.status}`;
-    try { msg = JSON.parse(err).error?.message || msg; } catch(e) {}
+    try { msg = JSON.parse(err).error?.message||msg; } catch(e) {}
     throw new Error(msg);
   }
 
   const data = await res.json();
-
-  // Gemini thinking models put reasoning in part[0] (type=thought)
-  // and the actual JSON response in a later part — iterate all parts
   const resParts = data.candidates?.[0]?.content?.parts || [];
   let raw = '';
   for (const part of resParts) {
-    if (part.text && !part.thought) {
-      raw = part.text;
-      break;
-    }
+    if (part.text && !part.thought) { raw = part.text; break; }
   }
-  // Fallback: just grab all text parts concatenated
-  if (!raw) {
-    raw = resParts.filter(p => p.text).map(p => p.text).join('');
-  }
-
-  log('Parts: '+resParts.length+' | Raw (200): '+raw.slice(0,200), 'dim');
+  if (!raw) raw = resParts.filter(p=>p.text).map(p=>p.text).join('');
 
   if (!raw) {
-    log('Empty response — full data: '+JSON.stringify(data).slice(0,300), 'warn');
-    // Save to debug even on empty response
-    saveCapture(frames[0], 'EMPTY RESPONSE', {status:'reposition',reason:'Empty response'}, JSON.stringify(data).slice(0,500));
-    return { status:'reposition', options_count:0, reason:'Empty response from Gemini' };
+    saveCapture(frames[0],'EMPTY',{status:'reposition',reason:'Empty'},JSON.stringify(data).slice(0,500));
+    return {status:'reposition',options_count:0,reason:'Empty response'};
   }
 
   const parsed = parseGeminiResponse(raw);
-  // Save frame to debug gallery with result
   saveCapture(frames[0], new Date().toLocaleTimeString(), parsed, raw.slice(0,600));
   return parsed;
 }
 
 function parseGeminiResponse(raw) {
   const clean = raw.trim().replace(/```json|```/g,'').trim();
-  const s = clean.indexOf('{');
-  const e = clean.lastIndexOf('}');
-  if (s < 0 || e < 0) return { status:'reposition', options_count:0, reason:'No JSON in response' };
-  try { return JSON.parse(clean.slice(s, e+1)); }
+  const s = clean.indexOf('{'), e = clean.lastIndexOf('}');
+  if (s<0||e<0) return {status:'reposition',options_count:0,reason:'No JSON'};
+  try { return JSON.parse(clean.slice(s,e+1)); }
   catch(err) {
-    // Fallback regex extraction
-    const g  = k => { const m=raw.match(new RegExp('"'+k+'"\\s*:\\s*"([^"]*)"')); return m?m[1]:null; };
-    const gn = k => { const m=raw.match(new RegExp('"'+k+'"\\s*:\\s*(\\d+)')); return m?parseInt(m[1]):null; };
-    const status = g('status') || (raw.includes('"ok"') ? 'ok' : 'reposition');
+    const g=k=>{const m=raw.match(new RegExp('"'+k+'"\\s*:\\s*"([^"]*)"'));return m?m[1]:null;};
+    const gn=k=>{const m=raw.match(new RegExp('"'+k+'"\\s*:\\s*(\\d+)'));return m?parseInt(m[1]):null;};
     return {
-      status,
-      options_count: gn('options_count') || 0,
-      correct_text:  g('correct_text') || '',
-      question_summary: g('question_summary') || '',
-      confidence: g('confidence') || 'medium',
-      options_ordered: [],
-      reason: g('reason') || ''
+      status:g('status')||(raw.includes('"ok"')?'ok':'reposition'),
+      options_count:gn('options_count')||0,
+      correct_text:g('correct_text')||'',
+      question_summary:g('question_summary')||'',
+      confidence:g('confidence')||'medium',
+      options_ordered:[],reason:g('reason')||''
     };
   }
 }
@@ -1039,371 +1263,342 @@ function parseGeminiResponse(raw) {
 // RESULT HANDLING
 // ═══════════════════════════════════════════════════════
 async function handleResult(result, frames, key) {
-  log(`Gemini: status=${result.status} options=${result.options_count}`, 'info');
+  log(`Gemini: status=${result.status} opts=${result.options_count}`,'info');
 
-  if (result.status !== 'ok' || result.options_count !== 5) {
-    log('Reposition reason: '+result.reason+' | options_count='+result.options_count, 'warn');
-    // Try zoom retry if enabled
+  if (result.status!=='ok'||result.options_count!==5) {
+    log('Reposition: '+result.reason,'warn');
     if (document.getElementById('togZoom').checked) {
-      log('Unclear — trying zoom retry…', 'warn');
+      log('Trying zoom retry…','warn');
       const zoomB64 = buildZoomCrop(frames[0]);
       const zResult = await callGemini([zoomB64], key);
-      log(`Zoom retry: status=${zResult.status} options=${zResult.options_count}`, 'info');
-      if (zResult.status === 'ok' && zResult.options_count === 5) {
-        showResult(zResult, '[zoom retry]');
-        return;
+      if (zResult.status==='ok'&&zResult.options_count===5) {
+        showResult(zResult,'[zoom]'); return;
       }
     }
-    showReposition(result.reason || 'Cannot see all 5 options');
+    showReposition(result.reason||'Cannot see all 5 options');
     return;
   }
 
-  // Pass 2 verify (unless speed mode)
   if (!document.getElementById('togSpeed').checked) {
     try {
-      const p2 = await callGeminiVerify(result, frames[0], key);
-      if (p2.correct_text && p2.correct_text !== result.correct_text) {
-        log(`P2 override: "${p2.correct_text}"`, 'info');
+      const p2 = await callGeminiVerify(result,frames[0],key);
+      if (p2.correct_text&&p2.correct_text!==result.correct_text) {
+        log(`P2 override: "${p2.correct_text}"`,'info');
         result.correct_text = p2.correct_text;
       }
-    } catch(e) { log('P2 skipped: '+e.message, 'warn'); }
+    } catch(e) { log('P2 skipped: '+e.message,'warn'); }
   }
 
   showResult(result);
 }
 
 async function callGeminiVerify(p1, b64, key) {
-  const opts = (p1.options_ordered||[]).map((t,i) => `${i+1}. ${t}`).join('\n');
-  const prompt = `You are verifying a UK medical school MCQ answer. Apply UK clinical guidelines (NICE, BNF, Oxford Handbook).
+  const opts = (p1.options_ordered||[]).map((t,i)=>`${i+1}. ${t}`).join('\n');
+  const prompt = `Verify UK medical MCQ answer. Apply NICE/BNF/Oxford guidelines.
 
 Question: "${p1.question_summary}"
-Options on screen in order:
+Options:
 ${opts}
 
-Proposed answer: "${p1.correct_text}"
-Reasoning given: "${p1.reasoning||''}"
+Proposed: "${p1.correct_text}"
+Reasoning: "${p1.reasoning||''}"
 
-Do you agree this is the single best answer for a UK medical student? If not, give the EXACT text of the correct option from the list above.
+Agree this is the single best answer? If not, give EXACT text of correct option.
 
-RESPOND WITH JSON ONLY:
-{"agree":true,"correct_text":"${p1.correct_text}","reason":"one sentence explanation"}`;
+JSON ONLY:
+{"agree":true,"correct_text":"${p1.correct_text}","reason":"explanation"}`;
 
   const body = {
-    contents: [{ parts: [
-      { text: prompt },
-      { inline_data: { mime_type:'image/jpeg', data:b64 } }
-    ]}],
-    generationConfig: { temperature:0.05, maxOutputTokens:512, thinkingConfig: { thinkingBudget: 0 } }
+    contents:[{parts:[{text:prompt},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],
+    generationConfig:{temperature:0.05,maxOutputTokens:512,thinkingConfig:{thinkingBudget:0}}
   };
 
-  const res = await fetch(`${API}?key=${document.getElementById('apiKey').value.trim()}`, {
-    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+  const res = await fetch(`${API}?key=${document.getElementById('apiKey').value.trim()}`,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
   });
   if (!res.ok) throw new Error('P2 HTTP '+res.status);
   const data = await res.json();
-  const vParts = data.candidates?.[0]?.content?.parts || [];
-  let raw = '';
-  for (const part of vParts) {
-    if (part.text && !part.thought) { raw = part.text; break; }
-  }
-  if (!raw) raw = vParts.filter(p => p.text).map(p => p.text).join('');
-  log('P2 raw: '+raw.slice(0,100), 'dim');
+  const vParts = data.candidates?.[0]?.content?.parts||[];
+  let raw='';
+  for (const part of vParts) { if (part.text&&!part.thought){raw=part.text;break;} }
+  if (!raw) raw = vParts.filter(p=>p.text).map(p=>p.text).join('');
   return parseGeminiResponse(raw);
 }
 
 function buildZoomCrop(b64) {
   const img = new Image();
-  img.src = 'data:image/jpeg;base64,' + b64;
+  img.src = 'data:image/jpeg;base64,'+b64;
   const src = document.createElement('canvas');
-  src.width = 800; src.height = 450;
-  src.getContext('2d').drawImage(img, 0, 0, 800, 450);
-
-  // Crop centre 65%×70%
-  const cw = Math.round(800*0.65), ch = Math.round(450*0.70);
-  const cx = Math.round((800-cw)/2), cy = Math.round((450-ch)/2);
-
+  src.width=800; src.height=450;
+  src.getContext('2d').drawImage(img,0,0,800,450);
+  const cw=Math.round(800*0.65),ch=Math.round(450*0.70);
+  const cx=Math.round((800-cw)/2),cy=Math.round((450-ch)/2);
   const out = document.createElement('canvas');
-  out.width = 800; out.height = 450;
+  out.width=800; out.height=450;
   const ctx = out.getContext('2d');
-  ctx.drawImage(src, cx, cy, cw, ch, 0, 0, 800, 450);
-  ctx.filter = 'contrast(1.5) brightness(1.05)';
-  ctx.drawImage(out, 0, 0);
-
-  return out.toDataURL('image/jpeg', 0.80).split(',')[1];
+  ctx.drawImage(src,cx,cy,cw,ch,0,0,800,450);
+  return out.toDataURL('image/jpeg',0.80).split(',')[1];
 }
 
 // ═══════════════════════════════════════════════════════
 // DISPLAY RESULT
 // ═══════════════════════════════════════════════════════
 function calcPosition(correct_text, opts) {
-  if (!correct_text || !opts || opts.length === 0) return 0;
-
+  if (!correct_text||!opts||!opts.length) return 0;
   const ct = correct_text.trim().toLowerCase();
 
-  // 1. Exact match (trimmed, case-insensitive)
-  let idx = opts.findIndex(t => t.trim().toLowerCase() === ct);
-  if (idx >= 0) { log(`Pos: exact match at ${idx+1}`, 'dim'); return idx + 1; }
+  let idx = opts.findIndex(t=>t.trim().toLowerCase()===ct);
+  if (idx>=0) return idx+1;
 
-  // 2. One contains the other fully
-  idx = opts.findIndex(t => {
-    const ot = t.trim().toLowerCase();
-    return ot === ct || ct.includes(ot) || ot.includes(ct);
-  });
-  if (idx >= 0) { log(`Pos: contains match at ${idx+1}`, 'dim'); return idx + 1; }
+  idx = opts.findIndex(t=>{const ot=t.trim().toLowerCase();return ct.includes(ot)||ot.includes(ct);});
+  if (idx>=0) return idx+1;
 
-  // 3. Word overlap — count matching words, pick highest score
-  const ctWords = ct.split(/\s+/).filter(w => w.length > 2);
-  if (ctWords.length > 0) {
-    const scores = opts.map(t => {
-      const ot = t.trim().toLowerCase();
-      const matches = ctWords.filter(w => ot.includes(w)).length;
-      return matches / ctWords.length;
+  const ctWords = ct.split(/\s+/).filter(w=>w.length>2);
+  if (ctWords.length>0) {
+    const scores = opts.map(t=>{
+      const ot=t.trim().toLowerCase();
+      return ctWords.filter(w=>ot.includes(w)).length/ctWords.length;
     });
     const best = scores.indexOf(Math.max(...scores));
-    if (scores[best] >= 0.5) {
-      log(`Pos: word match at ${best+1} (score ${scores[best].toFixed(2)})`, 'dim');
-      return best + 1;
-    }
+    if (scores[best]>=0.5) return best+1;
   }
-
-  log(`Pos: NO MATCH for "${correct_text}" in [${opts.join(' | ')}]`, 'warn');
+  log(`NO MATCH for "${correct_text}"`,'warn');
   return 0;
 }
 
 function showResult(result, tag='') {
-  const opts = result.options_ordered || [];
-
-  log(`Options (${opts.length}): ${JSON.stringify(opts)}`, 'dim');
-  log(`Correct text: "${result.correct_text}"`, 'dim');
-
+  const opts = result.options_ordered||[];
   const pos = calcPosition(result.correct_text, opts);
-  log(`Position: ${pos}`, pos > 0 ? 'ok' : 'err');
   result._position = pos;
 
-  if (!pos) {
-    log('Could not map answer to position — reposition', 'err');
-    showReposition('Could not match answer to options');
-    return;
-  }
+  if (!pos) { showReposition('Could not match answer'); return; }
 
-  const conf = result.confidence === 'high' ? 90 : result.confidence === 'medium' ? 65 : 40;
+  const conf = result.confidence==='high'?90:result.confidence==='medium'?65:40;
 
-  // Update display
+  // Update display efficiently
   const num = document.getElementById('answerNum');
   num.textContent = String(pos);
-  num.className   = 'answer-number pos-'+pos;
+  num.className = 'answer-number pos-'+pos;
 
-  const reasonNote = result.reasoning ? '  · '+result.reasoning : '';
+  const reasonNote = result.reasoning?' · '+result.reasoning:'';
   document.getElementById('answerText').textContent =
-    (result.correct_text || '') + ' · ' + conf + '%' + reasonNote + (tag ? ' '+tag : '');
+    (result.correct_text||'')+' · '+conf+'%'+reasonNote+(tag?' '+tag:'');
 
-  // Update chips
-  for (let i=1; i<=5; i++) {
-    const el = document.getElementById('opt'+i);
-    el.className = 'opt' + (i===pos ? ' active-'+i : '');
-    el.textContent = i===pos ? String(i) : String(i);
+  for (let i=1;i<=5;i++) {
+    document.getElementById('opt'+i).className = 'opt'+(i===pos?' active-'+i:'');
   }
 
-  // Confidence bar
   document.getElementById('confFill').style.width = conf+'%';
-  document.getElementById('confFill').style.background = conf>=80 ? 'var(--green)' : conf>=60 ? 'var(--amber)' : 'var(--red)';
-  document.getElementById('confLabel').textContent = conf+'%  ·  "'+result.question_summary+'"';
+  document.getElementById('confFill').style.background = conf>=80?'var(--green)':conf>=60?'var(--amber)':'var(--red)';
+  document.getElementById('confLabel').textContent = conf+'% · "'+result.question_summary+'"';
 
-  // Cover screen
   setCoverAnswer(pos);
+  log(`✓ OPTION ${pos} — "${result.correct_text}"`,'ok');
 
-  // Log
-  log(`✓ OPTION ${pos} — "${result.correct_text}"`, 'ok');
-  log(`Options: ${JSON.stringify(opts)}`, 'dim');
-
-  // VIBRATE
-  vibrate(pos);
+  // Smart vibration: only if answer changed
+  const answerChanged = (lastAnswer !== pos);
+  lastAnswer = pos;
+  if (answerChanged) vibrate(pos);
+  else log('Same answer — skipping vibration','dim');
 }
 
 function showReposition(reason) {
   const num = document.getElementById('answerNum');
   num.textContent = 'R';
-  num.className   = 'answer-number reposition';
-  document.getElementById('answerText').textContent = reason || 'Adjust camera — need all 5 options';
-  for (let i=1; i<=5; i++) document.getElementById('opt'+i).className = 'opt';
-  document.getElementById('confFill').style.width = '0%';
-  document.getElementById('confLabel').textContent = 'REPOSITION';
+  num.className = 'answer-number reposition';
+  document.getElementById('answerText').textContent = reason||'Adjust camera — need all 5 options';
+  for (let i=1;i<=5;i++) document.getElementById('opt'+i).className='opt';
+  document.getElementById('confFill').style.width='0%';
+  document.getElementById('confLabel').textContent='REPOSITION';
   setCoverAnswer('R');
-  log('REPOSITION: '+reason, 'warn');
+  log('REPOSITION: '+reason,'warn');
+  lastAnswer = 'R';
   vibrate('R');
 }
 
 // ═══════════════════════════════════════════════════════
-// VIBRATION — clean simple implementation
+// VIBRATION — 4 modes: OFF / QUIET / NORMAL / STRONG
 // ═══════════════════════════════════════════════════════
-// ── Vibration mode: 'normal' | 'silent' | 'micro' ───────────────────────────
 let vibMode = 'normal';
 
 function setVibMode(mode) {
   vibMode = mode;
   saveSetting('vibMode', mode);
 
-  // Update button styles
-  ['normal','silent','micro'].forEach(m => {
+  // Update all mode buttons
+  ['off','quiet','normal','strong'].forEach(m => {
     const btn = document.getElementById('modeBtn_'+m);
     if (!btn) return;
-    btn.style.background  = m === mode ? 'var(--accent)' : 'transparent';
-    btn.style.color       = m === mode ? '#000' : 'var(--text)';
-    btn.style.borderColor = m === mode ? 'var(--accent)' : 'var(--border)';
-    // Keep sub-label readable
-    const sub = btn.querySelector('span');
-    if (sub) sub.style.color = m === mode ? '#00000088' : 'var(--muted)';
+    btn.classList.toggle('active', m===mode);
   });
 
-  // Show/hide tuners and banner
-  const tuner      = document.getElementById('vibTuner');
-  const microTuner = document.getElementById('microTuner');
-  const banner     = document.getElementById('modeBanner');
+  // Show/hide tuners
+  document.getElementById('vibTuner').style.display = (mode==='normal')?'block':'none';
+  document.getElementById('quietTuner').style.display = (mode==='quiet')?'block':'none';
 
-  tuner.style.display      = mode === 'micro'  ? 'none'  : 'block';
-  microTuner.style.display = mode === 'micro'  ? 'block' : 'none';
+  // Also update haptic toggle to match
+  if (mode==='off') {
+    document.getElementById('togHaptic').checked = false;
+    saveSetting('haptic',false);
+  } else {
+    document.getElementById('togHaptic').checked = true;
+    saveSetting('haptic',true);
+  }
 
+  // Banner
+  const banner = document.getElementById('modeBanner');
   const banners = {
+    off:    {bg:'#1a0a0a',border:'var(--red)',color:'var(--red)',text:'🔇 OFF — no vibration feedback'},
+    quiet:  {bg:'#0a1020',border:'var(--blue)',color:'var(--blue)',
+             text:'🤫 QUIET — ultra-subtle micro-taps. Motor never fully spins up. Minimal audible noise. Use in exams.'},
     normal: null,
-    silent: { bg:'#1a1a0a', border:'var(--amber)', color:'var(--amber)',
-              text:'🤫 SILENT — 80ms pulses, felt not heard' },
-    micro:  { bg:'#0a1020', border:'var(--blue)',  color:'var(--blue)',
-              text:'🫥 MICRO-BURST — 25ms clusters, motor never resonates, near-silent' }
+    strong: {bg:'#1a1a0a',border:'var(--amber)',color:'var(--amber)',text:'💪 STRONG — extended 400ms buzzes. Clear feedback.'}
   };
   const b = banners[mode];
   if (b) {
-    banner.style.display     = 'block';
-    banner.style.background  = b.bg;
-    banner.style.border      = '1px solid '+b.border;
-    banner.style.color       = b.color;
-    banner.textContent       = b.text;
+    banner.style.display='block'; banner.style.background=b.bg;
+    banner.style.border='1px solid '+b.border; banner.style.color=b.color;
+    banner.textContent=b.text;
   } else {
-    banner.style.display = 'none';
+    banner.style.display='none';
   }
 
-  // Apply preset values for silent mode
-  if (mode === 'silent') {
-    document.getElementById('buzzDur').value = 80;
-    document.getElementById('buzzGap').value = 120;
-    document.getElementById('buzzDurVal').textContent = '80ms';
-    document.getElementById('buzzGapVal').textContent = '120ms';
-  }
-
-  log(`Vibration mode: ${mode}`, 'info');
+  log(`Vibration: ${mode}`,'info');
 }
 
 function buildVibratePattern(posOrR) {
-  const isRepos = (posOrR === 'R' || posOrR === 0);
+  const isRepos = (posOrR==='R'||posOrR===0);
   const n = isRepos ? 6 : parseInt(posOrR);
 
-  if (vibMode === 'micro') {
-    // ── Micro-burst: N clusters of K×25ms pulses, 160ms pause between clusters ──
-    // Each cluster = [pulse, gap, pulse, gap, pulse] — NO leading zero
-    // This prevents LRA motor from reaching resonance amplitude → near-silent
-    const pulse  = parseInt(document.getElementById('microPulse')?.value)  || 25;
-    const mGap   = parseInt(document.getElementById('microGap')?.value)    || 25;
-    const pause  = parseInt(document.getElementById('microPause')?.value)  || 160;
-    const kPulses= parseInt(document.getElementById('microCount')?.value)  || 3;
+  if (vibMode==='off') return [];
 
-    // Build one cluster: [pulse, gap, pulse, gap, pulse]
-    const cluster = [];
-    for (let k = 0; k < kPulses; k++) { if (k > 0) cluster.push(mGap); cluster.push(pulse); }
-
-    // Stack N clusters separated by pause
-    const pattern = [];
-    for (let i = 0; i < n; i++) {
-      if (i > 0) pattern.push(pause);   // inter-cluster pause
-      pattern.push(...cluster);
-    }
-    return pattern;
-
-  } else {
-    // ── Normal / silent: N simple buzzes ──
-    const dur = vibMode === 'silent' ? 80  : (parseInt(document.getElementById('buzzDur')?.value) || 200);
-    const gap = vibMode === 'silent' ? 120 : (parseInt(document.getElementById('buzzGap')?.value) || 250);
-    const reposDur = vibMode === 'silent' ? 80 : 300;
-    const reposGap = vibMode === 'silent' ? 100 : 150;
+  if (vibMode==='quiet') {
+    // ── QUIET MODE: ultra-subtle micro-taps ──
+    // Key insight: LRA motors produce audible noise when they reach resonant frequency.
+    // By keeping pulses to 8-15ms, the motor actuates but never reaches full resonance.
+    // Pattern: [tap] → long pause → [tap] → long pause
+    // The long pauses prevent cumulative energy buildup in the motor housing.
+    const pulse = parseInt(document.getElementById('quietPulse')?.value)||10;
+    const gap   = parseInt(document.getElementById('quietGap')?.value)||140;
+    const pause = parseInt(document.getElementById('quietPause')?.value)||200;
 
     const pattern = [];
-    for (let i = 0; i < n; i++) {
-      if (i > 0) pattern.push(isRepos ? reposGap : gap);
-      pattern.push(isRepos ? reposDur : dur);
+    for (let i=0;i<n;i++) {
+      if (i>0) pattern.push(pause);  // long pause between counts
+      // Each "count" = single soft tap (no cluster needed at 10ms)
+      pattern.push(pulse);
+      pattern.push(gap);
+      pattern.push(pulse); // double-tap for tactile confirmation
     }
     return pattern;
   }
+
+  if (vibMode==='strong') {
+    // ── STRONG: long clear buzzes ──
+    const dur = 400;
+    const gap = 300;
+    const pattern = [];
+    for (let i=0;i<n;i++) {
+      if (i>0) pattern.push(isRepos?150:gap);
+      pattern.push(isRepos?300:dur);
+    }
+    return pattern;
+  }
+
+  // ── NORMAL: standard buzzes ──
+  const dur = parseInt(document.getElementById('buzzDur')?.value)||200;
+  const gap = parseInt(document.getElementById('buzzGap')?.value)||250;
+  const pattern = [];
+  for (let i=0;i<n;i++) {
+    if (i>0) pattern.push(isRepos?150:gap);
+    pattern.push(isRepos?300:dur);
+  }
+  return pattern;
 }
 
 function vibrate(posOrR) {
-  if (!document.getElementById('togHaptic').checked) { log('Vibrate: OFF','dim'); return; }
-  if (!('vibrate' in navigator)) { log('navigator.vibrate not available','err'); return; }
+  if (vibMode==='off') return;
+  if (!document.getElementById('togHaptic').checked) return;
+  if (!('vibrate' in navigator)) { log('vibrate unavailable','err'); return; }
+
+  // Cooldown check
+  const cooldown = parseInt(document.getElementById('vibCooldown')?.value)||1500;
+  const now = Date.now();
+  if (now - lastVibMs < cooldown) {
+    log('Vibration cooldown — skipped','dim');
+    return;
+  }
+  lastVibMs = now;
 
   const pattern = buildVibratePattern(posOrR);
-  const label = (posOrR === 'R' || posOrR === 0) ? 'REPOS' : `opt${posOrR}`;
-  log(`Vibrate [${vibMode}] ${label}: ${JSON.stringify(pattern)}`, 'dim');
+  if (!pattern.length) return;
+
+  const label = (posOrR==='R'||posOrR===0)?'REPOS':`opt${posOrR}`;
+  log(`Vib [${vibMode}] ${label}: [${pattern.join(',')}]`,'dim');
 
   const ok = navigator.vibrate(pattern);
-  log(`vibrate() → ${ok}`, ok ? 'ok' : 'warn');
   if (!ok) {
-    setTimeout(() => navigator.vibrate(pattern), 300);
-    setTimeout(() => navigator.vibrate(pattern), 700);
+    // Retry once after short delay
+    setTimeout(()=>navigator.vibrate(pattern),200);
   }
 }
 
-// Test: always fires regardless of haptic toggle so you can tune freely
 function buzzTest(posOrR) {
-  const label = (posOrR === 'R' || posOrR === 0) ? 'REPOSITION' : `opt${posOrR}`;
-  log(`Test [${vibMode}]: ${label}`, 'info');
+  const saved = lastVibMs;
+  lastVibMs = 0; // bypass cooldown for testing
   const el = document.getElementById('togHaptic');
-  const was = el.checked; el.checked = true;
+  const was = el.checked; el.checked=true;
   vibrate(posOrR);
   el.checked = was;
+  lastVibMs = saved;
 }
 
 function buzzRaw() {
-  log('RAW TEST: micro cluster [25,25,25,25,25]', 'info');
-  if (!('vibrate' in navigator)) { log('NOT AVAILABLE','err'); return; }
-  const ok = navigator.vibrate([25,25,25,25,25]);
-  log(`RAW → ${ok}`, ok ? 'ok' : 'err');
+  log('RAW: [10,150,10]','info');
+  if (!('vibrate' in navigator)){log('NOT AVAILABLE','err');return;}
+  navigator.vibrate([10,150,10]);
 }
 
 function onHapticToggle() {
-  saveSetting('haptic', document.getElementById('togHaptic').checked);
+  const on = document.getElementById('togHaptic').checked;
+  saveSetting('haptic',on);
+  if (!on && vibMode!=='off') setVibMode('off');
+  else if (on && vibMode==='off') setVibMode('normal');
 }
 
 // ═══════════════════════════════════════════════════════
-// AUDIO KEEPALIVE — keeps page active for vibration
+// AUDIO KEEPALIVE — prevents tab suspension
 // ═══════════════════════════════════════════════════════
 function initAudio() {
+  if (audioCtx) return; // Already initialized
   try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc  = audioCtx.createOscillator();
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)({sampleRate:8000});
+    const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    gain.gain.value = 0.00001;
+    gain.gain.value = 0.00001; // Inaudible
     osc.frequency.value = 1;
     osc.connect(gain);
     gain.connect(audioCtx.destination);
     osc.start();
 
-    // Silent buffer every 8s
-    setInterval(() => {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      const buf = audioCtx.createBuffer(1, 1, 22050);
+    // Silent buffer ping every 10s
+    setInterval(()=>{
+      if (audioCtx.state==='suspended') audioCtx.resume();
+      const buf = audioCtx.createBuffer(1,1,8000);
       const src = audioCtx.createBufferSource();
-      src.buffer = buf;
+      src.buffer=buf;
       src.connect(audioCtx.destination);
       src.start();
-    }, 8000);
+    },10000);
 
-    // Vibration ping every 20s — keeps API warm
+    // Vibration ping every 25s
     if (pingTimer) clearInterval(pingTimer);
-    pingTimer = setInterval(() => {
+    pingTimer = setInterval(()=>{
       if (navigator.vibrate) navigator.vibrate(1);
-    }, 20000);
+    },25000);
 
-    log('Audio keepalive started ✓', 'ok');
-  } catch(e) {
-    log('Audio keepalive: '+e.message, 'warn');
-  }
+    log('Audio keepalive ✓','ok');
+  } catch(e) { log('Audio: '+e.message,'warn'); }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1411,91 +1606,216 @@ function initAudio() {
 // ═══════════════════════════════════════════════════════
 function enterCover() {
   document.body.classList.add('cover-mode');
-  log('Cover mode ON', 'ok');
+  log('Cover mode ON','ok');
+  // Update cover vib button state
+  const vb = document.getElementById('coverVibBtn');
+  if (vb) {
+    vb.classList.toggle('active', vibMode!=='off');
+    vb.textContent = vibMode==='off'?'🔇':'📳';
+  }
 }
 function exitCover() {
   document.body.classList.remove('cover-mode');
-  log('Cover mode OFF', 'info');
+  log('Cover mode OFF','info');
 }
 function toggleDim() {
   const on = document.getElementById('togDim').checked;
-  saveSetting('dim', on);
-  document.body.classList.toggle('cover-dim', on);
+  saveSetting('dim',on);
+  document.body.classList.toggle('cover-dim',on);
 }
 function setCoverAnswer(posOrR) {
   const el = document.getElementById('coverNum');
   const th = document.getElementById('coverHint');
-  const tx = document.getElementById('coverText');
-  if (posOrR === 'R') {
-    el.textContent = 'REPOSITION';
-    el.className = 'cR';
-    th.textContent = 'ADJUST & PRESS RING';
+  if (posOrR==='R') {
+    el.textContent='REPOSITION'; el.className='cR';
+    th.textContent='ADJUST & TAP 📷';
   } else {
-    el.textContent = String(posOrR);
-    el.className = 'c'+posOrR;
-    th.textContent = 'PRESS RING TO SCAN';
+    el.textContent=String(posOrR); el.className='c'+posOrR;
+    th.textContent='TAP 📷 OR PRESS RING';
   }
 }
 function setCoverScanning() {
-  document.getElementById('coverNum').textContent = '…';
-  document.getElementById('coverNum').className = '';
+  document.getElementById('coverNum').textContent='…';
+  document.getElementById('coverNum').className='';
+  document.getElementById('coverHint').textContent='SCANNING…';
+}
+
+// Cover screen controls
+function toggleCoverVib() {
+  const btn = document.getElementById('coverVibBtn');
+  if (vibMode==='off') {
+    setVibMode('quiet');
+    btn.classList.add('active');
+    btn.textContent='📳';
+  } else {
+    setVibMode('off');
+    btn.classList.remove('active');
+    btn.textContent='🔇';
+  }
+}
+function toggleCoverCam() {
+  if (camStream&&camTrack&&camTrack.readyState==='live') {
+    camStream.getTracks().forEach(t=>t.stop());
+    camStream=null; camTrack=null;
+    const btn=document.getElementById('coverCamBtn');
+    if(btn){btn.classList.remove('active');btn.textContent='🔴';}
+    log('Camera stopped from cover','info');
+    setStatus('IDLE','');
+  } else {
+    startCamera();
+  }
 }
 
 // ═══════════════════════════════════════════════════════
 // API KEY
 // ═══════════════════════════════════════════════════════
 function saveKey() {
-  const k = document.getElementById('apiKey').value.trim();
-  if (!k) { log('No key entered', 'warn'); return; }
-  saveSetting('apiKey', k);
-  log('Key saved ✓', 'ok');
+  const k=document.getElementById('apiKey').value.trim();
+  if (!k){log('No key','warn');return;}
+  saveSetting('apiKey',k);
+  log('Key saved ✓','ok');
 }
 
 async function testKey() {
-  const k = document.getElementById('apiKey').value.trim();
-  if (!k) { log('No key entered', 'warn'); return; }
-  log('Testing key…', 'info');
+  const k=document.getElementById('apiKey').value.trim();
+  if (!k){log('No key','warn');return;}
+  log('Testing…','info');
   try {
-    const tiny = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAABjE+ibYAAAAASUVORK5CYII=';
-    const res = await fetch(`${API}?key=${k}`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        contents:[{parts:[{text:'ok'},{inline_data:{mime_type:'image/png',data:tiny}}]}],
-        generationConfig:{maxOutputTokens:4}
-      })
+    const tiny='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAABjE+ibYAAAAASUVORK5CYII=';
+    const res=await fetch(`${API}?key=${k}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts:[{text:'ok'},{inline_data:{mime_type:'image/png',data:tiny}}]}],generationConfig:{maxOutputTokens:4}})
     });
-    if (res.ok) { log('Key VALID ✓ — '+res.status, 'ok'); }
-    else {
-      const e = await res.json();
-      log('Key FAILED: '+e.error?.message, 'err');
-    }
-  } catch(e) { log('Test error: '+e.message, 'err'); }
+    if (res.ok) log('Key VALID ✓','ok');
+    else { const e=await res.json(); log('Key FAILED: '+e.error?.message,'err'); }
+  } catch(e){log('Test error: '+e.message,'err');}
 }
 
 // ═══════════════════════════════════════════════════════
-// MEDIA KEY / CLICKER
+// MEDIA KEY / CLICKER — optimized
 // ═══════════════════════════════════════════════════════
+const MEDIA_KEYS = new Set([
+  'MediaTrackNext','MediaTrackPrevious','MediaPlayPause',
+  'MediaStop','AudioVolumeUp','AudioVolumeDown'
+]);
+const MEDIA_CODES = new Set([176,177,178,179]);
+
 document.addEventListener('keydown', e => {
-  const keys = [
-    'MediaTrackNext','MediaTrackPrevious','MediaPlayPause',
-    'MediaStop','AudioVolumeUp','AudioVolumeDown'
-  ];
-  if (keys.includes(e.key) || e.keyCode === 176 || e.keyCode === 177 ||
-      e.keyCode === 179 || e.keyCode === 178) {
+  if (MEDIA_KEYS.has(e.key)||MEDIA_CODES.has(e.keyCode)) {
     e.preventDefault();
-    initAudio(); // ensure audio is running
+    if (!audioCtx) initAudio();
     triggerScan();
   }
 });
 
-// Also handle mediaSession for clicker
 try {
-  navigator.mediaSession.setActionHandler('nexttrack',     () => triggerScan());
-  navigator.mediaSession.setActionHandler('previoustrack', () => triggerScan());
-  navigator.mediaSession.setActionHandler('play',          () => triggerScan());
-  navigator.mediaSession.setActionHandler('pause',         () => triggerScan());
-} catch(e) {}
+  navigator.mediaSession.setActionHandler('nexttrack',()=>triggerScan());
+  navigator.mediaSession.setActionHandler('previoustrack',()=>triggerScan());
+  navigator.mediaSession.setActionHandler('play',()=>triggerScan());
+  navigator.mediaSession.setActionHandler('pause',()=>triggerScan());
+} catch(e){}
+
+// ═══════════════════════════════════════════════════════
+// CAMERA ENUMERATION
+// ═══════════════════════════════════════════════════════
+async function scanCameras() {
+  log('Scanning cameras…','info');
+  try {
+    const tmp=await navigator.mediaDevices.getUserMedia({video:true});
+    tmp.getTracks().forEach(t=>t.stop());
+  } catch(e){log('Camera permission: '+e.message,'warn');}
+
+  try {
+    const devices=await navigator.mediaDevices.enumerateDevices();
+    const cams=devices.filter(d=>d.kind==='videoinput');
+    const sel=document.getElementById('camSelect');
+    sel.innerHTML='';
+    if (!cams.length){sel.innerHTML='<option value="">No cameras</option>';return;}
+
+    cams.forEach((cam,i)=>{
+      const opt=document.createElement('option');
+      opt.value=cam.deviceId;
+      const label=cam.label||`Camera ${i+1}`;
+      const isOTG=label.toLowerCase().match(/usb|otg|external/);
+      const isBack=label.toLowerCase().match(/back|environment|rear/);
+      opt.textContent=label+(isOTG?' 🔌 OTG':isBack?' 📷 REAR':'');
+      if (isOTG&&!sel.dataset.otgFound){opt.selected=true;sel.dataset.otgFound='1';}
+      else if (isBack&&!sel.dataset.otgFound&&!sel.dataset.rearFound){opt.selected=true;sel.dataset.rearFound='1';}
+      sel.appendChild(opt);
+    });
+
+    log(`${cams.length} camera(s) found`,'ok');
+  } catch(e){log('Scan failed: '+e.message,'err');}
+}
+
+function onCamSelectChange() {
+  if (camStream) startCamera();
+}
+
+// ═══════════════════════════════════════════════════════
+// DEBUG PANEL
+// ═══════════════════════════════════════════════════════
+const captures = [];
+
+function saveCapture(b64,label,result,rawResponse) {
+  const ts=new Date().toLocaleTimeString();
+  captures.unshift({ts,b64,label,result:result||{},rawResponse:rawResponse||''});
+  if (captures.length>20) captures.pop();
+  const cc=document.getElementById('captureCount');
+  if (cc) cc.textContent=captures.length;
+}
+
+function renderCaptures() {
+  const grid=document.getElementById('captureGrid');
+  if (!grid) return;
+  grid.innerHTML = captures.map((c,i)=>{
+    const r=c.result, status=r.status||'?';
+    const statusColor=status==='ok'?'var(--green)':'var(--red)';
+    const pos=r._position||'?';
+    const opts=(r.options_ordered||[]).map((o,j)=>
+      `<div style="font-size:7px;color:${j===((r._position||1)-1)?'var(--accent)':'var(--muted)'};padding:1px 0;">${j+1}. ${o}</div>`
+    ).join('');
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+      <div style="position:relative;">
+        <img src="data:image/jpeg;base64,${c.b64}" style="width:100%;display:block;max-height:150px;object-fit:cover;" loading="lazy">
+        <div style="position:absolute;top:4px;left:4px;background:#000a;padding:2px 5px;border-radius:3px;font-size:7px;color:#fff;">${c.ts}</div>
+        <div style="position:absolute;top:4px;right:4px;background:#000a;padding:2px 5px;border-radius:3px;font-size:9px;font-weight:700;color:${statusColor};">${status==='ok'?'OPT '+pos:status.toUpperCase()}</div>
+      </div>
+      <div style="padding:6px 8px;">
+        ${r.question_summary?`<div style="font-size:7px;color:var(--text);margin-bottom:3px;">${r.question_summary}</div>`:''}
+        ${opts}
+        ${r.correct_text?`<div style="font-size:7px;color:var(--green);margin-top:3px;">✓ ${r.correct_text}</div>`:''}
+        ${r.rawResponse?`<details style="margin-top:4px;"><summary style="font-size:7px;color:var(--dim);cursor:pointer;">raw</summary><pre style="font-size:6px;color:var(--dim);white-space:pre-wrap;margin-top:3px;">${c.rawResponse.slice(0,300)}</pre></details>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderFullLog() {
+  const box=document.getElementById('fullLogBox');
+  if (!box) return;
+  const colors={ok:'var(--green)',err:'var(--red)',warn:'var(--amber)',info:'var(--blue)',dim:'var(--dim)'};
+  box.innerHTML = fullLog.slice(-100).reverse().map(l=>
+    `<div style="border-bottom:1px solid #080d16;padding:1px 0;display:flex;gap:5px;">
+      <span style="color:var(--dim);flex-shrink:0;width:52px;">${l.t}</span>
+      <span style="flex:1;color:${colors[l.level]||'var(--dim)'};word-break:break-all;">${l.msg}</span>
+    </div>`
+  ).join('');
+}
+
+function showDebug() {
+  renderCaptures(); renderFullLog();
+  document.getElementById('debugOverlay').style.display='block';
+}
+function hideDebug() { document.getElementById('debugOverlay').style.display='none'; }
+function clearCaptures() { captures.length=0; document.getElementById('captureCount').textContent='0'; renderCaptures(); }
+function clearFullLog() { fullLog.length=0; document.getElementById('fullLogCount').textContent='0'; renderFullLog(); }
+function copyFullLog() {
+  navigator.clipboard?.writeText(fullLog.map(l=>`[${l.t}] ${l.msg}`).join('\n')).then(()=>{
+    const btn=document.querySelector('[onclick="copyFullLog()"]');
+    if (btn){btn.textContent='COPIED ✓';setTimeout(()=>btn.textContent='COPY LOG',1500);}
+  });
+}
 
 // ═══════════════════════════════════════════════════════
 // BOOT
@@ -1503,233 +1823,84 @@ try {
 window.addEventListener('load', () => {
   loadSettings();
 
-  // Auto-detect small screen = cover screen mode
-  if (Math.min(screen.width, screen.height) < 400) {
-    setTimeout(() => {
-      enterCover();
-      log('Small screen detected — cover mode auto-enabled', 'info');
-    }, 500);
+  // Auto-detect cover screen
+  if (Math.min(screen.width,screen.height)<400) {
+    setTimeout(()=>{enterCover();log('Small screen → cover mode','info');},400);
   }
 
   // Restore vibration mode
-  const savedMode = getSetting('vibMode', 'normal');
-  vibMode = savedMode;
-  setVibMode(savedMode);
+  setVibMode(getSetting('vibMode','normal'));
 
-  log('AnswerBot v7.0 ready', 'ok');
-  log('1. Add API key  2. Start camera  3. Press ring', 'info');
+  // Initialize fold detection
+  initFoldDetection();
 
-  // devicechange — fires when OTG camera plugged/unplugged
-  // Re-scans and auto-switches if an OTG camera appears
-  navigator.mediaDevices.addEventListener('devicechange', async () => {
-    log('Device change detected — rescanning cameras…', 'info');
-    await new Promise(r => setTimeout(r, 600)); // brief settle delay
+  // Wake lock
+  if (getSetting('wakeLock',true)) acquireWakeLock();
+
+  log('AnswerBot v8.0 ready','ok');
+  log('1. Add API key  2. Start camera  3. Press ring','info');
+
+  // Device change listener
+  navigator.mediaDevices?.addEventListener('devicechange', async () => {
+    log('Device change — rescanning…','info');
+    await new Promise(r=>setTimeout(r,500));
     await scanCameras();
-
-    // If an OTG camera just appeared and camera is running, auto-switch to it
-    const sel = document.getElementById('camSelect');
-    const selectedLabel = sel.options[sel.selectedIndex]?.text || '';
-    if (selectedLabel.includes('OTG') && camStream) {
-      log('OTG camera detected — switching automatically', 'ok');
-      startCamera();
-    }
+    const sel=document.getElementById('camSelect');
+    const label=sel.options[sel.selectedIndex]?.text||'';
+    if (label.includes('OTG')&&camStream){log('OTG detected — switching','ok');startCamera();}
   });
 
   // Restore key
-  const k = getSetting('apiKey','');
-  if (k) document.getElementById('apiKey').value = k;
+  const k=getSetting('apiKey','');
+  if (k) document.getElementById('apiKey').value=k;
+
+  // Preload font
+  document.fonts?.ready?.then(()=>log('Fonts ready','dim'));
 });
 
 // ═══════════════════════════════════════════════════════
-// DEBUG PANEL — captured images + full console
+// PREVENT CHROME TAB THROTTLING
 // ═══════════════════════════════════════════════════════
-const captures = [];   // { ts, b64, label, result, rawResponse }
-const fullLog  = [];   // all log entries ever
+// BroadcastChannel ping keeps the tab "active" in Chrome's heuristics
+let bc;
+try {
+  bc = new BroadcastChannel('answerbot_keepalive');
+  setInterval(()=>{try{bc.postMessage('ping');}catch(e){}},15000);
+} catch(e){}
 
-// fullLog is populated directly from inside log() below — no override needed
-
-function saveCapture(b64, label, result, rawResponse) {
-  const ts = new Date().toLocaleTimeString();
-  captures.unshift({ ts, b64, label, result: result || {}, rawResponse: rawResponse || '' });
-  if (captures.length > 20) captures.pop();
-  document.getElementById('captureCount').textContent = captures.length;
-  renderCaptures();
-}
-
-function renderCaptures() {
-  const grid = document.getElementById('captureGrid');
-  if (!grid) return;
-  grid.innerHTML = captures.map((c, i) => {
-    const r = c.result;
-    const status = r.status || '?';
-    const statusColor = status === 'ok' ? 'var(--green)' : 'var(--red)';
-    const pos = r._position || '?';
-    const opts = (r.options_ordered || []).map((o,j) =>
-      `<div style="font-size:7px;color:${j===((r._position||1)-1)?'var(--accent)':'var(--muted)'};padding:1px 0;">${j+1}. ${o}</div>`
-    ).join('');
-    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden;">
-      <div style="position:relative;">
-        <img src="data:image/jpeg;base64,${c.b64}" style="width:100%;display:block;max-height:150px;object-fit:cover;">
-        <div style="position:absolute;top:4px;left:4px;background:#000a;padding:2px 5px;border-radius:3px;font-size:7px;color:#fff;">${c.ts}</div>
-        <div style="position:absolute;top:4px;right:4px;background:#000a;padding:2px 5px;border-radius:3px;font-size:9px;font-weight:700;color:${statusColor};">${status==='ok'?'OPT '+pos:status.toUpperCase()}</div>
-      </div>
-      <div style="padding:6px 8px;">
-        <div style="font-size:7px;color:var(--accent);margin-bottom:3px;letter-spacing:1px;">${c.label}</div>
-        ${r.question_summary ? `<div style="font-size:7px;color:var(--text);margin-bottom:3px;">${r.question_summary}</div>` : ''}
-        ${opts}
-        ${r.correct_text ? `<div style="font-size:7px;color:var(--green);margin-top:3px;">✓ ${r.correct_text}</div>` : ''}${r.reasoning ? `<div style="font-size:7px;color:var(--blue);margin-top:2px;font-style:italic;">${r.reasoning}</div>` : ''}
-        ${r.reason ? `<div style="font-size:7px;color:var(--red);margin-top:3px;">⚠ ${r.reason}</div>` : ''}
-        <button onclick="downloadCapture(${i})" style="margin-top:5px;width:100%;padding:3px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:7px;cursor:pointer;border-radius:3px;">⬇ SAVE IMAGE</button>
-        ${c.rawResponse ? `<details style="margin-top:4px;"><summary style="font-size:7px;color:var(--dim);cursor:pointer;">raw response</summary><pre style="font-size:6px;color:var(--dim);white-space:pre-wrap;margin-top:3px;">${c.rawResponse.slice(0,400)}</pre></details>` : ''}
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function renderFullLog() {
-  const box = document.getElementById('fullLogBox');
-  if (!box) return;
-  box.innerHTML = fullLog.slice().reverse().map(l => {
-    const colors = {ok:'var(--green)',err:'var(--red)',warn:'var(--amber)',info:'var(--blue)',dim:'var(--dim)'};
-    const col = colors[l.level] || 'var(--dim)';
-    return `<div style="border-bottom:1px solid #0a0f18;padding:1px 0;display:flex;gap:6px;">
-      <span style="color:var(--dim);flex-shrink:0;width:54px;">${l.t}</span>
-      <span style="flex:1;color:${col};word-break:break-all;">${l.msg}</span>
-    </div>`;
-  }).join('');
-}
-
-function downloadCapture(idx) {
-  const c = captures[idx];
-  if (!c) return;
-  const a = document.createElement('a');
-  a.href = 'data:image/jpeg;base64,' + c.b64;
-  a.download = 'answerbot_' + c.ts.replace(/:/g,'') + '.jpg';
-  a.click();
-}
-
-function clearCaptures() {
-  captures.length = 0;
-  document.getElementById('captureCount').textContent = '0';
-  renderCaptures();
-}
-
-function clearFullLog() {
-  fullLog.length = 0;
-  document.getElementById('fullLogCount').textContent = '0';
-  renderFullLog();
-}
-
-function copyFullLog() {
-  const text = fullLog.map(l => `[${l.t}] ${l.msg}`).join('\n');
-  navigator.clipboard?.writeText(text).then(() => {
-    // brief visual feedback
-    const btn = document.querySelector('[onclick="copyFullLog()"]');
-    if (btn) { btn.textContent = 'COPIED ✓'; setTimeout(() => btn.textContent = 'COPY LOG', 1500); }
-  });
-}
-
-function showDebug() {
-  renderCaptures();
-  renderFullLog();
-  document.getElementById('debugOverlay').style.display = 'block';
-}
-
-function hideDebug() {
-  document.getElementById('debugOverlay').style.display = 'none';
-}
-
-
-// ═══════════════════════════════════════════════════════
-// CAMERA ENUMERATION
-// ═══════════════════════════════════════════════════════
-async function scanCameras() {
-  log('Scanning cameras…', 'info');
-  try {
-    // Must request permission first to get labels
-    const tmp = await navigator.mediaDevices.getUserMedia({ video: true });
-    tmp.getTracks().forEach(t => t.stop());
-  } catch(e) {
-    log('Camera permission needed: '+e.message, 'warn');
-  }
-
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const cams = devices.filter(d => d.kind === 'videoinput');
-
-    const sel = document.getElementById('camSelect');
-    sel.innerHTML = '';
-
-    if (cams.length === 0) {
-      sel.innerHTML = '<option value="">No cameras found</option>';
-      log('No cameras detected', 'warn');
-      return;
+// Web Worker heartbeat — runs even when tab is backgrounded
+const workerBlob = new Blob([`
+  setInterval(()=>postMessage('tick'),10000);
+`],{type:'application/javascript'});
+try {
+  const heartbeat = new Worker(URL.createObjectURL(workerBlob));
+  heartbeat.onmessage = () => {
+    // Touch the DOM to prevent Chrome from freezing the page
+    if (document.hidden && audioCtx && audioCtx.state==='suspended') {
+      audioCtx.resume();
     }
-
-    cams.forEach((cam, i) => {
-      const opt = document.createElement('option');
-      opt.value = cam.deviceId;
-      // Label examples: "Back Camera (SAMSUNG)", "USB Camera", "0, facing back"
-      const label = cam.label || `Camera ${i+1}`;
-      const isOTG  = label.toLowerCase().includes('usb') || label.toLowerCase().includes('otg') || label.toLowerCase().includes('external');
-      const isBack = label.toLowerCase().includes('back') || label.toLowerCase().includes('environment') || label.toLowerCase().includes('rear');
-      const tag    = isOTG ? ' 🔌 OTG' : isBack ? ' 📷 REAR' : '';
-      opt.textContent = label + tag;
-      // Default select: prefer OTG if present, else rear
-      if (isOTG && !sel.dataset.otgFound) {
-        opt.selected = true;
-        sel.dataset.otgFound = '1';
-      } else if (isBack && !sel.dataset.otgFound && !sel.dataset.rearFound) {
-        opt.selected = true;
-        sel.dataset.rearFound = '1';
-      }
-      sel.appendChild(opt);
-    });
-
-    log(`Found ${cams.length} camera(s): ${cams.map(c=>c.label||'unnamed').join(', ')}`, 'ok');
-    log('Select camera then tap START', 'info');
-  } catch(e) {
-    log('Scan failed: '+e.message, 'err');
-  }
-}
-
-function onCamSelectChange() {
-  const sel = document.getElementById('camSelect');
-  const label = sel.options[sel.selectedIndex]?.text || '';
-  log('Camera selected: '+label, 'info');
-  // If camera already running, restart with new device
-  if (camStream) {
-    log('Restarting camera with new selection…', 'info');
-    startCamera();
-  }
-}
+  };
+} catch(e) {}
 
 </script>
 
 <!-- DEBUG OVERLAY -->
-<div id="debugOverlay" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:99998;overflow-y:auto;padding:0 0 40px 0;">
-
-  <!-- Debug header -->
-  <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;">
-    <span style="font-size:14px;font-weight:700;letter-spacing:2px;color:var(--accent);flex:1;">🔍 DEBUG</span>
-    <button onclick="clearCaptures()" style="background:transparent;border:1px solid var(--red);color:var(--red);font-family:inherit;font-size:8px;padding:4px 10px;border-radius:4px;cursor:pointer;">CLR IMAGES</button>
-    <button onclick="clearFullLog()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:8px;padding:4px 10px;border-radius:4px;cursor:pointer;">CLR LOG</button>
-    <button onclick="copyFullLog()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:8px;padding:4px 10px;border-radius:4px;cursor:pointer;">COPY LOG</button>
-    <button onclick="hideDebug()" style="background:var(--accent);border:none;color:#000;font-family:inherit;font-size:8px;padding:5px 12px;border-radius:4px;cursor:pointer;font-weight:700;">CLOSE</button>
+<div id="debugOverlay" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:99998;overflow-y:auto;padding:0 0 40px 0;-webkit-overflow-scrolling:touch;">
+  <div style="display:flex;align-items:center;gap:6px;padding:10px 14px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;">
+    <span style="font-size:14px;font-weight:800;letter-spacing:2px;color:var(--accent);flex:1;">🔍 DEBUG</span>
+    <button onclick="clearCaptures()" class="btn btn-red" style="padding:4px 8px;">CLR IMG</button>
+    <button onclick="clearFullLog()" class="btn" style="padding:4px 8px;">CLR LOG</button>
+    <button onclick="copyFullLog()" class="btn" style="padding:4px 8px;">COPY LOG</button>
+    <button onclick="hideDebug()" style="background:var(--accent);border:none;color:#000;font-family:inherit;font-size:9px;padding:6px 12px;border-radius:6px;cursor:pointer;font-weight:700;">CLOSE</button>
   </div>
-
-  <!-- Captured images -->
-  <div style="padding:12px 16px;">
-    <div style="font-size:8px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">CAPTURED IMAGES (<span id="captureCount">0</span>) — last 20 kept</div>
+  <div style="padding:10px 14px;">
+    <div style="font-size:8px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;font-weight:600;">CAPTURES (<span id="captureCount">0</span>) — last 20</div>
     <div id="captureGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;"></div>
   </div>
-
-  <!-- Full console log -->
-  <div style="padding:0 16px;">
-    <div style="font-size:8px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;margin-top:8px;">FULL CONSOLE LOG (<span id="fullLogCount">0</span> entries)</div>
-    <div id="fullLogBox" style="background:#030508;border:1px solid var(--dim);border-radius:6px;padding:8px;max-height:60vh;overflow-y:auto;font-size:8px;line-height:1.8;font-family:'JetBrains Mono',monospace;"></div>
+  <div style="padding:0 14px;">
+    <div style="font-size:8px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;margin-top:8px;font-weight:600;">FULL LOG (<span id="fullLogCount">0</span>)</div>
+    <div id="fullLogBox" style="background:#030508;border:1px solid var(--dim);border-radius:8px;padding:8px;max-height:60vh;overflow-y:auto;font-size:8px;line-height:1.8;font-family:'SF Mono',monospace;-webkit-overflow-scrolling:touch;"></div>
   </div>
-
 </div>
 
 </body>
