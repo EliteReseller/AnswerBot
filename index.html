@@ -154,7 +154,7 @@ body.cover-dim #coverDot{width:16px;height:16px;top:50%;left:50%;transform:trans
 
 <!-- HEADER -->
 <div class="header">
-  <div class="logo">ANSWERBOT <span>v7.0 · GEMINI 3 FLASH</span></div>
+  <div class="logo">ANSWERBOT <span>v8.0 · GEMINI 3 FLASH</span></div>
   <button onclick="showDebug()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:8px;padding:5px 10px;border-radius:5px;cursor:pointer;letter-spacing:1px;">🔍 DEBUG</button>
   <div class="status-pill">
     <div class="status-dot" id="statusDot"></div>
@@ -249,21 +249,25 @@ body.cover-dim #coverDot{width:16px;height:16px;top:50%;left:50%;transform:trans
       <label class="toggle"><input type="checkbox" id="togHaptic" checked onchange="onHapticToggle()"><div class="toggle-track"></div></label>
     </div>
 
-    <!-- Mode selector — three radio-style buttons -->
+    <!-- Mode selector — four radio-style buttons -->
     <div style="margin:10px 0 6px;">
       <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">VIBRATION MODE</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
         <button id="modeBtn_normal" onclick="setVibMode('normal')"
           style="padding:8px 4px;border-radius:6px;border:1px solid var(--border);background:var(--dim);color:var(--text);font-family:inherit;font-size:8px;cursor:pointer;line-height:1.4;">
-          ⚡ NORMAL<br><span style="font-size:7px;color:var(--muted);">200ms / 250ms</span>
+          ⚡ NORMAL<br><span style="font-size:7px;color:var(--muted);">200ms</span>
         </button>
         <button id="modeBtn_silent" onclick="setVibMode('silent')"
           style="padding:8px 4px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:inherit;font-size:8px;cursor:pointer;line-height:1.4;">
-          🤫 SILENT<br><span style="font-size:7px;color:var(--muted);">80ms / 120ms</span>
+          🤫 SILENT<br><span style="font-size:7px;color:var(--muted);">80ms</span>
         </button>
         <button id="modeBtn_micro" onclick="setVibMode('micro')"
           style="padding:8px 4px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:inherit;font-size:8px;cursor:pointer;line-height:1.4;">
-          🫥 MICRO<br><span style="font-size:7px;color:var(--muted);">25ms clusters</span>
+          🫥 MICRO<br><span style="font-size:7px;color:var(--muted);">25ms</span>
+        </button>
+        <button id="modeBtn_custom" onclick="setVibMode('custom')"
+          style="padding:8px 4px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text);font-family:inherit;font-size:8px;cursor:pointer;line-height:1.4;">
+          🎛 CUSTOM<br><span style="font-size:7px;color:var(--muted);">your tune</span>
         </button>
       </div>
     </div>
@@ -271,7 +275,7 @@ body.cover-dim #coverDot{width:16px;height:16px;top:50%;left:50%;transform:trans
     <!-- Mode description banner -->
     <div id="modeBanner" style="border-radius:5px;padding:6px 10px;margin-bottom:8px;font-size:8px;letter-spacing:0.5px;display:none;"></div>
 
-    <!-- Manual tuner — visible in normal/silent, hidden in micro -->
+    <!-- Manual tuner — visible in normal/silent, hidden in micro/custom -->
     <div id="vibTuner">
       <div class="row" style="margin-top:2px;">
         <div class="row-label">Buzz duration
@@ -330,8 +334,76 @@ body.cover-dim #coverDot{width:16px;height:16px;top:50%;left:50%;transform:trans
       </div>
     </div>
 
+    <!-- Custom tuner — full control over every parameter -->
+    <div id="customTuner" style="display:none;">
+      <div class="row" style="margin-top:2px;">
+        <div class="row-label">Buzz duration (ms)
+          <span class="row-sub">How long each single buzz lasts</span>
+        </div>
+        <input type="range" id="customDur" min="5" max="500" step="5" value="150" style="width:90px;"
+          oninput="document.getElementById('customDurVal').textContent=this.value+'ms';saveSetting('customDur',this.value)">
+        <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="customDurVal">150ms</span>
+      </div>
+      <div class="row">
+        <div class="row-label">Gap between buzzes (ms)
+          <span class="row-sub">Silence between each buzz in a count</span>
+        </div>
+        <input type="range" id="customGap" min="30" max="600" step="10" value="200" style="width:90px;"
+          oninput="document.getElementById('customGapVal').textContent=this.value+'ms';saveSetting('customGap',this.value)">
+        <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="customGapVal">200ms</span>
+      </div>
+      <div class="row">
+        <div class="row-label">Repeat pattern X times
+          <span class="row-sub">Repeat the whole N-buzz pattern</span>
+        </div>
+        <select id="customRepeat" onchange="saveSetting('customRepeat',this.value)" style="width:60px;">
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="3">3×</option>
+        </select>
+      </div>
+      <div class="row">
+        <div class="row-label">Pause between repeats (ms)
+          <span class="row-sub">Long pause before pattern repeats</span>
+        </div>
+        <input type="range" id="customRepeatGap" min="200" max="2000" step="50" value="600" style="width:90px;"
+          oninput="document.getElementById('customRepeatGapVal').textContent=this.value+'ms';saveSetting('customRepeatGap',this.value)">
+        <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="customRepeatGapVal">600ms</span>
+      </div>
+      <div class="row">
+        <div class="row-label">Initial delay (ms)
+          <span class="row-sub">Wait before first buzz fires</span>
+        </div>
+        <input type="range" id="customDelay" min="0" max="1000" step="50" value="0" style="width:90px;"
+          oninput="document.getElementById('customDelayVal').textContent=this.value+'ms';saveSetting('customDelay',this.value)">
+        <span style="font-size:9px;color:var(--accent);min-width:38px;text-align:right;" id="customDelayVal">0ms</span>
+      </div>
+      <div class="row">
+        <div class="row-label">Confirmation buzz
+          <span class="row-sub">Short extra buzz after pattern ends</span>
+        </div>
+        <label class="toggle"><input type="checkbox" id="togConfirmBuzz" onchange="saveSetting('confirmBuzz',this.checked)"><div class="toggle-track"></div></label>
+      </div>
+      <div class="row">
+        <div class="row-label">Ramp up intensity
+          <span class="row-sub">Each buzz gets slightly longer</span>
+        </div>
+        <label class="toggle"><input type="checkbox" id="togRamp" onchange="saveSetting('ramp',this.checked)"><div class="toggle-track"></div></label>
+      </div>
+    </div>
+
+    <!-- Quick presets -->
+    <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">
+      <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">QUICK PRESETS</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;">
+        <button class="btn" onclick="applyPreset('stealth')" style="font-size:7px;padding:6px 2px;">🤫 STEALTH<br><span style="font-size:6px;color:var(--muted);">15ms micro</span></button>
+        <button class="btn" onclick="applyPreset('gentle')" style="font-size:7px;padding:6px 2px;">🌊 GENTLE<br><span style="font-size:6px;color:var(--muted);">100ms soft</span></button>
+        <button class="btn" onclick="applyPreset('strong')" style="font-size:7px;padding:6px 2px;">💪 STRONG<br><span style="font-size:6px;color:var(--muted);">350ms hard</span></button>
+      </div>
+    </div>
+
     <!-- Test buttons — always visible -->
-    <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:8px;">
+    <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">
       <div style="font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">TEST EACH OPTION</div>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px;">
         <button class="btn" onclick="buzzTest(1)" style="font-size:10px;padding:9px 0;font-weight:700;color:#ff4466;border-color:#ff4466;">1</button>
@@ -464,6 +536,13 @@ function loadSettings() {
   s('microGap',   'microGap',   25);
   s('microPause', 'microPause', 160);
   s('microCount', 'microCount', 3);
+  s('customDur',       'customDur',       150);
+  s('customGap',       'customGap',       200);
+  s('customRepeat',    'customRepeat',    1);
+  s('customRepeatGap', 'customRepeatGap', 600);
+  s('customDelay',     'customDelay',     0);
+  s('togConfirmBuzz',  'confirmBuzz',     false);
+  s('togRamp',         'ramp',            false);
   s('togGlare','glare',    true);
   s('camRot',  'camRot',   '180');
   s('togZoom', 'zoom',     true);
@@ -478,6 +557,21 @@ function loadSettings() {
   document.getElementById('buzzDurVal').textContent = dur+'ms';
   document.getElementById('buzzGapVal').textContent = gap+'ms';
   document.getElementById('cooldownVal').textContent = cd+'s';
+
+  // Custom tuner labels
+  const cDur  = document.getElementById('customDur').value;
+  const cGap  = document.getElementById('customGap').value;
+  const cRGap = document.getElementById('customRepeatGap').value;
+  const cDel  = document.getElementById('customDelay').value;
+  document.getElementById('customDurVal').textContent = cDur+'ms';
+  document.getElementById('customGapVal').textContent = cGap+'ms';
+  document.getElementById('customRepeatGapVal').textContent = cRGap+'ms';
+  document.getElementById('customDelayVal').textContent = cDel+'ms';
+
+  // Micro tuner labels
+  document.getElementById('microPulseVal').textContent = document.getElementById('microPulse').value+'ms';
+  document.getElementById('microGapVal').textContent = document.getElementById('microGap').value+'ms';
+  document.getElementById('microPauseVal').textContent = document.getElementById('microPause').value+'ms';
 
   // Burst settings visibility
   document.getElementById('burstSettings').style.display =
@@ -1234,9 +1328,9 @@ function showReposition(reason) {
 }
 
 // ═══════════════════════════════════════════════════════
-// VIBRATION — clean simple implementation
+// VIBRATION — enhanced with custom mode + presets
 // ═══════════════════════════════════════════════════════
-// ── Vibration mode: 'normal' | 'silent' | 'micro' ───────────────────────────
+// ── Vibration mode: 'normal' | 'silent' | 'micro' | 'custom' ───────────────
 let vibMode = 'normal';
 
 function setVibMode(mode) {
@@ -1244,31 +1338,34 @@ function setVibMode(mode) {
   saveSetting('vibMode', mode);
 
   // Update button styles
-  ['normal','silent','micro'].forEach(m => {
+  ['normal','silent','micro','custom'].forEach(m => {
     const btn = document.getElementById('modeBtn_'+m);
     if (!btn) return;
     btn.style.background  = m === mode ? 'var(--accent)' : 'transparent';
     btn.style.color       = m === mode ? '#000' : 'var(--text)';
     btn.style.borderColor = m === mode ? 'var(--accent)' : 'var(--border)';
-    // Keep sub-label readable
     const sub = btn.querySelector('span');
     if (sub) sub.style.color = m === mode ? '#00000088' : 'var(--muted)';
   });
 
   // Show/hide tuners and banner
-  const tuner      = document.getElementById('vibTuner');
-  const microTuner = document.getElementById('microTuner');
-  const banner     = document.getElementById('modeBanner');
+  const tuner       = document.getElementById('vibTuner');
+  const microTuner  = document.getElementById('microTuner');
+  const customTuner = document.getElementById('customTuner');
+  const banner      = document.getElementById('modeBanner');
 
-  tuner.style.display      = mode === 'micro'  ? 'none'  : 'block';
-  microTuner.style.display = mode === 'micro'  ? 'block' : 'none';
+  tuner.style.display       = (mode === 'normal' || mode === 'silent') ? 'block' : 'none';
+  microTuner.style.display  = mode === 'micro'  ? 'block' : 'none';
+  customTuner.style.display = mode === 'custom' ? 'block' : 'none';
 
   const banners = {
     normal: null,
     silent: { bg:'#1a1a0a', border:'var(--amber)', color:'var(--amber)',
               text:'🤫 SILENT — 80ms pulses, felt not heard' },
     micro:  { bg:'#0a1020', border:'var(--blue)',  color:'var(--blue)',
-              text:'🫥 MICRO-BURST — 25ms clusters, motor never resonates, near-silent' }
+              text:'🫥 MICRO-BURST — 25ms clusters, motor never resonates, near-silent' },
+    custom: { bg:'#1a0a20', border:'var(--accent)', color:'var(--accent)',
+              text:'🎛 CUSTOM — full control: duration, gap, repeat, ramp, confirm buzz' }
   };
   const b = banners[mode];
   if (b) {
@@ -1292,27 +1389,110 @@ function setVibMode(mode) {
   log(`Vibration mode: ${mode}`, 'info');
 }
 
+function applyPreset(preset) {
+  if (preset === 'stealth') {
+    setVibMode('micro');
+    document.getElementById('microPulse').value = 15;
+    document.getElementById('microGap').value = 15;
+    document.getElementById('microPause').value = 200;
+    document.getElementById('microCount').value = '2';
+    document.getElementById('microPulseVal').textContent = '15ms';
+    document.getElementById('microGapVal').textContent = '15ms';
+    document.getElementById('microPauseVal').textContent = '200ms';
+    saveSetting('microPulse', 15); saveSetting('microGap', 15);
+    saveSetting('microPause', 200); saveSetting('microCount', 2);
+    log('Preset: STEALTH — ultra-quiet micro pulses', 'ok');
+  } else if (preset === 'gentle') {
+    setVibMode('custom');
+    document.getElementById('customDur').value = 100;
+    document.getElementById('customGap').value = 300;
+    document.getElementById('customRepeat').value = '1';
+    document.getElementById('customRepeatGap').value = 600;
+    document.getElementById('customDelay').value = 0;
+    document.getElementById('togConfirmBuzz').checked = false;
+    document.getElementById('togRamp').checked = false;
+    document.getElementById('customDurVal').textContent = '100ms';
+    document.getElementById('customGapVal').textContent = '300ms';
+    document.getElementById('customRepeatGapVal').textContent = '600ms';
+    document.getElementById('customDelayVal').textContent = '0ms';
+    saveSetting('customDur', 100); saveSetting('customGap', 300);
+    saveSetting('customRepeat', 1); saveSetting('customRepeatGap', 600);
+    saveSetting('customDelay', 0); saveSetting('confirmBuzz', false); saveSetting('ramp', false);
+    log('Preset: GENTLE — soft, spaced buzzes', 'ok');
+  } else if (preset === 'strong') {
+    setVibMode('custom');
+    document.getElementById('customDur').value = 350;
+    document.getElementById('customGap').value = 200;
+    document.getElementById('customRepeat').value = '2';
+    document.getElementById('customRepeatGap').value = 800;
+    document.getElementById('customDelay').value = 0;
+    document.getElementById('togConfirmBuzz').checked = true;
+    document.getElementById('togRamp').checked = false;
+    document.getElementById('customDurVal').textContent = '350ms';
+    document.getElementById('customGapVal').textContent = '200ms';
+    document.getElementById('customRepeatGapVal').textContent = '800ms';
+    document.getElementById('customDelayVal').textContent = '0ms';
+    saveSetting('customDur', 350); saveSetting('customGap', 200);
+    saveSetting('customRepeat', 2); saveSetting('customRepeatGap', 800);
+    saveSetting('customDelay', 0); saveSetting('confirmBuzz', true); saveSetting('ramp', false);
+    log('Preset: STRONG — unmissable double-tap with confirm', 'ok');
+  }
+}
+
 function buildVibratePattern(posOrR) {
   const isRepos = (posOrR === 'R' || posOrR === 0);
   const n = isRepos ? 6 : parseInt(posOrR);
 
-  if (vibMode === 'micro') {
+  if (vibMode === 'custom') {
+    // ── Custom mode: fully tuneable ──
+    const dur     = parseInt(document.getElementById('customDur')?.value)       || 150;
+    const gap     = parseInt(document.getElementById('customGap')?.value)       || 200;
+    const repeat  = parseInt(document.getElementById('customRepeat')?.value)    || 1;
+    const repGap  = parseInt(document.getElementById('customRepeatGap')?.value) || 600;
+    const delay   = parseInt(document.getElementById('customDelay')?.value)     || 0;
+    const confirm = document.getElementById('togConfirmBuzz')?.checked          || false;
+    const ramp    = document.getElementById('togRamp')?.checked                 || false;
+
+    const pattern = [];
+
+    // Initial delay (silence then nothing)
+    if (delay > 0) pattern.push(0, delay); // 0ms vib, delay gap = pure silence wait
+
+    for (let r = 0; r < repeat; r++) {
+      if (r > 0) pattern.push(repGap); // pause between repeats
+
+      for (let i = 0; i < n; i++) {
+        if (i > 0) pattern.push(gap);
+        let thisDur = dur;
+        if (ramp) thisDur = Math.round(dur * (0.5 + (0.5 * (i / Math.max(n-1, 1)))));
+        pattern.push(thisDur);
+      }
+    }
+
+    // Confirmation buzz — short strong tap after a pause
+    if (confirm) {
+      pattern.push(400); // pause
+      pattern.push(Math.min(dur * 2, 500)); // double-length confirm
+    }
+
+    // Clean leading zeros
+    while (pattern.length > 0 && pattern[0] === 0) pattern.shift();
+
+    return pattern;
+
+  } else if (vibMode === 'micro') {
     // ── Micro-burst: N clusters of K×25ms pulses, 160ms pause between clusters ──
-    // Each cluster = [pulse, gap, pulse, gap, pulse] — NO leading zero
-    // This prevents LRA motor from reaching resonance amplitude → near-silent
     const pulse  = parseInt(document.getElementById('microPulse')?.value)  || 25;
     const mGap   = parseInt(document.getElementById('microGap')?.value)    || 25;
     const pause  = parseInt(document.getElementById('microPause')?.value)  || 160;
     const kPulses= parseInt(document.getElementById('microCount')?.value)  || 3;
 
-    // Build one cluster: [pulse, gap, pulse, gap, pulse]
     const cluster = [];
     for (let k = 0; k < kPulses; k++) { if (k > 0) cluster.push(mGap); cluster.push(pulse); }
 
-    // Stack N clusters separated by pause
     const pattern = [];
     for (let i = 0; i < n; i++) {
-      if (i > 0) pattern.push(pause);   // inter-cluster pause
+      if (i > 0) pattern.push(pause);
       pattern.push(...cluster);
     }
     return pattern;
@@ -1371,8 +1551,28 @@ function onHapticToggle() {
 }
 
 // ═══════════════════════════════════════════════════════
-// AUDIO KEEPALIVE — keeps page active for vibration
+// AUDIO KEEPALIVE + WAKE LOCK — keeps page & camera active when folded
 // ═══════════════════════════════════════════════════════
+let wakeLock = null;
+
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => {
+        log('Wake lock released — will re-acquire', 'warn');
+        // Re-acquire after a short delay (e.g. after tab switch)
+        setTimeout(() => requestWakeLock(), 1000);
+      });
+      log('Wake lock acquired ✓ — screen will stay active', 'ok');
+    } else {
+      log('Wake Lock API not available — using keepalive fallback', 'warn');
+    }
+  } catch(e) {
+    log('Wake lock failed: '+e.message+' — using keepalive fallback', 'warn');
+  }
+}
+
 function initAudio() {
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1384,7 +1584,7 @@ function initAudio() {
     gain.connect(audioCtx.destination);
     osc.start();
 
-    // Silent buffer every 8s
+    // Silent buffer every 4s (more aggressive to survive folding)
     setInterval(() => {
       if (audioCtx.state === 'suspended') audioCtx.resume();
       const buf = audioCtx.createBuffer(1, 1, 22050);
@@ -1392,19 +1592,66 @@ function initAudio() {
       src.buffer = buf;
       src.connect(audioCtx.destination);
       src.start();
-    }, 8000);
+    }, 4000);
 
-    // Vibration ping every 20s — keeps API warm
+    // Vibration ping every 15s — keeps API warm
     if (pingTimer) clearInterval(pingTimer);
     pingTimer = setInterval(() => {
       if (navigator.vibrate) navigator.vibrate(1);
-    }, 20000);
+    }, 15000);
 
     log('Audio keepalive started ✓', 'ok');
+
+    // Request wake lock to keep everything alive when folded
+    requestWakeLock();
+
   } catch(e) {
     log('Audio keepalive: '+e.message, 'warn');
   }
 }
+
+// ── Visibility change: re-acquire wake lock + restart camera if needed ──
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible') {
+    log('Page became visible again', 'info');
+    // Re-acquire wake lock
+    requestWakeLock();
+    // Resume audio context
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+      log('AudioContext resumed', 'ok');
+    }
+    // Check if camera stream died while hidden
+    if (camTrack && camTrack.readyState === 'ended') {
+      log('Camera died while hidden — restarting…', 'warn');
+      setTimeout(() => startCamera(), 500);
+    }
+  } else {
+    // Page hidden (folded or switched) — keep camera alive
+    log('Page hidden — keepalive active', 'dim');
+    // Fire a silent audio pulse to prevent browser from suspending
+    if (audioCtx) {
+      try {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const buf = audioCtx.createBuffer(1, 1, 22050);
+        const src = audioCtx.createBufferSource();
+        src.buffer = buf;
+        src.connect(audioCtx.destination);
+        src.start();
+      } catch(e) {}
+    }
+  }
+});
+
+// ── Page focus recovery — extra safety net for Samsung fold/flip ──
+window.addEventListener('focus', () => {
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  if (camTrack && camTrack.readyState === 'ended') {
+    log('Camera lost on focus — restarting', 'warn');
+    setTimeout(() => startCamera(), 500);
+  }
+  requestWakeLock();
+});
 
 // ═══════════════════════════════════════════════════════
 // COVER SCREEN
@@ -1503,20 +1750,15 @@ try {
 window.addEventListener('load', () => {
   loadSettings();
 
-  // Auto-detect small screen = cover screen mode
-  if (Math.min(screen.width, screen.height) < 400) {
-    setTimeout(() => {
-      enterCover();
-      log('Small screen detected — cover mode auto-enabled', 'info');
-    }, 500);
-  }
+  // Cover mode is now manual only — no auto-popup on small screens
+  // Use the COVER button to enter cover mode when you want it
 
   // Restore vibration mode
   const savedMode = getSetting('vibMode', 'normal');
   vibMode = savedMode;
   setVibMode(savedMode);
 
-  log('AnswerBot v7.0 ready', 'ok');
+  log('AnswerBot v8.0 ready', 'ok');
   log('1. Add API key  2. Start camera  3. Press ring', 'info');
 
   // devicechange — fires when OTG camera plugged/unplugged
