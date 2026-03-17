@@ -1113,4 +1113,624 @@ RESPOND WITH JSON ONLY:
 
 function buildZoomCrop(b64) {
   const img = new Image();
-  img.src = 'data... (27 KB left)
+  img.src = 'data:image/jpeg;base64,' + b64;
+  const src = document.createElement('canvas');
+  src.width = 800; src.height = 450;
+  src.getContext('2d').drawImage(img, 0, 0, 800, 450);
+
+  // Crop centre 65%×70%
+  const cw = Math.round(800*0.65), ch = Math.round(450*0.70);
+  const cx = Math.round((800-cw)/2), cy = Math.round((450-ch)/2);
+
+  const out = document.createElement('canvas');
+  out.width = 800; out.height = 450;
+  const ctx = out.getContext('2d');
+  ctx.drawImage(src, cx, cy, cw, ch, 0, 0, 800, 450);
+  ctx.filter = 'contrast(1.5) brightness(1.05)';
+  ctx.drawImage(out, 0, 0);
+
+  return out.toDataURL('image/jpeg', 0.80).split(',')[1];
+}
+
+// ═══════════════════════════════════════════════════════
+// DISPLAY RESULT
+// ═══════════════════════════════════════════════════════
+function calcPosition(correct_text, opts) {
+  if (!correct_text || !opts || opts.length === 0) return 0;
+
+  const ct = correct_text.trim().toLowerCase();
+
+  // 1. Exact match (trimmed, case-insensitive)
+  let idx = opts.findIndex(t => t.trim().toLowerCase() === ct);
+  if (idx >= 0) { log(`Pos: exact match at ${idx+1}`, 'dim'); return idx + 1; }
+
+  // 2. One contains the other fully
+  idx = opts.findIndex(t => {
+    const ot = t.trim().toLowerCase();
+    return ot === ct || ct.includes(ot) || ot.includes(ct);
+  });
+  if (idx >= 0) { log(`Pos: contains match at ${idx+1}`, 'dim'); return idx + 1; }
+
+  // 3. Word overlap — count matching words, pick highest score
+  const ctWords = ct.split(/\s+/).filter(w => w.length > 2);
+  if (ctWords.length > 0) {
+    const scores = opts.map(t => {
+      const ot = t.trim().toLowerCase();
+      const matches = ctWords.filter(w => ot.includes(w)).length;
+      return matches / ctWords.length;
+    });
+    const best = scores.indexOf(Math.max(...scores));
+    if (scores[best] >= 0.5) {
+      log(`Pos: word match at ${best+1} (score ${scores[best].toFixed(2)})`, 'dim');
+      return best + 1;
+    }
+  }
+
+  log(`Pos: NO MATCH for "${correct_text}" in [${opts.join(' | ')}]`, 'warn');
+  return 0;
+}
+
+function showResult(result, tag='') {
+  const opts = result.options_ordered || [];
+
+  log(`Options (${opts.length}): ${JSON.stringify(opts)}`, 'dim');
+  log(`Correct text: "${result.correct_text}"`, 'dim');
+
+  const pos = calcPosition(result.correct_text, opts);
+  log(`Position: ${pos}`, pos > 0 ? 'ok' : 'err');
+  result._position = pos;
+
+  if (!pos) {
+    log('Could not map answer to position — reposition', 'err');
+    showReposition('Could not match answer to options');
+    return;
+  }
+
+  const conf = result.confidence === 'high' ? 90 : result.confidence === 'medium' ? 65 : 40;
+
+  // Update display
+  const num = document.getElementById('answerNum');
+  num.textContent = String(pos);
+  num.className   = 'answer-number pos-'+pos;
+
+  const reasonNote = result.reasoning ? '  · '+result.reasoning : '';
+  document.getElementById('answerText').textContent =
+    (result.correct_text || '') + ' · ' + conf + '%' + reasonNote + (tag ? ' '+tag : '');
+
+  // Update chips
+  for (let i=1; i<=5; i++) {
+    const el = document.getElementById('opt'+i);
+    el.className = 'opt' + (i===pos ? ' active-'+i : '');
+    el.textContent = i===pos ? String(i) : String(i);
+  }
+
+  // Confidence bar
+  document.getElementById('confFill').style.width = conf+'%';
+  document.getElementById('confFill').style.background = conf>=80 ? 'var(--green)' : conf>=60 ? 'var(--amber)' : 'var(--red)';
+  document.getElementById('confLabel').textContent = conf+'%  ·  "'+result.question_summary+'"';
+
+  // Cover screen
+  setCoverAnswer(pos);
+
+  // Log
+  log(`✓ OPTION ${pos} — "${result.correct_text}"`, 'ok');
+  log(`Options: ${JSON.stringify(opts)}`, 'dim');
+
+  // VIBRATE
+  vibrate(pos);
+}
+
+function showReposition(reason) {
+  const num = document.getElementById('answerNum');
+  num.textContent = 'R';
+  num.className   = 'answer-number reposition';
+  document.getElementById('answerText').textContent = reason || 'Adjust camera — need all 5 options';
+  for (let i=1; i<=5; i++) document.getElementById('opt'+i).className = 'opt';
+  document.getElementById('confFill').style.width = '0%';
+  document.getElementById('confLabel').textContent = 'REPOSITION';
+  setCoverAnswer('R');
+  log('REPOSITION: '+reason, 'warn');
+  vibrate('R');
+}
+
+// ═══════════════════════════════════════════════════════
+// VIBRATION — clean simple implementation
+// ═══════════════════════════════════════════════════════
+// ── Vibration mode: 'normal' | 'silent' | 'micro' ───────────────────────────
+let vibMode = 'normal';
+
+function setVibMode(mode) {
+  vibMode = mode;
+  saveSetting('vibMode', mode);
+
+  // Update button styles
+  ['normal','silent','micro'].forEach(m => {
+    const btn = document.getElementById('modeBtn_'+m);
+    if (!btn) return;
+    btn.style.background  = m === mode ? 'var(--accent)' : 'transparent';
+    btn.style.color       = m === mode ? '#000' : 'var(--text)';
+    btn.style.borderColor = m === mode ? 'var(--accent)' : 'var(--border)';
+    // Keep sub-label readable
+    const sub = btn.querySelector('span');
+    if (sub) sub.style.color = m === mode ? '#00000088' : 'var(--muted)';
+  });
+
+  // Show/hide tuners and banner
+  const tuner      = document.getElementById('vibTuner');
+  const microTuner = document.getElementById('microTuner');
+  const banner     = document.getElementById('modeBanner');
+
+  tuner.style.display      = mode === 'micro'  ? 'none'  : 'block';
+  microTuner.style.display = mode === 'micro'  ? 'block' : 'none';
+
+  const banners = {
+    normal: null,
+    silent: { bg:'#1a1a0a', border:'var(--amber)', color:'var(--amber)',
+              text:'🤫 SILENT — 80ms pulses, felt not heard' },
+    micro:  { bg:'#0a1020', border:'var(--blue)',  color:'var(--blue)',
+              text:'🫥 MICRO-BURST — 25ms clusters, motor never resonates, near-silent' }
+  };
+  const b = banners[mode];
+  if (b) {
+    banner.style.display     = 'block';
+    banner.style.background  = b.bg;
+    banner.style.border      = '1px solid '+b.border;
+    banner.style.color       = b.color;
+    banner.textContent       = b.text;
+  } else {
+    banner.style.display = 'none';
+  }
+
+  // Apply preset values for silent mode
+  if (mode === 'silent') {
+    document.getElementById('buzzDur').value = 80;
+    document.getElementById('buzzGap').value = 120;
+    document.getElementById('buzzDurVal').textContent = '80ms';
+    document.getElementById('buzzGapVal').textContent = '120ms';
+  }
+
+  log(`Vibration mode: ${mode}`, 'info');
+}
+
+function buildVibratePattern(posOrR) {
+  const isRepos = (posOrR === 'R' || posOrR === 0);
+  const n = isRepos ? 6 : parseInt(posOrR);
+
+  if (vibMode === 'micro') {
+    // ── Micro-burst: N clusters of K×25ms pulses, 160ms pause between clusters ──
+    // Each cluster = [pulse, gap, pulse, gap, pulse] — NO leading zero
+    // This prevents LRA motor from reaching resonance amplitude → near-silent
+    const pulse  = parseInt(document.getElementById('microPulse')?.value)  || 25;
+    const mGap   = parseInt(document.getElementById('microGap')?.value)    || 25;
+    const pause  = parseInt(document.getElementById('microPause')?.value)  || 160;
+    const kPulses= parseInt(document.getElementById('microCount')?.value)  || 3;
+
+    // Build one cluster: [pulse, gap, pulse, gap, pulse]
+    const cluster = [];
+    for (let k = 0; k < kPulses; k++) { if (k > 0) cluster.push(mGap); cluster.push(pulse); }
+
+    // Stack N clusters separated by pause
+    const pattern = [];
+    for (let i = 0; i < n; i++) {
+      if (i > 0) pattern.push(pause);   // inter-cluster pause
+      pattern.push(...cluster);
+    }
+    return pattern;
+
+  } else {
+    // ── Normal / silent: N simple buzzes ──
+    const dur = vibMode === 'silent' ? 80  : (parseInt(document.getElementById('buzzDur')?.value) || 200);
+    const gap = vibMode === 'silent' ? 120 : (parseInt(document.getElementById('buzzGap')?.value) || 250);
+    const reposDur = vibMode === 'silent' ? 80 : 300;
+    const reposGap = vibMode === 'silent' ? 100 : 150;
+
+    const pattern = [];
+    for (let i = 0; i < n; i++) {
+      if (i > 0) pattern.push(isRepos ? reposGap : gap);
+      pattern.push(isRepos ? reposDur : dur);
+    }
+    return pattern;
+  }
+}
+
+function vibrate(posOrR) {
+  if (!document.getElementById('togHaptic').checked) { log('Vibrate: OFF','dim'); return; }
+  if (!('vibrate' in navigator)) { log('navigator.vibrate not available','err'); return; }
+
+  const pattern = buildVibratePattern(posOrR);
+  const label = (posOrR === 'R' || posOrR === 0) ? 'REPOS' : `opt${posOrR}`;
+  log(`Vibrate [${vibMode}] ${label}: ${JSON.stringify(pattern)}`, 'dim');
+
+  const ok = navigator.vibrate(pattern);
+  log(`vibrate() → ${ok}`, ok ? 'ok' : 'warn');
+  if (!ok) {
+    setTimeout(() => navigator.vibrate(pattern), 300);
+    setTimeout(() => navigator.vibrate(pattern), 700);
+  }
+}
+
+// Test: always fires regardless of haptic toggle so you can tune freely
+function buzzTest(posOrR) {
+  const label = (posOrR === 'R' || posOrR === 0) ? 'REPOSITION' : `opt${posOrR}`;
+  log(`Test [${vibMode}]: ${label}`, 'info');
+  const el = document.getElementById('togHaptic');
+  const was = el.checked; el.checked = true;
+  vibrate(posOrR);
+  el.checked = was;
+}
+
+function buzzRaw() {
+  log('RAW TEST: micro cluster [25,25,25,25,25]', 'info');
+  if (!('vibrate' in navigator)) { log('NOT AVAILABLE','err'); return; }
+  const ok = navigator.vibrate([25,25,25,25,25]);
+  log(`RAW → ${ok}`, ok ? 'ok' : 'err');
+}
+
+function onHapticToggle() {
+  saveSetting('haptic', document.getElementById('togHaptic').checked);
+}
+
+// ═══════════════════════════════════════════════════════
+// AUDIO KEEPALIVE — keeps page active for vibration
+// ═══════════════════════════════════════════════════════
+function initAudio() {
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc  = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    gain.gain.value = 0.00001;
+    osc.frequency.value = 1;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+
+    // Silent buffer every 8s
+    setInterval(() => {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const buf = audioCtx.createBuffer(1, 1, 22050);
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.connect(audioCtx.destination);
+      src.start();
+    }, 8000);
+
+    // Vibration ping every 20s — keeps API warm
+    if (pingTimer) clearInterval(pingTimer);
+    pingTimer = setInterval(() => {
+      if (navigator.vibrate) navigator.vibrate(1);
+    }, 20000);
+
+    log('Audio keepalive started ✓', 'ok');
+  } catch(e) {
+    log('Audio keepalive: '+e.message, 'warn');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// COVER SCREEN
+// ═══════════════════════════════════════════════════════
+function enterCover() {
+  document.body.classList.add('cover-mode');
+  log('Cover mode ON', 'ok');
+}
+function exitCover() {
+  document.body.classList.remove('cover-mode');
+  log('Cover mode OFF', 'info');
+}
+function toggleDim() {
+  const on = document.getElementById('togDim').checked;
+  saveSetting('dim', on);
+  document.body.classList.toggle('cover-dim', on);
+}
+function setCoverAnswer(posOrR) {
+  const el = document.getElementById('coverNum');
+  const th = document.getElementById('coverHint');
+  const tx = document.getElementById('coverText');
+  if (posOrR === 'R') {
+    el.textContent = 'REPOSITION';
+    el.className = 'cR';
+    th.textContent = 'ADJUST & PRESS RING';
+  } else {
+    el.textContent = String(posOrR);
+    el.className = 'c'+posOrR;
+    th.textContent = 'PRESS RING TO SCAN';
+  }
+}
+function setCoverScanning() {
+  document.getElementById('coverNum').textContent = '…';
+  document.getElementById('coverNum').className = '';
+}
+
+// ═══════════════════════════════════════════════════════
+// API KEY
+// ═══════════════════════════════════════════════════════
+function saveKey() {
+  const k = document.getElementById('apiKey').value.trim();
+  if (!k) { log('No key entered', 'warn'); return; }
+  saveSetting('apiKey', k);
+  log('Key saved ✓', 'ok');
+}
+
+async function testKey() {
+  const k = document.getElementById('apiKey').value.trim();
+  if (!k) { log('No key entered', 'warn'); return; }
+  log('Testing key…', 'info');
+  try {
+    const tiny = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVQI12NgAAIABQAABjE+ibYAAAAASUVORK5CYII=';
+    const res = await fetch(`${API}?key=${k}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        contents:[{parts:[{text:'ok'},{inline_data:{mime_type:'image/png',data:tiny}}]}],
+        generationConfig:{maxOutputTokens:4}
+      })
+    });
+    if (res.ok) { log('Key VALID ✓ — '+res.status, 'ok'); }
+    else {
+      const e = await res.json();
+      log('Key FAILED: '+e.error?.message, 'err');
+    }
+  } catch(e) { log('Test error: '+e.message, 'err'); }
+}
+
+// ═══════════════════════════════════════════════════════
+// MEDIA KEY / CLICKER
+// ═══════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  const keys = [
+    'MediaTrackNext','MediaTrackPrevious','MediaPlayPause',
+    'MediaStop','AudioVolumeUp','AudioVolumeDown'
+  ];
+  if (keys.includes(e.key) || e.keyCode === 176 || e.keyCode === 177 ||
+      e.keyCode === 179 || e.keyCode === 178) {
+    e.preventDefault();
+    initAudio(); // ensure audio is running
+    triggerScan();
+  }
+});
+
+// Also handle mediaSession for clicker
+try {
+  navigator.mediaSession.setActionHandler('nexttrack',     () => triggerScan());
+  navigator.mediaSession.setActionHandler('previoustrack', () => triggerScan());
+  navigator.mediaSession.setActionHandler('play',          () => triggerScan());
+  navigator.mediaSession.setActionHandler('pause',         () => triggerScan());
+} catch(e) {}
+
+// ═══════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  loadSettings();
+
+  // Auto-detect small screen = cover screen mode
+  if (Math.min(screen.width, screen.height) < 400) {
+    setTimeout(() => {
+      enterCover();
+      log('Small screen detected — cover mode auto-enabled', 'info');
+    }, 500);
+  }
+
+  // Restore vibration mode
+  const savedMode = getSetting('vibMode', 'normal');
+  vibMode = savedMode;
+  setVibMode(savedMode);
+
+  log('AnswerBot v7.0 ready', 'ok');
+  log('1. Add API key  2. Start camera  3. Press ring', 'info');
+
+  // devicechange — fires when OTG camera plugged/unplugged
+  // Re-scans and auto-switches if an OTG camera appears
+  navigator.mediaDevices.addEventListener('devicechange', async () => {
+    log('Device change detected — rescanning cameras…', 'info');
+    await new Promise(r => setTimeout(r, 600)); // brief settle delay
+    await scanCameras();
+
+    // If an OTG camera just appeared and camera is running, auto-switch to it
+    const sel = document.getElementById('camSelect');
+    const selectedLabel = sel.options[sel.selectedIndex]?.text || '';
+    if (selectedLabel.includes('OTG') && camStream) {
+      log('OTG camera detected — switching automatically', 'ok');
+      startCamera();
+    }
+  });
+
+  // Restore key
+  const k = getSetting('apiKey','');
+  if (k) document.getElementById('apiKey').value = k;
+});
+
+// ═══════════════════════════════════════════════════════
+// DEBUG PANEL — captured images + full console
+// ═══════════════════════════════════════════════════════
+const captures = [];   // { ts, b64, label, result, rawResponse }
+const fullLog  = [];   // all log entries ever
+
+// fullLog is populated directly from inside log() below — no override needed
+
+function saveCapture(b64, label, result, rawResponse) {
+  const ts = new Date().toLocaleTimeString();
+  captures.unshift({ ts, b64, label, result: result || {}, rawResponse: rawResponse || '' });
+  if (captures.length > 20) captures.pop();
+  document.getElementById('captureCount').textContent = captures.length;
+  renderCaptures();
+}
+
+function renderCaptures() {
+  const grid = document.getElementById('captureGrid');
+  if (!grid) return;
+  grid.innerHTML = captures.map((c, i) => {
+    const r = c.result;
+    const status = r.status || '?';
+    const statusColor = status === 'ok' ? 'var(--green)' : 'var(--red)';
+    const pos = r._position || '?';
+    const opts = (r.options_ordered || []).map((o,j) =>
+      `<div style="font-size:7px;color:${j===((r._position||1)-1)?'var(--accent)':'var(--muted)'};padding:1px 0;">${j+1}. ${o}</div>`
+    ).join('');
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden;">
+      <div style="position:relative;">
+        <img src="data:image/jpeg;base64,${c.b64}" style="width:100%;display:block;max-height:150px;object-fit:cover;">
+        <div style="position:absolute;top:4px;left:4px;background:#000a;padding:2px 5px;border-radius:3px;font-size:7px;color:#fff;">${c.ts}</div>
+        <div style="position:absolute;top:4px;right:4px;background:#000a;padding:2px 5px;border-radius:3px;font-size:9px;font-weight:700;color:${statusColor};">${status==='ok'?'OPT '+pos:status.toUpperCase()}</div>
+      </div>
+      <div style="padding:6px 8px;">
+        <div style="font-size:7px;color:var(--accent);margin-bottom:3px;letter-spacing:1px;">${c.label}</div>
+        ${r.question_summary ? `<div style="font-size:7px;color:var(--text);margin-bottom:3px;">${r.question_summary}</div>` : ''}
+        ${opts}
+        ${r.correct_text ? `<div style="font-size:7px;color:var(--green);margin-top:3px;">✓ ${r.correct_text}</div>` : ''}${r.reasoning ? `<div style="font-size:7px;color:var(--blue);margin-top:2px;font-style:italic;">${r.reasoning}</div>` : ''}
+        ${r.reason ? `<div style="font-size:7px;color:var(--red);margin-top:3px;">⚠ ${r.reason}</div>` : ''}
+        <button onclick="downloadCapture(${i})" style="margin-top:5px;width:100%;padding:3px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:7px;cursor:pointer;border-radius:3px;">⬇ SAVE IMAGE</button>
+        ${c.rawResponse ? `<details style="margin-top:4px;"><summary style="font-size:7px;color:var(--dim);cursor:pointer;">raw response</summary><pre style="font-size:6px;color:var(--dim);white-space:pre-wrap;margin-top:3px;">${c.rawResponse.slice(0,400)}</pre></details>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderFullLog() {
+  const box = document.getElementById('fullLogBox');
+  if (!box) return;
+  box.innerHTML = fullLog.slice().reverse().map(l => {
+    const colors = {ok:'var(--green)',err:'var(--red)',warn:'var(--amber)',info:'var(--blue)',dim:'var(--dim)'};
+    const col = colors[l.level] || 'var(--dim)';
+    return `<div style="border-bottom:1px solid #0a0f18;padding:1px 0;display:flex;gap:6px;">
+      <span style="color:var(--dim);flex-shrink:0;width:54px;">${l.t}</span>
+      <span style="flex:1;color:${col};word-break:break-all;">${l.msg}</span>
+    </div>`;
+  }).join('');
+}
+
+function downloadCapture(idx) {
+  const c = captures[idx];
+  if (!c) return;
+  const a = document.createElement('a');
+  a.href = 'data:image/jpeg;base64,' + c.b64;
+  a.download = 'answerbot_' + c.ts.replace(/:/g,'') + '.jpg';
+  a.click();
+}
+
+function clearCaptures() {
+  captures.length = 0;
+  document.getElementById('captureCount').textContent = '0';
+  renderCaptures();
+}
+
+function clearFullLog() {
+  fullLog.length = 0;
+  document.getElementById('fullLogCount').textContent = '0';
+  renderFullLog();
+}
+
+function copyFullLog() {
+  const text = fullLog.map(l => `[${l.t}] ${l.msg}`).join('\n');
+  navigator.clipboard?.writeText(text).then(() => {
+    // brief visual feedback
+    const btn = document.querySelector('[onclick="copyFullLog()"]');
+    if (btn) { btn.textContent = 'COPIED ✓'; setTimeout(() => btn.textContent = 'COPY LOG', 1500); }
+  });
+}
+
+function showDebug() {
+  renderCaptures();
+  renderFullLog();
+  document.getElementById('debugOverlay').style.display = 'block';
+}
+
+function hideDebug() {
+  document.getElementById('debugOverlay').style.display = 'none';
+}
+
+
+// ═══════════════════════════════════════════════════════
+// CAMERA ENUMERATION
+// ═══════════════════════════════════════════════════════
+async function scanCameras() {
+  log('Scanning cameras…', 'info');
+  try {
+    // Must request permission first to get labels
+    const tmp = await navigator.mediaDevices.getUserMedia({ video: true });
+    tmp.getTracks().forEach(t => t.stop());
+  } catch(e) {
+    log('Camera permission needed: '+e.message, 'warn');
+  }
+
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter(d => d.kind === 'videoinput');
+
+    const sel = document.getElementById('camSelect');
+    sel.innerHTML = '';
+
+    if (cams.length === 0) {
+      sel.innerHTML = '<option value="">No cameras found</option>';
+      log('No cameras detected', 'warn');
+      return;
+    }
+
+    cams.forEach((cam, i) => {
+      const opt = document.createElement('option');
+      opt.value = cam.deviceId;
+      // Label examples: "Back Camera (SAMSUNG)", "USB Camera", "0, facing back"
+      const label = cam.label || `Camera ${i+1}`;
+      const isOTG  = label.toLowerCase().includes('usb') || label.toLowerCase().includes('otg') || label.toLowerCase().includes('external');
+      const isBack = label.toLowerCase().includes('back') || label.toLowerCase().includes('environment') || label.toLowerCase().includes('rear');
+      const tag    = isOTG ? ' 🔌 OTG' : isBack ? ' 📷 REAR' : '';
+      opt.textContent = label + tag;
+      // Default select: prefer OTG if present, else rear
+      if (isOTG && !sel.dataset.otgFound) {
+        opt.selected = true;
+        sel.dataset.otgFound = '1';
+      } else if (isBack && !sel.dataset.otgFound && !sel.dataset.rearFound) {
+        opt.selected = true;
+        sel.dataset.rearFound = '1';
+      }
+      sel.appendChild(opt);
+    });
+
+    log(`Found ${cams.length} camera(s): ${cams.map(c=>c.label||'unnamed').join(', ')}`, 'ok');
+    log('Select camera then tap START', 'info');
+  } catch(e) {
+    log('Scan failed: '+e.message, 'err');
+  }
+}
+
+function onCamSelectChange() {
+  const sel = document.getElementById('camSelect');
+  const label = sel.options[sel.selectedIndex]?.text || '';
+  log('Camera selected: '+label, 'info');
+  // If camera already running, restart with new device
+  if (camStream) {
+    log('Restarting camera with new selection…', 'info');
+    startCamera();
+  }
+}
+
+</script>
+
+<!-- DEBUG OVERLAY -->
+<div id="debugOverlay" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:99998;overflow-y:auto;padding:0 0 40px 0;">
+
+  <!-- Debug header -->
+  <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1;">
+    <span style="font-size:14px;font-weight:700;letter-spacing:2px;color:var(--accent);flex:1;">🔍 DEBUG</span>
+    <button onclick="clearCaptures()" style="background:transparent;border:1px solid var(--red);color:var(--red);font-family:inherit;font-size:8px;padding:4px 10px;border-radius:4px;cursor:pointer;">CLR IMAGES</button>
+    <button onclick="clearFullLog()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:8px;padding:4px 10px;border-radius:4px;cursor:pointer;">CLR LOG</button>
+    <button onclick="copyFullLog()" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-family:inherit;font-size:8px;padding:4px 10px;border-radius:4px;cursor:pointer;">COPY LOG</button>
+    <button onclick="hideDebug()" style="background:var(--accent);border:none;color:#000;font-family:inherit;font-size:8px;padding:5px 12px;border-radius:4px;cursor:pointer;font-weight:700;">CLOSE</button>
+  </div>
+
+  <!-- Captured images -->
+  <div style="padding:12px 16px;">
+    <div style="font-size:8px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;">CAPTURED IMAGES (<span id="captureCount">0</span>) — last 20 kept</div>
+    <div id="captureGrid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;"></div>
+  </div>
+
+  <!-- Full console log -->
+  <div style="padding:0 16px;">
+    <div style="font-size:8px;letter-spacing:2px;color:var(--muted);margin-bottom:8px;margin-top:8px;">FULL CONSOLE LOG (<span id="fullLogCount">0</span> entries)</div>
+    <div id="fullLogBox" style="background:#030508;border:1px solid var(--dim);border-radius:6px;padding:8px;max-height:60vh;overflow-y:auto;font-size:8px;line-height:1.8;font-family:'JetBrains Mono',monospace;"></div>
+  </div>
+
+</div>
+
+</body>
+</html>
